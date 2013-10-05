@@ -243,11 +243,16 @@ sub run_and_load {
 	if($dist > 0) {
 	    # Success! Insert it to the Distance table and mark it
 	    # in the Attempt table.
+	    $cvtree_distance->execute($first, $second, $dist);
+
+	    $cvtree_attempt->execute($first, $second, 1);
 	} else {
 	    # Failure, mark it in the Attempt table
+	    $cvtree_attempt->execute($first, $second, 0);
 	}
     }
 
+    close SET;
 }
 
 sub run_cvtree {
@@ -281,9 +286,25 @@ sub run_cvtree {
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
-	
-    }
+	open(RES, "<$work_dir/output.txt") or
+	    die "Error opening results file $work_dir/output.txt: $!";
 
+	while(<RES>) {
+	    # Look for the line with the decimal number
+	    chomp;
+
+	    # cvtree adds a space at the end of the dist, kludge
+	    s/\s//g;
+
+	    next unless(/^\d+\.\d+$/);
+
+	    # Found a result
+	    return $_;
+	}
+	close RES;
+    }
+    
+    return -1;
 }
 
 sub find_sets {
