@@ -31,13 +31,15 @@ package Islandviewer::MetaScheduler;
 use strict;
 use Moose;
 
+use Islandviewer::Config;
+
 my $cfg;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
-    $cfg = MetaScheduler::Config->config;
+    $cfg = Islandviewer::Config->config;
 
 }
 

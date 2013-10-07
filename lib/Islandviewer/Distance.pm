@@ -34,19 +34,24 @@ package Islandviewer::Distance;
 use strict;
 use Moose;
 use File::Basename;
+use File::Spec;
 use Log::Log4perl qw(get_logger :nowarn);
 
 use MicrobeDB::Version;
+use MicrobeDB::Versions;
 use MicrobeDB::Search;
 use MicrobeDB::GenomeProject;
 
-my $cfg;
+my $cfg; my $logger; my $cfg_file;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
-    $cfg = MetaScheduler::Config->config;
+    $cfg = Islandviewer::Config->config;
+    $cfg_file = File::Spec->rel2abs(Islandviewer::Config->config_file);
+
+    $logger = Log::Log4perl->get_logger;
 
     if($args->{scheduler}) {
 	$self->{scheduler} = $args->{scheduler};
@@ -56,9 +61,15 @@ sub BUILD {
 
     $self->{num_jobs} = $args->{num_jobs};
 
-    die "Error, work dir not specified"
-	unless( -d $workdir };
+    die "Error, work dir not specified:  $args->{workdir}"
+	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
+
+    # Vocalize a little
+    $logger->info("Initializing Islandviewer::Distance");
+    $logger->info("Using scheduler " . $self->{scheduler});
+    $logger->info("Using workdir " .  $self->{workdir});
+    $logger->info("Using num_jobs " . $self->{num_jobs}) if($self->{num_jobs});
 
 }
 
@@ -66,10 +77,11 @@ sub calculate_all {
     my $self = shift;
     my $version = shift;
 
-    $replicons;
+    my $replicon;
 
     # Check the version we're given
     $version = $self->set_version($version);
+    $logger->debug("Using MicrobeDB version $version");
 
     die "Error, not a valid version"
 	unless($version);
@@ -118,7 +130,7 @@ sub build_pairs {
     # Now we need to make a double loop to find the pairs
     # which need to be calculated
     foreach my $outer_rep (keys %{$set1}) {
-	foreach my $inner_rep (keys %{rep2}) {
+	foreach my $inner_rep (keys %{$set2}) {
 	    # We don't run it against itself
 	    next if($outer_rep eq $inner_rep);
 
@@ -161,8 +173,10 @@ sub build_sets {
 	unless($i) {
 	    # Start a new batch directory
 	    close $fh if($fh);
-	    mkdir $self->{workdir} . '/' . "cvtree_$job"
-		or die "Error making workdir " . $self->{workdir} . '/' . "cvtree_$job";
+	    unless( -d $self->{workdir} . '/' . "cvtree_$job" ) {
+		mkdir $self->{workdir} . '/' . "cvtree_$job"
+		    or die "Error making workdir " . $self->{workdir} . '/' . "cvtree_$job";
+	    }
 	    open $fh, ">$self->{workdir}/cvtree_$job/set.txt" 
 		or die "Error opening set file $self->{workdir}/cvtree_$job/set.txt";
 	}
@@ -190,20 +204,33 @@ sub submit_sets {
     # Find the sets we're going to submit
     my @sets = $self->find_sets;
 
+    my $scheduler;
+
     # Create an instance of the scheduler wrapper
-    my $scheduler = "$self->{scheduler}"->new
-	or die "Error, can't create instance of scheduler $self->{scheduler}";
+    eval {
+	no strict 'refs';
+	$logger->debug("Initializing scheduler " . $self->{scheduler});
+	(my $mod = "$self->{scheduler}.pm") =~ s|::|/|g; # Foo::Bar::Baz => Foo/Bar/Baz.pm
+	require "$mod";
+	$scheduler = "$self->{scheduler}"->new()
+	    or die "Error, can't create instance of scheduler $self->{scheduler}";
+    };
+
+    if($@) {
+	$logger->fatal("Error, can't load scheduler " . $self->{scheduler} . ": $@");
+	die "Error loading scheduler: $@";
+    }
 
     foreach my $set (@sets) {
 	# Build the command to run the set
-	$set =~ /\/(cvtree_\d+)$/;
-	my $name = $1;
+	print "Doing set $set\n";
 
-	my $cmd = sprintf($cfg->{cvtree_displatcher}, $self->{workdir},
-			  $set, $name);
+	my $cmd = sprintf($cfg->{cvtree_dispatcher}, $self->{workdir},
+			  $set, $cfg_file);
+	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
-	"$self->{dispatcher}"->submit($name, $cmd);
+	$scheduler->submit($set, $cmd);
     }
 }
 
@@ -265,7 +292,7 @@ sub run_cvtree {
 
     die "Error, can't read first input file $first_file"
 	unless( -f $first_file && -r $first_file );
-    my $first_base = basename($frst_file, ".faa");
+    my $first_base = basename($first_file, ".faa");
 
     die "Error, can't read second input file $second_file"
 	unless( -f $second_file && -r $second_file );
@@ -310,11 +337,11 @@ sub run_cvtree {
 sub find_sets {
     my $self = shift;
 
-    opendir(my $dh, $cfg->{workdir}) or 
-	die "Error, can't opendir $cfg->{workdir}";
+    opendir(my $dh, $self->{workdir}) or 
+	die "Error, can't opendir $self->{workdir}";
 
     # We only want to find the directories starting with "cvtree_"
-    @sets = grep { /^cvtree_/ && -d "$cfg->{workdir}/$_" } readir($dh);
+    my @sets = grep { /^cvtree_/ && -d "$self->{workdir}/$_" } readdir($dh);
 
     closedir $dh;
 
@@ -329,7 +356,7 @@ sub set_version {
     my $versions = new MicrobeDB::Versions();
 
     # If we're not given a version, use the latest
-    $v = $versions->newest_version() unless($version);
+    $v = $versions->newest_version() unless($v);
 
     # Is our version valid?
     return 0 unless($versions->isvalid($v));

@@ -39,7 +39,7 @@ sub BUILD {
 
     # Initialize the configuration file
     Islandviewer::Config->initialize({cfg_file => $args->{cfg_file} });
-    $cfg = MetaScheduler::Config->config;
+    $cfg = Islandviewer::Config->config;
 
     # Initialize the DB connection
     Islandviewer::DBISingleton->initialize({dsn => $cfg->{'dsn'}, 
@@ -47,3 +47,5 @@ sub BUILD {
                                              pass => $cfg->{'dbpass'} });
     
 }
+
+1;
