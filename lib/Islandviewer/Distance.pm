@@ -42,6 +42,8 @@ use MicrobeDB::Versions;
 use MicrobeDB::Search;
 use MicrobeDB::GenomeProject;
 
+use Net::ZooKeeper::WatchdogQueue;
+
 my $cfg; my $logger; my $cfg_file;
 
 sub BUILD {
@@ -198,13 +200,28 @@ sub build_sets {
 
 }
 
+# Submit the sets of cvtree jobs to the queue,
+# take a single boolean option on if we should
+# block for the jobs or just submit and exit
+
 sub submit_sets {
     my $self = shift;
+    my $block = do { @_ ? shift : 0 };
 
     # Find the sets we're going to submit
     my @sets = $self->find_sets;
 
-    my $scheduler;
+    my $scheduler; my $watchdog;
+
+    # If we're running in blocking mode, we need the watchdog module
+    if($block) {
+	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
+						      $cfg->{zk_root} . $$);
+
+	$watchdog->create_queue(timer => $cfg->{zk_timer},
+				queue => \@sets,
+				sync_start => 1);
+    }
 
     # Create an instance of the scheduler wrapper
     eval {
@@ -227,16 +244,29 @@ sub submit_sets {
 
 	my $cmd = sprintf($cfg->{cvtree_dispatcher}, $self->{workdir},
 			  $set, $cfg_file);
+	$cmd .= " -b " . $cfg->{zk_root} . $$;
 	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
 	$scheduler->submit($set, $cmd);
+    }
+
+    # If we're blocking, go wait for the watchdog then
+    # clean up after ourself
+    if($block) {
+	my $ret = $self->block_for_cvtree($watchdog);
+
+	$watchdog->clear_timers();
+
+	die "Error while waiting for cvtree, bailing!"
+	    unless($ret);
     }
 }
 
 sub run_and_load {
     my $self = shift;
     my $set = shift;
+    my $watchdog = do { @_ ? shift : undef };
 
     # We're going to open the sets file, and for each
     # run cvtree and load the results, if any
@@ -277,6 +307,11 @@ sub run_and_load {
 	    # Failure, mark it in the Attempt table
 	    $cvtree_attempt->execute($first, $second, 0);
 	}
+
+	# If we're using the watchdog module, reset the timer
+	# every cycle
+	$watchdog->kick_dog()
+	    if($watchdog);
     }
 
     close SET;
@@ -288,7 +323,8 @@ sub run_cvtree {
     my $second = shift;
     my $first_file = shift;
     my $second_file = shift;
-    my $work_dir = shift;
+
+    my $work_dir = $self->{workdir};
 
     die "Error, can't read first input file $first_file"
 	unless( -f $first_file && -r $first_file );
@@ -362,6 +398,43 @@ sub set_version {
     return 0 unless($versions->isvalid($v));
 
     return $v;
+}
+
+sub block_for_cvtree {
+    my $self = shift;
+    my $watchdog = shift;
+    my $loop_count = 0;
+
+    # Wait until a child process begins
+    until($watchdog->wait_sync()) {
+	$logger->info("Waiting for a cvtree jobto start");
+    }
+
+    # Next we wait for all the children to empty the queue
+    # and all children to finish, so as long as there is
+    # something waiting in the queue or something running,
+    # keep checking
+    do {
+	my ($alive, $expired) = $watchdog->check_timers();
+
+	if($expired) {
+	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
+	    return 0;
+	}
+
+	# Sleep for a while to loosen the loop
+	sleep $cfg->{zk_timer};
+
+	# We don't need to be overly noisy, let's only check in
+	# ever 10 iterations
+	if($loop_count >= 10) {
+	    $loop_count = 0;
+	    $logger->debug("Still waiting for cvtree, $alive alive");
+	}
+
+    } while($watchdog->queue_count() || $alive);
+
+    return 1;
 }
 
 1;
