@@ -20,6 +20,7 @@ use Net::ZooKeeper::WatchdogQueue;
 
 MAIN: {
     my $cfname; my $set; my $workdir; my $root;
+    my $watchdog;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "set=s"      => \$set,
 			 "workdir=s"  => \$workdir,

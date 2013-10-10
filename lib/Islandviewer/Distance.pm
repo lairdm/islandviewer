@@ -125,7 +125,7 @@ sub build_pairs {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $sqlstmt = "SELECT id FROM $cfg->{dist_table} WHERE rep_accnum1 = ? AND rep_accnum2 = ?";
+    my $sqlstmt = "SELECT id FROM $cfg->{dist_log_table} WHERE rep_accnum1 = ? AND rep_accnum2 = ?";
     my $find_dist = $dbh->prepare($sqlstmt) or 
 	die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
@@ -279,11 +279,11 @@ sub run_and_load {
     # Fetch the DBH
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $cvtree_attempt = $dbh->prepare("REPLACE INTO DistanceAttempt (rep_accnum1, rep_accnum2, status, run_date) VALUES (?, ?, ?, now()") or
+    my $cvtree_attempt = $dbh->prepare("REPLACE INTO $cfg->{dist_log_table} (rep_accnum1, rep_accnum2, status, run_date) VALUES (?, ?, ?, now())") or
 	die "Error, can't prepare statement:  $DBI::errstr";
     $self->{cvtree_attempt_sth} = $cvtree_attempt;
 
-    my $cvtree_distance = $dbh->prepare("REPLACE INTO Distance (rep_accnum1, rep_accnum2, distance) VALUES (?, ?, ?)") or
+    my $cvtree_distance = $dbh->prepare("REPLACE INTO $cfg->{dist_table} (rep_accnum1, rep_accnum2, distance) VALUES (?, ?, ?)") or
 	die "Error, can't prepare statement:  $DBI::errstr";
     $self->{cvtree_distance_sth} = $cvtree_distance;
 
@@ -345,7 +345,10 @@ sub run_cvtree {
     close INPUT;
 
     my $cmd = sprintf($cfg->{cvtree_cmd}, "$work_dir/cvtree.txt", "$work_dir/results.txt", "$work_dir/output.txt");
+    print "Running $cmd\n";
     my $ret = system($cmd);
+
+    my $dist = 0;
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
@@ -362,11 +365,17 @@ sub run_cvtree {
 	    next unless(/^\d+\.\d+$/);
 
 	    # Found a result
-	    return $_;
+	    $dist = $_;
+	    last;
 	}
 	close RES;
     }
+
+    unlink "$work_dir/output.txt"
+	if( -f "$work_dir/output.txt" );
     
+    return $dist if($dist);
+
     return -1;
 }
 
@@ -414,8 +423,9 @@ sub block_for_cvtree {
     # and all children to finish, so as long as there is
     # something waiting in the queue or something running,
     # keep checking
+    my $alive; my $expired;
     do {
-	my ($alive, $expired) = $watchdog->check_timers();
+	($alive, $expired) = $watchdog->check_timers();
 
 	if($expired) {
 	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
