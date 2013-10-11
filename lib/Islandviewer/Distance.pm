@@ -328,19 +328,21 @@ sub run_cvtree {
 
     die "Error, can't read first input file $first_file"
 	unless( -f $first_file && -r $first_file );
-    my $first_base = basename($first_file, ".faa");
+    $first_file =~ s/\.faa$//;
 
     die "Error, can't read second input file $second_file"
 	unless( -f $second_file && -r $second_file );
-    my $second_base = basename($second_file, ".faa");
+    $second_file =~ s/\.faa$//;
+
+    print "Called with $first $second $first_file $second_file\n";
 
     # Make the input file
     open(INPUT, ">$work_dir/cvtree.txt") or
 	die "Error, can't create cvtree input file $work_dir/cvtree.txt: $!";
 
     print INPUT "2\n";
-    print INPUT "$first_base, $first\n";
-    print INPUT "$second_base, $second\n";
+    print INPUT "$first_file $first\n";
+    print INPUT "$second_file $second\n";
 
     close INPUT;
 
@@ -352,8 +354,8 @@ sub run_cvtree {
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
-	open(RES, "<$work_dir/output.txt") or
-	    die "Error opening results file $work_dir/output.txt: $!";
+	open(RES, "<$work_dir/results.txt") or
+	    die "Error opening results file $work_dir/results.txt: $!";
 
 	while(<RES>) {
 	    # Look for the line with the decimal number
@@ -371,8 +373,8 @@ sub run_cvtree {
 	close RES;
     }
 
-    unlink "$work_dir/output.txt"
-	if( -f "$work_dir/output.txt" );
+#    unlink "$work_dir/output.txt"
+#	if( -f "$work_dir/output.txt" );
     
     return $dist if($dist);
 
