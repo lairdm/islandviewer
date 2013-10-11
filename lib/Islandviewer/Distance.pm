@@ -336,8 +336,6 @@ sub run_cvtree {
 	unless( -f $second_file && -r $second_file );
     $second_file =~ s/\.faa$//;
 
-    print "Called with $first $second $first_file $second_file\n";
-
     # Make the input file
     open(INPUT, ">$work_dir/cvtree.txt") or
 	die "Error, can't create cvtree input file $work_dir/cvtree.txt: $!";
