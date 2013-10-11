@@ -248,7 +248,9 @@ sub submit_sets {
 	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
-	$scheduler->submit($set, $cmd);
+	my $ret = $scheduler->submit($set, $cmd);
+
+	$logger->error("Returned error from scheduler when trying to submit set $set");
     }
 
     # If we're blocking, go wait for the watchdog then
