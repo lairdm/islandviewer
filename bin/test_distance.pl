@@ -33,7 +33,7 @@ MAIN: {
     my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::MetaScheduler', workdir => $cfg->{workdir}, num_jobs => 8 });
 
 #    $dist_obj->calculate_all();
-    $dist_obj->submit_sets();
+    $dist_obj->submit_sets(1);
 
 
 }

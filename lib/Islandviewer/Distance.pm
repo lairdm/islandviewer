@@ -244,7 +244,8 @@ sub submit_sets {
 
 	my $cmd = sprintf($cfg->{cvtree_dispatcher}, $self->{workdir},
 			  $set, $cfg_file);
-	$cmd .= " -b " . $cfg->{zk_root} . $$;
+	$cmd .= " -b " . $cfg->{zk_root} . $$
+	    if($block);
 	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
