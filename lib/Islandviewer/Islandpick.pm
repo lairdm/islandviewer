@@ -10,10 +10,10 @@
 
     use Islandviewer::Islandpick;
 
-    $dist = Islandviewer::Distance->new(scheduler => Islandviewer::Metascheduler);
+    $dist = Islandviewer::Distance->new({workdir => '/tmp/workdir'});
     $dist->calculate_all(version => 73, custom_replicon => $repHash);
     $distance->add_replicon(cid => 2, version => 73);
-
+    
 =head1 AUTHOR
 
     Matthew Laird
@@ -41,6 +41,19 @@ use Genome_Picker;
 
 my $cfg; my $logger; my $cfg_file;
 
+# Method to build an instance
+#
+# Islandviewer::Islandpick->new({arg => value, ...});
+#
+# Arguments:
+#
+#  required:
+#    workdir => '/tmp/workdir'
+#    microbedb_version => 73
+#  optional:
+#    MAX_CUTOFF, MIN_CUTOFF, MAX_COMPARE_CUTOFF, MIN_COMPARE_CUTOFF
+#    MAX_DIST_SINGLE_CUTOFF, MIN_DIST_SINGLE_CUTOFF, MIN_GI_SIZE
+#
 sub BUILD {
     my $self = shift;
     my $args = shift;
@@ -65,6 +78,8 @@ sub BUILD {
 
     # Setup the cutoffs for the run, we'll use the defaults
     # unless we're explicitly told otherwise
+    # and yes, I used all caps, that's what it is in the original
+    # code and I'm playing it safe in case of code reuse.
     $self->{MAX_CUTOFF} = $args->{MAX_CUTOFF} || $cfg->{MAX_CUTOFF};
     $self->{MIN_CUTOFF} = $args->{MIN_CUTOFF} || $cfg->{MIN_CUTOFF};
     $self->{MAX_COMPARE_CUTOFF} = $args->{MAX_COMPARE_CUTOFF} || $cfg->{MAX_COMPARE_CUTOFF};

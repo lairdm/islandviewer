@@ -11,7 +11,7 @@
 
     use Islandviewer::Distance;
 
-    $dist = Islandviewer::Distance->new(scheduler => Islandviewer::Metascheduler);
+    $dist = Islandviewer::Distance->new({scheduler => Islandviewer::Metascheduler});
     $dist->calculate_all(version => 73, custom_replicon => $repHash);
     $distance->add_replicon(cid => 2, version => 73);
 
