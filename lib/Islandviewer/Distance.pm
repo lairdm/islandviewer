@@ -12,8 +12,8 @@
     use Islandviewer::Distance;
 
     $dist = Islandviewer::Distance->new(scheduler => Islandviewer::Metascheduler);
-    $dist->calculate_all(version => 73);
-    $distance->add_replicon(cid => 2);
+    $dist->calculate_all(version => 73, custom_replicon => $repHash);
+    $distance->add_replicon(cid => 2, version => 73);
 
 =head1 AUTHOR
 
@@ -35,6 +35,7 @@ use strict;
 use Moose;
 use File::Basename;
 use File::Spec;
+use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
 
 use MicrobeDB::Version;
@@ -43,6 +44,8 @@ use MicrobeDB::Search;
 use MicrobeDB::GenomeProject;
 
 use Net::ZooKeeper::WatchdogQueue;
+
+use Islandviewer::Schema;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -67,6 +70,11 @@ sub BUILD {
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
 
+    $self->{schema} = Islandviewer::Schema->connect($cfg->{dsn},
+					       $cfg->{dbuser},
+					       $cfg->{dbpass})
+	or die "Error, can't connect to Islandviewer via DBIx";
+
     # Vocalize a little
     $logger->info("Initializing Islandviewer::Distance");
     $logger->info("Using scheduler " . $self->{scheduler});
@@ -77,7 +85,11 @@ sub BUILD {
 
 sub calculate_all {
     my $self = shift;
-    my $version = shift;
+    my (%args) = @_;
+
+    my $version = ($args{version} ? $args{version} : undef );
+    my $custom_rep = ($args{custom_replicon} ?
+		      $args{custom_replicon} : undef );
 
     my $replicon;
 
@@ -109,9 +121,17 @@ sub calculate_all {
 
     # Once we have all the possible replicons let's build our set
     # of pairs that need running
-    my $runpairs = $self->build_pairs($replicon, $replicon);
+    # if we're running a custom replicon set, use that for the
+    # first sets in the pairs comparison
+    my $runpairs = ($custom_rep ? 
+		    $self->build_pairs($custom_rep, $replicon) :
+		    $self->build_pairs($replicon, $replicon));
 
-    $self->build_sets($runpairs, $replicon, $replicon);
+    if($custom_rep) {
+	$self->build_sets($runpairs, $custom_rep, $replicon);
+    } else {
+	$self->build_sets($runpairs, $replicon, $replicon);
+    }
 
     $self->submit_sets();
 }
@@ -200,6 +220,47 @@ sub build_sets {
 
 }
 
+# Add the distance for a custom genome
+
+sub add_replicon {
+    my $self = shift;
+    my (%args) = @_;
+
+    my $cid = $args{cid};
+
+    # Fetch the record from the database for this custom genome
+    my $custom_genome = $self->{schema}->resultset('CustomGenome')->find(
+	{ c_id => $cid } ) or
+	return 0;
+
+    my $filename = $custom_genome->filename;
+
+    # Do some checking on the file name and munge it for our needs
+    unless($filename =~ /^\//) {
+	# The file doesn't start with a /, its not an absolute path
+	# fix it up, assume its under the custom_genomes folder
+	$filename = $cfg->{custom_genomes} . "/$filename";
+    }
+
+    # Filenames are just saved as basenames, check if the fasta version exists
+    unless( -f "$filename.faa" ) {
+	$logger->error("Error, can't find filename $filename.faa");
+	return 0;
+    }
+
+    # We have a valid filename, lets toss it to calculate_all
+    # pass along the specific microbedb version if we've
+    # been given one
+    my $custom_rep->{$cid} = "$filename.faa";
+    if($args{version}) {
+	$self->calculate_all(custom_replicon => $custom_rep,
+			     version => $args{version});
+    } else {
+	$self->calculate_all(custom_replicon => $custom_rep);
+    }
+
+}
+
 # Submit the sets of cvtree jobs to the queue,
 # take a single boolean option on if we should
 # block for the jobs or just submit and exit
@@ -249,7 +310,7 @@ sub submit_sets {
 	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
-	my $ret = $scheduler->submit($set, $cmd);
+	my $ret = $scheduler->submit($set, $cmd, $self->{workdir});
 
 	$logger->error("Returned error from scheduler when trying to submit set $set");
     }
@@ -378,6 +439,14 @@ sub run_cvtree {
 #	if( -f "$work_dir/output.txt" );
     
     return $dist if($dist);
+
+    # Are we saving failed runs for later examination?
+    if($cfg->{save_failed}) {
+	mkdir "$work_dir/failed"
+	    unless( -d "$work_dir/failed" );
+
+	move("$work_dir/results.txt", "$work_dir/failed/$first.$second.txt");
+    }
 
     return -1;
 }

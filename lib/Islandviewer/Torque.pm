@@ -47,19 +47,20 @@ sub submit {
     my $self = shift;
     my $name = shift;
     my $cmd = shift;
+    my $workdir = shift;
 
-    my $qsub_file = "$cfg->{workdir}/qsub/$name.qsub";
+    my $qsub_file = "$workdir/qsub/$name.qsub";
     # Clean the paths a little since qsub doesn't like //
     $qsub_file =~ s/\/\//\//g;
 
     $name = 'cvtree_' . $name;
 
     # First let's make sure we have a work directory for qsub files
-    mkdir "$cfg->{workdir}/qsub"
-	unless( -d "$cfg->{workdir}/qsub" );
+    mkdir "$workdir/qsub"
+	unless( -d "$workdir/qsub" );
 
     open(QSUB, ">$qsub_file") or
-	die "Error, can't open qsub file $cfg->{workdir}/qsub/$name.qsub: $!";
+	die "Error, can't open qsub file $workdir/qsub/$name.qsub: $!";
 
     print QSUB "# Build by Islandviewer::Torque\n\n";
     print QSUB "echo \"Running cvtree for set $name\"\n";
@@ -68,7 +69,7 @@ sub submit {
     close QSUB;
 
     my $cmd = $cfg->{qsub_cmd} .
-	" -d $cfg->{workdir} -N $name $qsub_file";
+	" -d $workdir -N $name $qsub_file";
 
     open(CMD, '-|', $cmd);
     my $output = do { local $/; <CMD> };
