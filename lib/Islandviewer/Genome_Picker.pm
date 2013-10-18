@@ -1,6 +1,6 @@
 =head1 NAME
 
-    Islandviewer::GenomePicker
+    Islandviewer::Genome_Picker
 
 =head1 DESCRIPTION
 
@@ -27,13 +27,14 @@
 
 =cut
 
-package Islandviewer::GenomePicker;
+package Islandviewer::Genome_Picker;
 
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use Data::Dumper;
 
-use Islandviewer::Schema;
+#use Islandviewer::Schema;
 
 use MicrobeDB::Replicon;
 use MicrobeDB::Search;
@@ -46,10 +47,10 @@ sub BUILD {
 
     $cfg = Islandviewer::Config->config;
 
-    $self->{schema} = Islandviewer::Schema->connect($cfg->{dsn},
-					       $cfg->{dbuser},
-					       $cfg->{dbpass})
-	or die "Error, can't connect to Islandviewer via DBIx";
+#    $self->{schema} = Islandviewer::Schema->connect($cfg->{dsn},
+#					       $cfg->{dbuser},
+#					       $cfg->{dbpass})
+#	or die "Error, can't connect to Islandviewer via DBIx";
 
     die "Error, you must specify a microbedb version"
 	unless($args->{microbedb_version});
@@ -79,7 +80,7 @@ sub find_comparative_genomes {
 
     # First let's get all the genomes which meet our distance
     # criteria, we'll now have a hash matching that
-    my $dists = $self->find_distance_range();
+    my $dists = $self->find_distance_range($rep_accnum);
 
     # Next let's find our own strain's name
     my $name = $self->find_name($rep_accnum);
@@ -101,7 +102,11 @@ sub find_comparative_genomes {
 	my $cur_name = $self->find_name($cur_accnum, 'microbedb');
 
 	# Is it the same strain? if not, we don't want it
-	next if($cur_name eq $name);
+	# Delete it so we don't see it later
+	if($cur_name eq $name) {
+	    delete $self->{dist_set}->{$rep_accnum}->{dists}->{$cur_accnum};
+	    next;
+	}
 
 	# Save this for later in our dataset
 	$self->{dist_set}->{$cur_accnum}->{name} = $cur_name;
@@ -114,6 +119,7 @@ sub find_comparative_genomes {
     # we go through this set again and fill in all the distances to
     # each other that we don't have.
     $self->fill_in_distances();
+    print Dumper $self;
 
     # Alright, the way we're going to par down the matches
     # meet max_compare_cutoff is we'll assume all are in
@@ -152,9 +158,69 @@ sub find_comparative_genomes {
 	# matches?  Oops.  So we need to pull from the
 	# bottom and keep putting that jenga piece back
 	# until we can pull one that doesn't break the
-	# thresholds
+	# thresholds.
+	# After talking with Morgan it sounds like getting
+	# down to the max comparable genomes is more 
+	# important, so we'll do this thread pulling
+	# and if we can't find one we'll default to
+	# pulling the most interconnected (lowest
+	# average distance)
 	$self->pull_a_thread();
     }
+
+    # By this point we should have a set of picked
+    # genomes and (maybe) a larger list of candidate
+    # but not selected genomes.  Make a structure to
+    # send them back
+    my $result_genomes;
+    for my $cur_accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+	# Add the distance
+	$result_genomes->{$cur_accnum}->{dist} = 
+	    $self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$cur_accnum};
+
+	# Save the name
+	$result_genomes->{$cur_accnum}->{name} =
+	    $self->{data_set}->{$cur_accnum}->{name};
+
+	# If this one is picked, label it
+	if($self->{picked}->{$cur_accnum}) {
+	    $result_genomes->{$cur_accnum}->{picked} = 1;
+	}
+    }
+
+    # Finally, send back the results!
+    return $result_genomes;
+}
+
+sub pull_a_thread {
+    my $self = shift;
+
+    # First lets get a sorted list of the candidate
+    # genome accnums
+    my @sorted_candidates = sort { $self->{picked}->{$a} <=>
+				   $self->{picked}->{$b} }
+                                 keys(%{$self->{picked}});
+
+    # Loop through the candidate genomes in sorted
+    # order by average distance
+    for my $candidate (@sorted_candidates) {
+	# Pull out a candidate and see if we still meet
+	# the threshold
+	if($self->check_thresholds($candidate)) {
+	    # Alright, it seems safe to pull this
+	    # candidate genome
+	    delete $self->{picked}->{$candidate};
+	    return;
+	}
+    }
+
+    # If we got here we didn't find any safe
+    # candidate to pull without breaking the
+    # thresholds, so just pull the most connected
+    # and move on
+    my $candidate = shift @sorted_candidates;
+    delete $self->{picked}->{$candidate};
+
 }
 
 # Go through all the distances and compute the average
@@ -213,9 +279,14 @@ sub make_average_dists {
 # The way we're going to do this is by comparing against the set of
 # picked candidate genomes, this way the comparison gets smaller every
 # cycle and we can reuse this code to check within the trimming loop
+#
+# And because we're using this routing in our pull_a_thread we need
+# the ability to exclude a particular candidate genome, hence the
+# optional skip_accnum parameter.
 
 sub check_thresholds {
     my $self = shift;
+    my $skip_accnum = ( @_ ? shift : undef );
 
     # Loop through all the distances associated with the query
     # rep_accnum and ensure we have at least one meeting the
@@ -227,6 +298,11 @@ sub check_thresholds {
 #    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
 	# Does the distance even exist? What if cvtree had failed
 	next unless($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum});
+
+	# We're potentially skipping candidate genomes if
+	# we're calling this from pull_a_thread, so check 
+	# for the optional parameter and skip
+	next if(defined($skip_accnum) && ($skip_accnum eq $accnum) );
 
 	# Have we found a distance less than the max cutoff?
 	$found_max = 1
@@ -259,20 +335,21 @@ sub find_distance_range {
     my $find_dists = $dbh->prepare($sqlstmt) or 
 	die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $find_dists->execute($rep_accnum, $rep_accnum);
+    $find_dists->execute($rep_accnum, $rep_accnum) or
+	die "Error, can't execute query: $DBI::errstr";
 
     # Alright, now let's build a set of the distances in a data structure
-    $dists;
+    my $dists;
     while(my @row = $find_dists->fetchrow_array) {
 	# Find which way around the pair is, put it in the data structure
 	if($row[0] eq $rep_accnum) {
-	    $dist->{$row[1]} = $row[2];
+	    $dists->{$row[1]} = $row[2];
 	} elsif($row[1] eq $rep_accnum) {
-	    $dist->{$row[0]} = $row[2];
+	    $dists->{$row[0]} = $row[2];
 	}
     }
     
-    return $dist;
+    return $dists;
 }
 
 sub fill_in_distances {
@@ -295,7 +372,7 @@ sub fill_in_distances {
 
 	$find_dists->execute($accnum, $accnum);
 	while(my @row = $find_dists->fetchrow_array) {
-	    if($row[0] eq $rep_accnum) {
+	    if($row[0] eq $self->{primary_rep_accnum}) {
 		# If the referenced accnum is in the first slot, we need to hunt the second
 		if($row[1] ~~ @accnums) {
 		    # We've found a pair!
@@ -333,6 +410,8 @@ sub find_name {
 
 	# Only prep the statement once...
 	unless($self->{find_custom_name}) {
+	    my $dbh = Islandviewer::DBISingleton->dbh;
+
 	    my $sqlstmt = "SELECT name from CustomGenome WHERE cid = ?";
 	    $self->{find_custom_name} = $dbh->prepare($sqlstmt) or 
 		die "Error preparing statement: $sqlstmt: $DBI::errstr";
@@ -354,7 +433,7 @@ sub find_name {
 	my $sobj = new MicrobeDB::Search();
 
 	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version => $self->{microbedb_ver} ));
+								      version_id => $self->{microbedb_ver} ));
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
@@ -367,3 +446,5 @@ sub find_name {
     return 'unknown';
 
 }
+
+1;
