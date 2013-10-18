@@ -115,12 +115,87 @@ sub find_comparative_genomes {
     # each other that we don't have.
     $self->fill_in_distances();
 
+    # Alright, the way we're going to par down the matches
+    # meet max_compare_cutoff is we'll assume all are in
+    # then widdle them down based on who has the minimum
+    # average distance (the most clusted genome)
+    # So first lets make our list of all the genomes
+    # possible and set the average distance to 1
+    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+	$self->{picked}->{$accnum} = 1;
+    }
+
     # Do a quick sanity check, do we have at least one matching the min/max
     # single distance cutoffs? If not, we're done, bye bye.
     return undef
 	unless($self->check_thresholds);
 
+    # Another quick sanity check, do we have the minimum number
+    # of genomes?
+    # No? Return nothing, failed.
+    return undef
+	if(scalar(keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) <
+	   $self->{min_compare_cutoff});
     
+    # Now let's start the trimming loop
+    # Trim while we have too many results
+    while(scalar(keys %{$self->{picked}}) < $self->{max_compare_cutoff}) {
+
+	# Compute all the averages for the
+	# remaining possible genomes
+	$self->make_average_dists();
+
+	# Now... next corner case, what if removing
+	# the most interconnected genome will push
+	# the min/max thresholds out of range? Yet at the
+	# same time our count is still over the max allowed
+	# matches?  Oops.  So we need to pull from the
+	# bottom and keep putting that jenga piece back
+	# until we can pull one that doesn't break the
+	# thresholds
+	$self->pull_a_thread();
+    }
+}
+
+# Go through all the distances and compute the average
+# distance to all the other items left in the possible
+# candidates
+
+sub make_average_dists {
+    my $self = shift;
+
+    # Record our remaining candidates
+    my @candidates = keys %{$self->{picked}};
+    # And of course add our query genome
+    push @candidates, $self->{primary_rep_accnum};
+
+    # Now for each candidate recalculate the average distance
+    foreach my $accnum (@candidates) {
+	# We don't need to calculate the avg distance for the
+	# query, its not on trial
+	next if($accnum eq  $self->{primary_rep_accnum});
+
+	my $sum = 0;
+	# Remember how many we've found...
+	my $found_count = 0;
+
+	# Now loop through again adding all the distances together
+	INNER: foreach my $against (@candidates) {
+	    # That'd be silly to put outself in there
+	    next INNER if($against eq $accnum);
+
+	    # What if cvtree didn't run correctly against this
+	    # pair? Ignore it.
+	    if($self->{data_set}->{$accnum}->{dists}->{$against}) {
+		$sum += $self->{data_set}->{$accnum}->{dists}->{$against};
+		$found_count++;
+	    }
+	}
+
+	# Alright now let's find the average and remember it
+	$self->{picked}->{$accnum} = $sum / $found_count;
+    }
+
 }
 
 # Check the min and max single cutoff thresholds, to ensure
@@ -134,6 +209,10 @@ sub find_comparative_genomes {
 #Setting a minimum distance that at least one genome has to be over
 #This is to ensure that the NEGATIVE DATASET is finding old enough conserved regions
 #Increasing this will reduce our negative dataset
+#
+# The way we're going to do this is by comparing against the set of
+# picked candidate genomes, this way the comparison gets smaller every
+# cycle and we can reuse this code to check within the trimming loop
 
 sub check_thresholds {
     my $self = shift;
@@ -141,8 +220,14 @@ sub check_thresholds {
     # Loop through all the distances associated with the query
     # rep_accnum and ensure we have at least one meeting the
     # min and max
+    # Remember, we're only examining ones that are in
+    # contention to be in the final pick list
     my $found_min = 0; my $found_max = 0;
-    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+    foreach my $accnum (keys %{$self->{picked}}) {
+#    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+	# Does the distance even exist? What if cvtree had failed
+	next unless($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum});
+
 	# Have we found a distance less than the max cutoff?
 	$found_max = 1
 	    if($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum} <=
