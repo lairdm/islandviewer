@@ -161,11 +161,16 @@ sub build_pairs {
 	    next if($runpairs->{$outer_rep . ':' . $inner_rep} ||
 		    $runpairs->{$inner_rep . ':' . $outer_rep});
 	    
-	    $find_dist->execute($outer_rep, $inner_rep);
-	    next if($find_dist->rows > 0);
+	    # Try to look up the pair in the cache, -1 means
+	    # it hasn't been run yet.  We don't care in this
+	    # case if the past run was successful or not.
+	    next if($self->lookup_pair($outer_rep, $inner_rep) == -1);
 
-	    $find_dist->execute($inner_rep, $outer_rep);
-	    next if($find_dist->rows > 0);
+#	    $find_dist->execute($outer_rep, $inner_rep);
+#	    next if($find_dist->rows > 0);
+
+#	    $find_dist->execute($inner_rep, $outer_rep);
+#	    next if($find_dist->rows > 0);
 
 	    # Ok, it looks like we need to run this pair
 	    $runpairs->{$outer_rep . ':' . $inner_rep} = 1;
@@ -353,6 +358,13 @@ sub run_and_load {
 
     open(SET, "<$set/set.txt") or die "Error, can't open $set: $!";
 
+    # We're going bulk load the results after the fact
+    # for speed, so open some logging file
+    open(RESULTSET, ">$set/bulkload.txt") or
+	die "Error opening $set/bulkload.txt output file: $!";
+    open(RESULTLOG, ">$set/bulklog.txt") or
+	die "Error opening $set/bulklog.txt log file: $!";
+
     while(<SET>) {
 	chomp;
 
@@ -364,12 +376,15 @@ sub run_and_load {
 	if($dist > 0) {
 	    # Success! Insert it to the Distance table and mark it
 	    # in the Attempt table.
-	    $cvtree_distance->execute($first, $second, $dist);
+	    print RESULTSET "$first\t$second\t$dist\n";
+#	    $cvtree_distance->execute($first, $second, $dist);
 
-	    $cvtree_attempt->execute($first, $second, 1);
+	    print RESULTLOG "$first\t$second\t1\n";
+#	    $cvtree_attempt->execute($first, $second, 1);
 	} else {
 	    # Failure, mark it in the Attempt table
-	    $cvtree_attempt->execute($first, $second, 0);
+	    print RESULTLOG "$first\t$second\t0\n";
+#	    $cvtree_attempt->execute($first, $second, 0);
 	}
 
 	# If we're using the watchdog module, reset the timer
@@ -379,6 +394,21 @@ sub run_and_load {
     }
 
     close SET;
+    close RESULTSET;
+    close RESULTLOG;
+
+    # Bulk load the results
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP");
+    
+    # Reset the timer just in case the load takes a while
+    $watchdog->kick_dog()
+	if($watchdog);
+
+
+    $dbh->do("LOAD DATA LOCAL INFILE $set/bulkload.txt REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)");
+
+    # And we're done.
+
 }
 
 sub run_cvtree {
@@ -463,6 +493,100 @@ sub find_sets {
     closedir $dh;
 
     return @sets;
+}
+
+# For speed we're going to cache the distance attempt
+# log as needed, but only as needed, this will save
+# time with custom genomes since in that case there
+# should be no hits to begin with, so why cache
+# the whole table?  A potential space/time savings
+# for partial updates as well.
+# As long as we remember to put the smaller or less
+# likely to have been run set in the $first element
+# we'll save lookups too.
+
+sub lookup_pair {
+    my $self = shift;
+    my $first = shift;
+    my $second = shift;
+
+    # Make the query if it doesn't exist, why recreate
+    # the query each time we call this function?
+    unless($self->{find_log_forward}) {
+	my $dbh = Islandviewer::DBISingleton->dbh;
+
+	my $sqlstmt = "SELECT rep_accnum2, status FROM $cfg->{dist_log_table} WHERE rep_accnum1 = ?";
+	my $self->{find_log_forward} = $dbh->prepare($sqlstmt) or 
+	    die "Error preparing statement: $sqlstmt: $DBI::errstr";
+    }
+
+    # And in the reverse direction... yes we're fetching
+    # the dbh handle twice, but this is still better than
+    # getting it for *every* call to this function.
+    unless($self->{find_log_reverse}) {
+	my $dbh = Islandviewer::DBISingleton->dbh;
+
+	my $sqlstmt = "SELECT rep_accnum1, status FROM $cfg->{dist_log_table} WHERE rep_accnum2 = ?";
+	my $self->{find_log_reverse} = $dbh->prepare($sqlstmt) or 
+	    die "Error preparing statement: $sqlstmt: $DBI::errstr";
+    }
+
+    # We only need to save the cache in one direction of
+    # the pair if we remember to check it in both directions
+
+    if($self->{log_cache}->{$first}) {
+	# If we have a copy of the cache using the first
+	# accnum as a lookup....
+
+	if(defined($self->{log_cache}->{$first}->{$second})) {
+	    # The value exists in the cache
+	    return $self->{log_cache}->{$first}->{$second};
+	}
+
+	# This pair hasn't been run....
+	return -1;
+
+    } elsif($self->{log_cache}->{$second}) {
+	# If we have a copy of the cache using the second
+	# accnum as a lookup....
+
+	if(defined($self->{log_cache}->{$second}->{$first})) {
+	    # The value exists in the cache
+	    return $self->{log_cache}->{$second}->{$first};
+	}
+
+	# This pair hasn't been run....
+	return -1;
+
+    } else {
+	$logger->debug("No cache hit for $first:$second, loading cache for $first");
+	# Neither direction is cached, cache all records in
+	# the forward direction only.
+
+	# Build the cache in the forward direction for $first
+	$self->{find_log_forward}->execute($first);
+	while(my @row = $self->{find_log_forward}->fetchrow_array) {
+	    $self->{log_cache}->{$first}->{$row[0]} = $row[1];
+	}
+
+	# Build the cache in the forward direction for $first
+	$self->{find_log_reverse}->execute($first);
+	while(my @row = $self->{find_log_reverse}->fetchrow_array) {
+	    $self->{log_cache}->{$first}->{$row[0]} = $row[1];
+	}
+
+	# Now we only need to check the forward direction since
+	# that's all we've loaded in to the cache
+	
+	if(defined($self->{log_cache}->{$first}->{$second})) {
+	    # The value exists in the cache
+	    return $self->{log_cache}->{$first}->{$second};
+	}
+
+	# This pair hasn't been run....
+	return -1;
+
+    }
 }
 
 sub set_version {
