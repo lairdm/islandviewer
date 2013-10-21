@@ -30,16 +30,19 @@ package Islandviewer::Torque;
 
 use strict;
 use Moose;
+use Log::Log4perl qw(get_logger :nowarn);
 
 use Islandviewer::Config;
 
-my $cfg;
+my $cfg; my $logger;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
     $cfg = Islandviewer::Config->config;
+
+    $logger = Log::Log4perl->get_logger;
 
 }
 
@@ -79,6 +82,7 @@ sub submit {
 
     unless($return_code == 0) {
 	# We have an error of some kind with the call
+	$logger->error("Error submitting job: $return_code: $output");
 	return 0;
     }
 

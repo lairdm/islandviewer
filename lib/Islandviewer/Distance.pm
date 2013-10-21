@@ -319,7 +319,11 @@ sub submit_sets {
 	# Submit it to the scheduler
 	my $ret = $scheduler->submit($set, $cmd, $self->{workdir});
 
-	$logger->error("Returned error from scheduler when trying to submit set $set");
+	unless($ret) {
+	    $logger->error("Returned error from scheduler when trying to submit set $set");
+	    # Pop one out of the queue
+	    $watchdog->consume();
+	}
     }
 
     # If we're blocking, go wait for the watchdog then
