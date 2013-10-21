@@ -66,6 +66,8 @@ sub BUILD {
 
     $self->{num_jobs} = $args->{num_jobs};
 
+    $self->{block} = (defined($args->{block}) ? $args->{block} : 0);
+
     die "Error, work dir not specified:  $args->{workdir}"
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
@@ -133,7 +135,7 @@ sub calculate_all {
 	$self->build_sets($runpairs, $replicon, $replicon);
     }
 
-    $self->submit_sets();
+    $self->submit_sets($self->{block});
 }
 
 sub build_pairs {
