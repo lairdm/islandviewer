@@ -514,22 +514,22 @@ sub lookup_pair {
 
     # Make the query if it doesn't exist, why recreate
     # the query each time we call this function?
-    unless($self->{find_log_forward}) {
+    unless(defined($self->{find_log_forward})) {
 	my $dbh = Islandviewer::DBISingleton->dbh;
 
 	my $sqlstmt = "SELECT rep_accnum2, status FROM $cfg->{dist_log_table} WHERE rep_accnum1 = ?";
-	my $self->{find_log_forward} = $dbh->prepare($sqlstmt) or 
+	$self->{find_log_forward} = $dbh->prepare($sqlstmt) or 
 	    die "Error preparing statement: $sqlstmt: $DBI::errstr";
     }
 
     # And in the reverse direction... yes we're fetching
     # the dbh handle twice, but this is still better than
     # getting it for *every* call to this function.
-    unless($self->{find_log_reverse}) {
+    unless(defined($self->{find_log_reverse})) {
 	my $dbh = Islandviewer::DBISingleton->dbh;
 
 	my $sqlstmt = "SELECT rep_accnum1, status FROM $cfg->{dist_log_table} WHERE rep_accnum2 = ?";
-	my $self->{find_log_reverse} = $dbh->prepare($sqlstmt) or 
+	$self->{find_log_reverse} = $dbh->prepare($sqlstmt) or 
 	    die "Error preparing statement: $sqlstmt: $DBI::errstr";
     }
 

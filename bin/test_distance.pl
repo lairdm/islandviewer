@@ -36,7 +36,7 @@ MAIN: {
 	$logger->debug("Logging initialize");
     }
 
-    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::MetaScheduler', workdir => $cfg->{workdir}, num_jobs => 8 });
+    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 8, block => 1 });
 
     $dist_obj->calculate_all();
 #    $dist_obj->submit_sets(1);
