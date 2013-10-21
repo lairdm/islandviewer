@@ -71,10 +71,10 @@ sub submit {
 
     close QSUB;
 
-    my $cmd = $cfg->{qsub_cmd} .
+    my $qsub_cmd = $cfg->{qsub_cmd} .
 	" -d $workdir -N $name $qsub_file";
 
-    open(CMD, '-|', $cmd);
+    open(CMD, '-|', $qsub_cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
 
