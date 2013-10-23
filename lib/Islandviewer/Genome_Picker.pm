@@ -119,7 +119,6 @@ sub find_comparative_genomes {
     # we go through this set again and fill in all the distances to
     # each other that we don't have.
     $self->fill_in_distances();
-    print Dumper $self;
 
     # Alright, the way we're going to par down the matches
     # meet max_compare_cutoff is we'll assume all are in
@@ -127,7 +126,7 @@ sub find_comparative_genomes {
     # average distance (the most clusted genome)
     # So first lets make our list of all the genomes
     # possible and set the average distance to 1
-    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+    foreach my $accnum (keys %{$self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}}) {
 	$self->{picked}->{$accnum} = 1;
     }
 
@@ -140,12 +139,12 @@ sub find_comparative_genomes {
     # of genomes?
     # No? Return nothing, failed.
     return undef
-	if(scalar(keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) <
+	if(scalar(keys %{$self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}}) <
 	   $self->{min_compare_cutoff});
     
     # Now let's start the trimming loop
     # Trim while we have too many results
-    while(scalar(keys %{$self->{picked}}) < $self->{max_compare_cutoff}) {
+    while(scalar(keys %{$self->{picked}}) > $self->{max_compare_cutoff}) {
 
 	# Compute all the averages for the
 	# remaining possible genomes
@@ -173,17 +172,17 @@ sub find_comparative_genomes {
     # but not selected genomes.  Make a structure to
     # send them back
     my $result_genomes;
-    for my $cur_accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
+    for my $cur_accnum (keys %{$self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}}) {
 	# Add the distance
 	$result_genomes->{$cur_accnum}->{dist} = 
-	    $self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$cur_accnum};
+	    $self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}->{$cur_accnum};
 
 	# Save the name
 	$result_genomes->{$cur_accnum}->{name} =
-	    $self->{data_set}->{$cur_accnum}->{name};
+	    $self->{dist_set}->{$cur_accnum}->{name};
 
 	# If this one is picked, label it
-	if($self->{picked}->{$cur_accnum}) {
+	if(defined($self->{picked}->{$cur_accnum})) {
 	    $result_genomes->{$cur_accnum}->{picked} = 1;
 	}
     }
@@ -252,14 +251,18 @@ sub make_average_dists {
 
 	    # What if cvtree didn't run correctly against this
 	    # pair? Ignore it.
-	    if($self->{data_set}->{$accnum}->{dists}->{$against}) {
-		$sum += $self->{data_set}->{$accnum}->{dists}->{$against};
+	    if($self->{dist_set}->{$accnum}->{dists}->{$against}) {
+		$sum += $self->{dist_set}->{$accnum}->{dists}->{$against};
 		$found_count++;
 	    }
 	}
 
 	# Alright now let's find the average and remember it
-	$self->{picked}->{$accnum} = $sum / $found_count;
+	if($found_count) {
+	    $self->{picked}->{$accnum} = $sum / $found_count;
+	} else {
+	    $self->{picked}->{$accnum} = 0;
+	}
     }
 
 }
@@ -297,7 +300,7 @@ sub check_thresholds {
     foreach my $accnum (keys %{$self->{picked}}) {
 #    foreach my $accnum (keys %{$self->{data_set}->{$self->{primary_rep_accnum}}->{dists}}) {
 	# Does the distance even exist? What if cvtree had failed
-	next unless($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum});
+	next unless($self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum});
 
 	# We're potentially skipping candidate genomes if
 	# we're calling this from pull_a_thread, so check 
@@ -306,12 +309,12 @@ sub check_thresholds {
 
 	# Have we found a distance less than the max cutoff?
 	$found_max = 1
-	    if($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum} <=
+	    if($self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum} <=
 	       $self->{max_dist_single_cutoff} );
 
 	# Have we found a distance greater than the min cutoff?
 	$found_min = 1
-	    if($self->{data_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum} >=
+	    if($self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}->{$accnum} >=
 	       $self->{min_dist_single_cutoff} );
 
 	# We've found both, return true
@@ -376,13 +379,13 @@ sub fill_in_distances {
 		# If the referenced accnum is in the first slot, we need to hunt the second
 		if($row[1] ~~ @accnums) {
 		    # We've found a pair!
-		    $self->{data_set}->{$accnum}->{dists}->{$row[1]} = $row[2];
+		    $self->{dist_set}->{$accnum}->{dists}->{$row[1]} = $row[2];
 		}
 	    } else {
 		# If the referenced accnum is in the second slot, we need to hunt the first
 		if($row[0] ~~ @accnums) {
 		    # We've found a pair!
-		    $self->{data_set}->{$accnum}->{dists}->{$row[0]} = $row[2];
+		    $self->{dist_set}->{$accnum}->{dists}->{$row[0]} = $row[2];
 		}
 
 	    }

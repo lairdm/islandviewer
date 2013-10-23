@@ -411,7 +411,7 @@ sub run_and_load {
 	if($watchdog);
 
 
-    $dbh->do("LOAD DATA LOCAL INFILE $set/bulkload.txt REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)");
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)");
 
     # And we're done.
 
