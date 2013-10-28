@@ -33,6 +33,6 @@ MAIN: {
 
     my $result_obj = $mauve_obj->run('/data/NCBI_genomes/curated/Bacteria/Pseudomonas_aeruginosa_PAO1_uid57945/NC_002516.faa', '/data/NCBI_genomes/curated/Bacteria/Burkholderia_mallei_ATCC_23344_uid57725/NC_006348.faa');
 
-    print Dumper $result_obj;
+    $mauve_obj->serialize_results($result_obj, "$workdir/islands.txt");
 
 };

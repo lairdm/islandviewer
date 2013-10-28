@@ -180,6 +180,65 @@ sub run {
 
 }
 
+# We need to pass the results back from spawned
+# mauve processes, so we'll make a serialized
+# format to save the results for the parent
+
+sub serialize_results {
+    my $self = shift;
+    my $result_obj = shift;
+    my $output_file = shift;
+
+    # Try to make the output file
+    unless(open(OUTPUT, ">$output_file")) {
+	$logger->error("Can't open output file $output_file: $!");
+	die "Can't open output file $output_file: $!";
+    }
+
+    #parse xmfa
+    my @xmfa_output = @{ $result_obj->output_alignment() };
+    my $last_number = 0;
+    my $gap_area    = 0;
+
+    #start out not in gapped section
+    foreach (@xmfa_output) {
+        if (/\> 1:(\d*)-(\d*)/) {
+            my $start = $1;
+            my $end   = $2;
+            my $size  = $end - $start + 1;
+            if ( !$gap_area ) {
+                if ( $last_number > $end ) {
+                    $gap_area = 1;
+
+                    #found a gap. Check size and put in array
+                    if ( $size >= $self->{island_size} ) {
+			print OUTPUT "$start\t$end\n";
+                    }
+                } else {
+                    $last_number = $end;
+                }
+            } else {
+                if ( $size >= $self->{island_size} ) {
+		    print OUTPUT "$start\t$end\n";
+                }
+            }
+        }
+    }
+    my @island_output = @{ $result_obj->island_output() };
+    foreach (@island_output) {
+        if (/\d\t(-?\d+)\t(-?\d+)\t\d\t(-?\d+)\t(-?\d+)/) {
+            if ( abs( $2 - $1 ) > abs( $4 - $3 ) ) {
+		print OUTPUT "$1\t$2\n";
+            }
+        } else {
+            $logger->error("Problem parsing mauve island output file: $!");
+        }
+    }
+
+    close OUTPUT;
+	
+}
+
 sub _save_results {
     my $self = shift;
     my $stdout = shift;

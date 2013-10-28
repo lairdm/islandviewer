@@ -78,7 +78,7 @@ sub BUILD {
 
     # Setup the cutoffs for the run, we'll use the defaults
     # unless we're explicitly told otherwise
-    # and yes, I used all caps, that's what it is in the original
+    # and yes, I used all caps, that's what it is in Morgan's original
     # code and I'm playing it safe in case of code reuse.
     $self->{MAX_CUTOFF} = $args->{MAX_CUTOFF} || $cfg->{MAX_CUTOFF};
     $self->{MIN_CUTOFF} = $args->{MIN_CUTOFF} || $cfg->{MIN_CUTOFF};
@@ -88,5 +88,27 @@ sub BUILD {
     $self->{MIN_DIST_SINGLE_CUTOFF} = $args->{MIN_DIST_SINGLE_CUTOFF} || $cfg->{MIN_DIST_SINGLE_CUTOFF};
     $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
 
+
+}
+
+# To run islandpick we'll need to do the following:
+#
+# Find the comparison genomes (we could be given a
+# list if we're allowing picking from the web interface)
+#
+# Next we run the mauve alignments
+#
+# Then we filter down the islands we've found to unique regions
+#
+# Finally we do a blast screen on the results
+#
+# Let's make sure these functions are nice and idempotent so we
+# can restart in case of failure and write out lots of intermediate
+# check points
+
+sub run_islandviewer {
+    my $self = shift;
+    my $rep = shift;
+    my @comparison_genomes = (@_ ? @_ : undef );
 
 }
