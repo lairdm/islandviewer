@@ -14,6 +14,13 @@
 
     use Islandviewer::Mauve;
 
+    my $mauve_obj = Islandviewer::Mauve->new({workdir => '/tmp/dir',
+                                              island_size => 4000,
+                                              ...mauve_params => ...,
+                                             });
+
+    my $result_obj = $mauve_obj->run('/tmp/seq1.faa', '/tmp/seq2.faa');
+
     
 =head1 AUTHOR
 
@@ -33,7 +40,10 @@ package Islandviewer::Mauve;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use File::Temp qw/ :mktemp /;
 use Data::Dumper;
+
+use Islandviewer::Mauve::Results;
 
 my $cfg; my $logger; 
 
@@ -56,7 +66,6 @@ sub BUILD {
     my $args = shift;
 
     $cfg = Islandviewer::Config->config;
-    $cfg_file = File::Spec->rel2abs(Islandviewer::Config->config_file);
 
     $logger = Log::Log4perl->get_logger;
 
@@ -65,11 +74,11 @@ sub BUILD {
     $self->{workdir} = $args->{workdir};
 
     # Set default island size
-    $self->island_size(4000);
+    $self->{island_size} = 4000;
 
     #Set each attribute that is given as an arguement
-    foreach ( keys(%{$arg}) ) {
-	$self->$_( $arg{$_} );
+    foreach ( keys(%{$args}) ) {
+	$self->{$_} = $args->{$_};
     }
 
     return $self;
@@ -89,7 +98,7 @@ sub run {
 	my $param = $PARAM_CONVERT{$_};
 	my $tmp   = $self->_make_tempfile();
 	push( @tmp_files, $tmp );
-	$self->$param($tmp);
+	$self->{$param} = $tmp;
     }
 
     # Now let's build the command line parameters we're
@@ -97,8 +106,8 @@ sub run {
     my @params;
     foreach (@MAUVE_PARAMS) {
 	my $stored_param = $PARAM_CONVERT{$_};
-	push( @params, join( "", "--", $_, "=", $self->$stored_param() ) )
-	    if defined( $self->$stored_param() );
+	push( @params, join( "", "--", $_, "=", $self->{$stored_param} ) )
+	    if defined( $self->{$stored_param} );
     }
     my $param_str = join( " ", @params );
         
@@ -110,7 +119,7 @@ sub run {
     # Now let's build the list of sequence files to pass,
     # each fasta files needs a corresponding sml file, basically
     # a temp file Mauve will use as a temp file, odd, I know...
-    my $seq_srt;
+    my $seq_str;
     foreach (@seqs) {
 	# Can we read the sequence file?
 	die "Error, can't open sequence file"
@@ -175,7 +184,28 @@ sub _save_results {
     my $self = shift;
     my $stdout = shift;
 
+    # Create a result object, we're going to reuse Morgan's
+    # original object structure
+    my $result_obj = new Islandviewer::Mauve::Results('stdout' => $stdout);
     
+    # Now we're going save all the output files, yes we only eventually
+    # use 2 but let's just do this for completeness...
+    foreach(@FILES) {
+	my $param     = $PARAM_CONVERT{$_};
+	my $file_name = $self->{$param};
+	next unless(-f $file_name && -r $file_name);
+	if ( open( TEMPFILE, $file_name ) ) {
+	    my @file = <TEMPFILE>;
+	    $result_obj->$param( \@file );
+	    close(TEMPFILE);
+	} else {
+	    $logger->error("Can't open file: $file_name for mauve param: $param: $!");
+	    last;
+	}
+
+    }
+
+    return $result_obj;
 }
 
 # Make a temp file in our work directory and return the name
@@ -190,4 +220,15 @@ sub _make_tempfile {
     `touch $tmp_file`;
 
     return $tmp_file;
+}
+
+sub _remove_tmpfiles {
+    my $self = shift;
+    my @tmpfiles = @_;
+
+    foreach my $file (@tmpfiles) {
+	unless(unlink $file) {
+	    $logger->error("Can't unlink file $file: $!");
+	}
+    }
 }
