@@ -35,6 +35,7 @@ package Islandviewer::Islandpick;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use File::Temp qw/ :mktemp /;
 use Data::Dumper;
 
 use Islandviewer::Schema;
@@ -252,7 +253,7 @@ sub blast_screen {
 
     # Open the query fna file for reading and get the sequence
     my $in = Bio::SeqIO->new(
-            -file   => $self->{genomes}->{$self->{query_rep}}->{formats}->{fna},
+            -file   => "$self->{genomes}->{$self->{query_rep}}->{filename}.fna",
             -format => 'Fasta'
         );
     my $contig_seq = $in->next_seq();
@@ -284,7 +285,7 @@ sub blast_screen {
 	# the fna version
 	next unless($self->{genomes}->{$rep}->{formats}->{fna});
 
-	push @fna_files, $self->{genomes}->{$rep}->{formats}->{fna};
+	push @fna_files, "$self->{genomes}->{$rep}->{filename}.fna";
     }
 
     # Make a blast screen object
@@ -297,7 +298,7 @@ sub blast_screen {
     eval {
 	$blast_obj->create_blast_db($joint_fna, $tmp_query_fna, @fna_files);
 	@filtered_unique_regions = $blast_obj->run($joint_fna,
-						      $self->{genomes}->{$self->{query_rep}}->{formats}->{fna},
+						      "$self->{genomes}->{$self->{query_rep}}->{filename}.fna",
 						      @unique_regions);
     };
     if($@) {
