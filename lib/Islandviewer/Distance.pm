@@ -13,6 +13,9 @@
 
     $dist = Islandviewer::Distance->new({scheduler => Islandviewer::Metascheduler});
     $dist->calculate_all(version => 73, custom_replicon => $repHash);
+
+    # Where $repHash->{$cid} = $filename # with .faa extension
+
     $distance->add_replicon(cid => 2, version => 73);
 
 =head1 AUTHOR
@@ -121,16 +124,37 @@ sub calculate_all {
 	    if($filename && $rep_accnum);
     }
 
+    $logger->debug("Found " . scalar(keys %{$replicon}) . " replicons from microbedb");
+
     # Once we have all the possible replicons let's build our set
     # of pairs that need running
     # if we're running a custom replicon set, use that for the
     # first sets in the pairs comparison
-    my $runpairs = ($custom_rep ? 
-		    $self->build_pairs($custom_rep, $replicon) :
-		    $self->build_pairs($replicon, $replicon));
+    # and for future expansion we'll want to allow custom replicons to 
+    # run against each other....
+    my $runpairs; my $custom_vs_custom = 0;
+    if($custom_rep) {
+	# If there's more than one custom replicon, we're
+	# running them against themselves
+	if(scalar(keys %{$custom_rep}) > 1) {
+	    $logger->debug("Running custom vs custom");
+	    $runpairs = $self->build_pairs($custom_rep, $custom_rep);
+	    $custom_vs_custom = 1;
+	} else {
+	    # Otherwise we're just running a custom against
+	    # all the microbedb genomes
+	    $logger->debug("Running single custom genome vs microbedb");
+	    $runpairs = $self->build_pairs($custom_rep, $replicon)
+	}
+    } else {
+	# Just a normal run, microbedb everything vs everything...
+	$runpairs = $self->build_pairs($replicon, $replicon);
+    }
 
     if($custom_rep) {
-	$self->build_sets($runpairs, $custom_rep, $replicon);
+	($custom_vs_custom ? 
+	 $self->build_sets($runpairs, $custom_rep, $custom_rep)
+	 : $self->build_sets($runpairs, $custom_rep, $replicon));
     } else {
 	$self->build_sets($runpairs, $replicon, $replicon);
     }
@@ -147,26 +171,28 @@ sub build_pairs {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $sqlstmt = "SELECT id FROM $cfg->{dist_log_table} WHERE rep_accnum1 = ? AND rep_accnum2 = ?";
-    my $find_dist = $dbh->prepare($sqlstmt) or 
-	die "Error preparing statement: $sqlstmt: $DBI::errstr";
+#    my $sqlstmt = "SELECT id FROM $cfg->{dist_log_table} WHERE rep_accnum1 = ? AND rep_accnum2 = ?";
+#    my $find_dist = $dbh->prepare($sqlstmt) or 
+#	die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    $logger->debug("About to test " . scalar(keys %{$set1}) . " vs " . scalar(keys %{$set2}));
 
     # Now we need to make a double loop to find the pairs
     # which need to be calculated
     foreach my $outer_rep (keys %{$set1}) {
-	foreach my $inner_rep (keys %{$set2}) {
+	INNER: foreach my $inner_rep (keys %{$set2}) {
 	    # We don't run it against itself
-	    next if($outer_rep eq $inner_rep);
+	    next INNER if($outer_rep eq $inner_rep);
 
 	    # Check both ways around in case it was added in
 	    # reverse during a previous run
-	    next if($runpairs->{$outer_rep . ':' . $inner_rep} ||
+	    next INNER if($runpairs->{$outer_rep . ':' . $inner_rep} ||
 		    $runpairs->{$inner_rep . ':' . $outer_rep});
 	    
 	    # Try to look up the pair in the cache, -1 means
 	    # it hasn't been run yet.  We don't care in this
 	    # case if the past run was successful or not.
-	    next if($self->lookup_pair($outer_rep, $inner_rep) == -1);
+	    next INNER unless($self->lookup_pair($outer_rep, $inner_rep) == -1);
 
 #	    $find_dist->execute($outer_rep, $inner_rep);
 #	    next if($find_dist->rows > 0);
@@ -314,7 +340,6 @@ sub submit_sets {
 			  $set, $cfg_file);
 	$cmd .= " -b " . $cfg->{zk_root} . $$
 	    if($block);
-	print "Running command $cmd\n";
 
 	# Submit it to the scheduler
 	my $ret = $scheduler->submit($set, $cmd, $self->{workdir});
@@ -328,7 +353,7 @@ sub submit_sets {
 
     # If we're blocking, go wait for the watchdog then
     # clean up after ourself
-    if($block) {
+    if($block && (scalar(@sets) > 0)) {
 	my $ret = $self->block_for_cvtree($watchdog);
 
 	$watchdog->clear_timers();
@@ -445,7 +470,7 @@ sub run_cvtree {
     close INPUT;
 
     my $cmd = sprintf($cfg->{cvtree_cmd}, "$work_dir/cvtree.txt", "$work_dir/results.txt", "$work_dir/output.txt");
-    print "Running $cmd\n";
+
     my $ret = system($cmd);
 
     my $dist = 0;
@@ -618,7 +643,7 @@ sub block_for_cvtree {
 
     # Wait until a child process begins
     until($watchdog->wait_sync()) {
-	$logger->info("Waiting for a cvtree jobto start");
+	$logger->info("Waiting for a cvtree job to start");
     }
 
     # Next we wait for all the children to empty the queue

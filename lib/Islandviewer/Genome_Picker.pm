@@ -56,6 +56,8 @@ sub BUILD {
 	unless($args->{microbedb_version});
     $self->{microbedb_ver} = $args->{microbedb_version};
 
+    $logger = Log::Log4perl->get_logger;
+
     # Setup the cutoffs for the run, we'll use the defaults
     # unless we're explicitly told otherwise
     # and yes, I used all caps, that's what it is in the original
@@ -77,6 +79,8 @@ sub BUILD {
 sub find_comparative_genomes {
     my $self = shift;
     my $rep_accnum = shift;
+
+    $logger->debug("Finding comparative genomes for $rep_accnum");
 
     # First let's get all the genomes which meet our distance
     # criteria, we'll now have a hash matching that

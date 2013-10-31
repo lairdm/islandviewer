@@ -14,16 +14,13 @@ sub mypath { return $path; }
 
 use lib "../lib";
 use Islandviewer;
-use Islandviewer::Config;
-use Islandviewer::Genome_Picker;
+use Islandviewer::Islandpick;
 
 MAIN: {
-    my $cfname; my $set; my $workdir; my $root;
-    my $watchdog; my $logger;
+    my $cfname; my $workdir; my $filename; my $logger;
     my $res = GetOptions("config=s"   => \$cfname,
-			 "set=s"      => \$set,
 			 "workdir=s"  => \$workdir,
-			 "blocking=s" => \$root,
+			 "filename=s" => \$filename,
     );
 
     die "Error, no config file given"
@@ -38,10 +35,11 @@ MAIN: {
 	$logger->debug("Logging initialized");
     }
 
-    my $picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => 80});
+    my $islandpick_obj = Islandviewer::Islandpick->new({workdir => $workdir,
+                                                     microbedb_version => 80,
+                                                     MIN_GI_SIZE => 8000});
 
-    my $results = $picker_obj->find_comparative_genomes(2);
-#    my $results = $picker_obj->find_comparative_genomes('NC_020564.1');
+    my @islands = $islandpick_obj->run_islandpick(2);
 
-    print Dumper $results;
-};
+    print Dumper \@islands;
+}

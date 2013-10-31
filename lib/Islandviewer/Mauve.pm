@@ -122,7 +122,7 @@ sub run {
     my $seq_str;
     foreach (@seqs) {
 	# Can we read the sequence file?
-	die "Error, can't open sequence file"
+	die "Error, can't open sequence file $_"
 	    unless( -f $_ && -r $_ );
 
 	my $tmp   = $self->_make_tempfile();
