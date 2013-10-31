@@ -162,7 +162,7 @@ sub blast_sequences {
 	    if ($num_hits == 0) { 
 		@islands = getIslandCoords($offset, $isl_name, $island_size, ());
 	    }else {
-		my $filter_obj = new Islandviewer::Islandpick::BlastFilter(min_gi_size => $min_island_size);
+		my $filter_obj = new Islandviewer::Islandpick::BlastFilter(min_gi_size => $self->{island_size});
 		@blast_hits = $filter_obj->blast_filter($island_size,@blast_hits);
 		@islands = getIslandCoords($offset, $isl_name, $island_size, @blast_hits);
 				
@@ -178,8 +178,6 @@ sub blast_sequences {
     return (@all_islands);
 
 
-    }
-    
 }
 
 sub create_blast_db {
@@ -188,14 +186,14 @@ sub create_blast_db {
     my @fna_files = @_;
 
     # Make one big fasta file
-    system("cat @genomes > $joint_fna_file");
+    system("cat @fna_files > $joint_fna_file");
 
     system("$cfg->{formatdb} -i $joint_fna_file -p F");
 }
 
 sub produce_islands {
     my $self = shift;
-    my @islands = @_;
+    my @unique_regions = @_;
 
     my @sets;
     foreach(@unique_regions){
@@ -213,8 +211,8 @@ sub produce_islands {
 # RETU: $bit	A new Blast_hit object
 # DESC: Stores information of a single blast hit and returns it.
 sub createNewBlastHit {
-    (my $self, $name, my $hsp) = @_;
-    my $bhit = new Islandviewer::Islandpick::Blast_hit;
+    my ($self, $name, my $hsp) = @_;
+    my $bhit = new Islandviewer::Islandpick::BlastHit;
 
     $bhit->start($hsp->query->start);
     $bhit->end($hsp->query->end);
@@ -255,7 +253,7 @@ sub getIslandCoords {
 	}
 
 	$diff = $end - $begin;
-	if ($diff > $min_island_size) {
+	if ($diff > $self->{island_size}) {
 	    my $seq_start = $begin + $offset;
 	    my $seq_end = $end + $offset;
 	    my %isl = ();
