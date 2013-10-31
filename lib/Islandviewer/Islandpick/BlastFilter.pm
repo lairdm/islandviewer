@@ -11,7 +11,7 @@ use strict;
 use Islandviewer::Islandpick::BlastHit;
 
 
-use base qw(My_Basic_Class);
+#use base qw(My_Basic_Class);
 
 my $debug         = 0;
 my $debug_overlap = 0;
