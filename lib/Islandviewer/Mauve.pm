@@ -139,6 +139,8 @@ sub run {
     push( @tmp_files, $tmp_stderr );
     $cmd .= " 2>$tmp_stderr";
 
+    $logger->debug("Issuing mauve command: $cmd");
+
     # And now let's run the command...
     unless( open (MAUVE, "$cmd|") ) {
 	$logger->error("Error, can't run command $cmd: $!");

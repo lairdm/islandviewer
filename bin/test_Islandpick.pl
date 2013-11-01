@@ -39,7 +39,7 @@ MAIN: {
                                                      microbedb_version => 80,
                                                      MIN_GI_SIZE => 8000});
 
-    my @islands = $islandpick_obj->run_islandpick(2);
+    my @islands = $islandpick_obj->run_islandpick(2, 'NC_009656.1', 'NC_009439.1', 'NC_004129.6', 'NC_007492.2', 'NC_010501.1', 'NC_009434.1');
 
     print Dumper \@islands;
 }

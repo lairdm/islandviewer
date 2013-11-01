@@ -160,11 +160,11 @@ sub blast_sequences {
 		}
 	    }
 	    if ($num_hits == 0) { 
-		@islands = getIslandCoords($offset, $isl_name, $island_size, ());
+		@islands = $self->getIslandCoords($offset, $isl_name, $island_size, ());
 	    }else {
 		my $filter_obj = new Islandviewer::Islandpick::BlastFilter(min_gi_size => $self->{island_size});
 		@blast_hits = $filter_obj->blast_filter($island_size,@blast_hits);
-		@islands = getIslandCoords($offset, $isl_name, $island_size, @blast_hits);
+		@islands = $self->getIslandCoords($offset, $isl_name, $island_size, @blast_hits);
 				
 		#TODO:Make sure each island is still over the minimum GI size
 				
@@ -253,6 +253,7 @@ sub getIslandCoords {
 	}
 
 	$diff = $end - $begin;
+
 	if ($diff > $self->{island_size}) {
 	    my $seq_start = $begin + $offset;
 	    my $seq_end = $end + $offset;

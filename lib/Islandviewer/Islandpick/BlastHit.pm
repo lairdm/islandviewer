@@ -66,4 +66,6 @@ sub toString {
 		"\n"; 
 }
 
+sub DESTROY {}
+
 1;

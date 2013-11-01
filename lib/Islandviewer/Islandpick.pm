@@ -154,38 +154,56 @@ sub run_islandpick {
 
     # At this point we have a set of comparison genomes,
     # lets find out a little about our contestants....
-    return () unless($self->fill_in_info($rep));
-
-    print Dumper $self->{genomes};
+    unless($self->fill_in_info($rep)) {
+	$logger->error("Error, can't fill in info for $rep");
+	return ();
+    }
 
     # Remember the query rep for later
     $self->{query_rep} = $rep;
 
     # And again, if we don't have the correct format, what's
     # the point, bail.
-    return () unless($self->{genomes}->{$rep}->{formats}->{faa});
+    unless($self->{genomes}->{$rep}->{formats}->{fna}) {
+	$logger->error("No fna file for $rep");
+	return ();
+    }
 
     # And while we're going through them we'll run
     # the mauve alignments
     my @island_files;
     my $num_genomes = 0;
     foreach my $tmp_rep (@comparison_genomes) {
-	return () unless($self->fill_in_info($tmp_rep));
+	unless($self->fill_in_info($tmp_rep)) {
+	    $logger->warn("Unable to fill in info for genome $tmp_rep");
+	    return ();
+	}
 
 	# And again, if we don't have the correct format, what's
 	# the point, bail.
-	return () unless($self->{genomes}->{$tmp_rep}->{formats}->{faa});
+	unless($self->{genomes}->{$tmp_rep}->{formats}->{fna}) {
+	    $logger->warn("No fna file for genome $tmp_rep");
+	    return ();
+	}
+
+	$logger->debug("Starting comparison against genome $tmp_rep");
 
 	# Part of making it idempotent, don't rerun analysis 
 	# we've already done.
 	unless( -f "$self->{workdir}/$tmp_rep.islands.txt" && 
 		-r "$self->{workdir}/$tmp_rep.islands.txt" ) {
-	    my $mauve_obj = Islandviewer::Mauve->new({workdir => $self->{workdir},
-						     });
+
+	    # Let's keep things a little clean, make a work directory for each
+	    # mauve run, but we're going to keep the results in the workdir
+	    mkdir "$self->{workdir}/$tmp_rep" or 
+		$logger->logdie("Error making mauve working directory $self->{workdir}/$tmp_rep");
+
+	    my $mauve_obj = Islandviewer::Mauve->new({workdir => "$self->{workdir}/$tmp_rep/",
+						     island_size => $cfg->{mauve_island_size} });
 
 	    # Run mauve on the pair
-	    my $result_obj = $mauve_obj->run("$self->{genomes}->{$rep}->{filename}.faa",
-					     "$self->{genomes}->{$tmp_rep}->{filename}.faa");
+	    my $result_obj = $mauve_obj->run("$self->{genomes}->{$rep}->{filename}.fna",
+					     "$self->{genomes}->{$tmp_rep}->{filename}.fna");
 
 	    # And save the results for later
 	    $mauve_obj->serialize_results($result_obj, 
@@ -200,14 +218,18 @@ sub run_islandpick {
     # we did our best
     # We need to load all the results we've just saved.
     # We do it this way because we want to ensure all the mauve runs were
-    # successful.
+    # successful.  We also might distribute mauve runs in the future
     my @all_unique_regions;
     foreach my $island_file (@island_files) {
 	push @all_unique_regions, $self->slurp_islands($island_file);
     }
 
+    # Let's ensure the regions are sorted
+    @all_unique_regions = sort { $a->[0] <=> $b->[0] } @all_unique_regions;
+
     # Now push the results together taking out duplicates and mapping
-    # the overlapping regions
+    # the overlapping regions    
+
     my @unique_regions = $self->find_overlap($num_genomes, @all_unique_regions);
 
     # Now we want to do the blast screen
@@ -278,12 +300,15 @@ sub blast_screen {
     # Next we need all the names of the genomes we'll be running against
     my @fna_files;
     foreach my $rep (keys $self->{genomes}) {
-	# We obviously don't wantto blast against ourself
+	# We obviously don't want to blast against ourself
 	next if($rep eq $self->{query_rep});
 
 	# We can't blast against it if we don't have
 	# the fna version
-	next unless($self->{genomes}->{$rep}->{formats}->{fna});
+	unless($self->{genomes}->{$rep}->{formats}->{fna}) {
+	    $logger->warn("There's no fna file for $rep");
+	    next;
+	}
 
 	push @fna_files, "$self->{genomes}->{$rep}->{filename}.fna";
     }
@@ -294,6 +319,7 @@ sub blast_screen {
 
     my $joint_fna = $self->_make_tempfile();
     my @filtered_unique_regions;
+
     push @tmpfiles, $joint_fna;
     eval {
 	$blast_obj->create_blast_db($joint_fna, $tmp_query_fna, @fna_files);
@@ -306,7 +332,7 @@ sub blast_screen {
     }
 
     # And cleanup after ourself
-    $self->_remove_tmpfiles(@tmpfiles);
+#    $self->_remove_tmpfiles(@tmpfiles);
 
     # And return the results....
     return @filtered_unique_regions;
