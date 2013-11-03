@@ -250,6 +250,58 @@ sub run_islandpick {
 
 }
 
+# We're going to parse the genbank file on the fly and look for
+# matches in the virulence factor table, we're doing it this way
+# for two reasons, first because we're no longer going to put
+# custom genomes in to microbedb, and second I plan to alter
+# microbedb in the future so genomes aren't loaded either,
+# it's a huge waste of space
+
+sub find_virulence {
+    my $self = shift;
+    my $gbk_file = shift;
+
+    # Get a handle to the db
+    my $dbh = Islandviewer::DBISingleton->dbh;
+    my $sqlstmt = "SELECT source FROM virulence WHERE protein_accnum = ?";
+    my $lookup_virulence = $dbh->prepare($sqlstmt) or 
+		die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    # Open the genbank file for reading through bioperl
+    my $seqio = Bio::SeqIO->new( -file => $gbk_file );
+    
+    # Loop through the sequences
+    my @all_regions;
+    while(my $seq_obj = $seqio->next_seq) {
+	# Then we have to loop through the features for each
+	# sequence
+	FEATURE: for my $feat_obj ($seq_obj->get_SeqFeatures) {
+	    my @ids;
+	    # We only want CDS tags
+	    next unless($feat_obj->primary_tag eq 'CDS');
+	    my $start = $feat_obj->location->start;
+	    my $end = $feat_obj->location->end;
+	    push @ids, $feat_obj->get_tag_values('protein_id')
+		if ($feat_obj->get_tag_values('protein_id'));
+
+	    # Now we need to look up in the database if this
+	    # protein has an associated virulence factor
+	    for my $id (@ids) {
+		$lookup_virulence->execute($id);
+		if(my ($source) = $lookup_virulence->fetchrow_array) {
+		    my $vir = {start => $start,
+			       end => $end,
+			       source => $source };
+		    push @all_regions, $vir;
+		    next FEATURE;
+		}
+	    }
+	}
+    }
+
+    return @all_regions;
+}
+
 sub blast_screen {
     my $self = shift;
     my @unique_regions = @_;
