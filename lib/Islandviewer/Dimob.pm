@@ -1,21 +1,20 @@
 =head1 NAME
 
-    Islandviewer::Sigi
+    Islandviewer::Dimob
 
 =head1 DESCRIPTION
 
-    Object to run SigiHMM against a given genome
+    Object to run Dimob against a given genome
 
 =head1 SYNOPSIS
 
-    use Islandviewer::Sigi;
+    use Islandviewer::Dimob;
 
-    $sigi_obj = Islandviewer::Sigi->new({workdir => '/tmp/workdir',
-                                         microbedb_version => 80,
-                                         MIN_GI_SIZE => 8000});
+    $dimob_obj = Islandviewer::Dimob->new({workdir => '/tmp/workdir',
+                                           microbedb_version => 80,
+                                           MIN_GI_SIZE => 8000});
 
-    # Optional comparison rep_accnums, otherwise it uses the genome picker
-    $sigi_obj->run_sigi($rep_accnum);
+    $dimob_obj->run_dimob($rep_accnum);
     
 =head1 AUTHOR
 
@@ -30,7 +29,7 @@
 
 =cut
 
-package Islandviewer::Sigi;
+package Islandviewer::Dimob;
 
 use strict;
 use Moose;
@@ -39,6 +38,8 @@ use File::Temp qw/ :mktemp /;
 use Data::Dumper;
 
 use Islandviewer::DBISingleton;
+use Islandviewer::Dimob::genomicislands;
+use Islandviewer::Dimob::mobgene;
 
 use MicrobeDB::Replicon;
 use MicrobeDB::Search;
@@ -65,7 +66,7 @@ sub BUILD {
     
 }
 
-sub run_sigi {
+sub run_dimob {
     my $self = shift;
     my $rep_accnum = shift;
     my @tmpfiles
@@ -82,65 +83,85 @@ sub run_sigi {
     my $formats;
     foreach (split /\s+/, $format_str) { $formats->{$_} = 1; }
 
-    # Ensure we have the needed file
-    unless($formats->{embl}) {
-	$logger->error("Error, we don't have the needed ebml file...");
+    # Ensure we have the needed files
+    unless($formats->{ffn}) {
+	$logger->error("Error, we don't have the needed ffn file...");
+	return ();
+    }
+    unless($formats->{faa}) {
+	$logger->error("Error, we don't have the needed faa file...");
+	return ();
+    }
+    unless($formats->{ptt}) {
+	$logger->error("Error, we don't have the needed ptt file...");
 	return ();
     }
 
-    # Now we need to start buildingthe command we'll run
-    my $cmd = $cfg->{sigi_cmd};
-    # And the parameter...
-    my $SIGI_JOIN_PARAM = 3;
+    # We need a temporary file to hold the hmmer output
+    my $hmmer_outfile = $self->_make_tempfile();
+    push @tmpfiles, $hmmer_outfile;
 
-    # Now we're going to need an output file
-    my $tmp_out_file = $self->_make_tempfile();
-    push @tmpfiles, $tmp_out_file;
+    # Now the command and database to use....
+    my $cmd = $cfg->{hmmer_cmd};
+    my $hmmer_db = $cfg->{hmmer_db};
+    $cmd .= " $hmmer_db $filename.faa >$hmmer_outfile";
 
-    # And we need an output embl file, reuse the same basename
-    my $tmp_out_gff .= '.embl';
-    push @tmpfiles, $tmp_out_gff;
+    my $mob_list;
 
-    # And a file for stderr...
-    my $tmp_stderr = $self->_make_tempfile();
-    push $tmpfiles, $tmp_stderr;
+    my $mobgene_obj = Islandviewer::Dimob::Mobgene->new();
+    my $mobgenes = $mobgene_obj->parse_hmmer( $hmminput, $hmm_evalue );
 
-    # Build the command further...
-    $cmd .= " input=$filename.embl output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM";
-
-    $logger->trace("Sending the sigi command: $cmd");
-
-    # run SigiHMM
-    unless ( open( COMMAND, "$cmd |" ) ) {
-	$logger->logdie("Cannot run $command");
+    foreach(keys %$mobgenes){
+	$mob_list->{$_}=1;   
     }
 
-    #Waits until the system call is done before saving to the array
-    my @stdout = <COMMAND>;
-    close(COMMAND);
-    
-    #Open the file that contains the std error from the command call
-    open( ERROR, $tmp_stderr )
-	|| $logger->logdie("Can't open std_error file: $tmp_stderr when using command: $command", "$!");
-    my @stderr = <ERROR>;
-    close(ERROR);
+    #get a list of mobility genes from ptt file based on keyword match
+    my $mobgene_ptt = $mobgene_obj->parse_ptt($pttinput);
 
-    if ( scalar(@stderr) > 0 ) {
-	$logger->logdie "Something went wrong in sigi: @stderr";
+    foreach(keys %$mobgene_ptt){
+	$mob_list->{$_}=1;   
     }
 
-    $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
+    #calculate the dinuc bias for each gene cluster of 6 genes
+    #input is a fasta file of ORF nucleotide sequences
+    my $dinuc_results = cal_dinuc($ffninput);
+    my @dinuc_values;
+    foreach my $val (@$dinuc_results) {
+	push @dinuc_values, $val->{'DINUC_bias'};
+    }
 
-    # And go parse the islands!
-    my @gis = parse_sigi($tmp_out_gff);
+    #calculate the mean and std deviation of the dinuc values
+    my $mean = cal_mean( \@dinuc_values );
+    my $sd   = cal_stddev( \@dinuc_values );
+
+    #generate a list of dinuc islands with ffn fasta file def line as the hash key
+    my $gi_orfs = dinuc_islands( $dinuc_results, $mean, $sd, 8 );
+
+    #convert the def line to gi numbers (the data structure is maintained)
+    my $dinuc_islands = defline2gi( $gi_orfs, $pttinput );
+
+    #check the dinuc islands against the mobility gene list
+    #any dinuc islands containing >=1 mobility gene are classified as
+    #dimob islands
+    my $dimob_islands = dimob_islands( $dinuc_islands, $mob_list );
+
+    my @gis;
+    foreach (@$dimob_islands) {
+
+	#get the pids from the  for just the start and end genes
+	push (@gis, [ $_->[0]{start}, $_->[-1]{end}]);
+	#my $start = $_->[0]{start};
+	#my $end = $_->[-1]{end};
+ 
+	#print "$start\t$end\n";
+    }
 
     # And cleanup after ourself
 #    $self->_remove_tmpfiles(@tmpfiles);
 
-    # And its that simple, we should be done...
     return @gis;
-
 }
+
 
 # Reuse most of Morgan's code, it works...
 sub parse_sigi {
