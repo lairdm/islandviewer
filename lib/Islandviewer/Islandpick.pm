@@ -15,7 +15,7 @@
                                                      MIN_GI_SIZE => 8000});
 
     # Optional comparison rep_accnums, otherwise it uses the genome picker
-    $islandpick_obj->run_islandpick($rep_accnum, @comparison_rep_accs)
+    $islandpick_obj->run_islandpick($rep_accnum, @comparison_rep_accs);
     
 =head1 AUTHOR
 
@@ -535,7 +535,7 @@ sub lookup_genome {
 		die "Error preparing statement: $sqlstmt: $DBI::errstr";
 	}
 
-	$self->{find_custom_name}->execute($rep_accnum);
+#	$self->{find_custom_name}->execute($rep_accnum);
 
 	$self->{find_custom_name}->execute($rep_accnum);
 
