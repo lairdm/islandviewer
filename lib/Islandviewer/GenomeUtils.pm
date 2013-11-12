@@ -336,4 +336,82 @@ sub tag {
 	return join( ' ', $f->get_tag_values($tag) );
 }
 
+sub calculate_gc {
+    my $self = shift;
+    my $fna_file = shift;
+
+    # For our sliding window to sample the GC
+    my $window = 10000;
+    my $sliding = $window;
+
+    # Open the fna file for reading
+    my $in = Bio::SeqIO->new(
+	-file   => $fna_file,
+	-format => 'Fasta'
+       );
+
+    # Since its an fna file there will only
+    # be one sequence
+    my $seq_obj = $in->next_seq();
+
+    my $seq = $seq_obj->seq();
+    my $seq_size = length($seq);
+
+    # Set up the window to begin sliding
+    my $start = 0 - $sliding;
+    my $end = 0;
+
+    my @gc_values;
+
+    #intialize variables to keep track of min and max gc values
+    my $min = [ 0, 0, 1 ];
+    my $max = [ 0, 0, 0 ];
+
+    do {
+	$start += $sliding;
+        if ( $start + $window > $seq_size ) {
+            $end = $seq_size;
+        } else {
+            $end = $start + $window;
+        }
+        my $gc = $self->calc_gc( substr( $seq, $start, $window ) );
+
+        if ( $gc < $min->[2] ) {
+            $min = [ $start, $end, $gc ];
+        }
+        if ( $gc > $max->[2] ) {
+            $max = [ $start, $end, $gc ];
+        }
+#        print $OUT_GC "bacteria $start $end $gc\n";
+        push( @gc_values, $gc );
+
+    } while( $end != $seq_size );
+
+    #Create the avg line
+    my $mean = mean(@gc_values);
+
+    return $seq_size, $min->[2], $max->[2], $mean, @gc_values;
+}
+
+# Find the mean of an array of values
+
+sub mean {
+    my $self = shift;
+    my $result;
+    foreach (@_) { $result += $_ }
+    return $result / @_;
+}
+
+
+
+sub calc_gc {
+    my $self = shift;
+    my $seq = $_[0];
+    my $g = ( $seq =~ tr/g// );
+    $g += ( $seq =~ tr/G// );
+    my $c = ( $seq =~ tr/c// );
+    $c += ( $seq =~ tr/C// );
+    return ( $g + $c ) / length($seq);
+}
+
 1;

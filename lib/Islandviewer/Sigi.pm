@@ -62,13 +62,14 @@ sub BUILD {
 	unless($args->{microbedb_version});
     $self->{microbedb_ver} = $args->{microbedb_version};
 
+    $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
     
 }
 
 sub run_sigi {
     my $self = shift;
     my $rep_accnum = shift;
-    my @tmpfiles
+    my @tmpfiles;
 
     # We're given the rep_accnum, look up the files
     my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
@@ -80,16 +81,16 @@ sub run_sigi {
 
     # To make life easier, break out the formats available
     my $formats;
-    foreach (split /\s+/, $format_str) { $formats->{$_} = 1; }
+    foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; print $_; $formats->{$_} = 1; }
 
     # Ensure we have the needed file
     unless($formats->{embl}) {
-	$logger->error("Error, we don't have the needed ebml file...");
+	$logger->error("Error, we don't have the needed ebml file... looking in $filename");
 	return ();
     }
 
     # Now we need to start buildingthe command we'll run
-    my $cmd = $cfg->{sigi_cmd};
+    my $cmd = $cfg->{sigi_cmd} . " " . $cfg->{java_bin} . " " . $cfg->{sigi_path};
     # And the parameter...
     my $SIGI_JOIN_PARAM = 3;
 
@@ -98,44 +99,44 @@ sub run_sigi {
     push @tmpfiles, $tmp_out_file;
 
     # And we need an output embl file, reuse the same basename
-    my $tmp_out_gff .= '.embl';
+    my $tmp_out_gff = $tmp_out_file . '.gff';
+    $tmp_out_file .= '.embl';
     push @tmpfiles, $tmp_out_gff;
+    push @tmpfiles, $tmp_out_file;
 
     # And a file for stderr...
     my $tmp_stderr = $self->_make_tempfile();
-    push $tmpfiles, $tmp_stderr;
+    push @tmpfiles, $tmp_stderr;
 
     # Build the command further...
-    $cmd .= " input=$filename.embl output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM";
+    $cmd .= " input=$filename.embl output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM 2>$tmp_stderr";
 
     $logger->trace("Sending the sigi command: $cmd");
 
     # run SigiHMM
     unless ( open( COMMAND, "$cmd |" ) ) {
-	$logger->logdie("Cannot run $command");
+	$logger->logdie("Cannot run $cmd");
     }
 
     #Waits until the system call is done before saving to the array
     my @stdout = <COMMAND>;
     close(COMMAND);
-    
+
     #Open the file that contains the std error from the command call
     open( ERROR, $tmp_stderr )
-	|| $logger->logdie("Can't open std_error file: $tmp_stderr when using command: $command", "$!");
+	|| $logger->logdie("Can't open std_error file: $tmp_stderr when using command: $cmd", "$!");
     my @stderr = <ERROR>;
     close(ERROR);
 
     if ( scalar(@stderr) > 0 ) {
-	$logger->logdie "Something went wrong in sigi: @stderr";
+	$logger->logdie("Something went wrong in sigi: @stderr");
     }
 
-    $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
-
     # And go parse the islands!
-    my @gis = parse_sigi($tmp_out_gff);
+    my @gis = $self->parse_sigi($tmp_out_gff);
 
     # And cleanup after ourself
-#    $self->_remove_tmpfiles(@tmpfiles);
+    $self->_remove_tmpfiles(@tmpfiles);
 
     # And its that simple, we should be done...
     return @gis;
@@ -145,13 +146,13 @@ sub run_sigi {
 # Reuse most of Morgan's code, it works...
 sub parse_sigi {
     my $self = shift;
-	my $filename = shift;
-	open( INFILE, $filename ) or die "can't open Input File: $filename\n";
-	my @islands;    #an array of hash with start position and end position
-	my $criterion   = 'PUTAL';
-	my $islandcount = 0;
-	my $islandstart;
-	my $islandend;
+    my $filename = shift;
+    open( INFILE, $filename ) or die "can't open Input File: $filename\n";
+    my @islands;    #an array of hash with start position and end position
+    my $criterion   = 'PUTAL';
+    my $islandcount = 0;
+    my $islandstart;
+    my $islandend;
 	my $islandstatus = 0;    #start with out (0)
 
 	while (<INFILE>) {
@@ -281,7 +282,7 @@ sub _make_tempfile {
     my $self = shift;
 
     # Let's put the file in our workdir
-    my $tmp_file = mktemp($self->{workdir} . "/blasttmpXXXXXXXXXX");
+    my $tmp_file = mktemp($self->{workdir} . "/sigitmpXXXXXXXXXX");
     
     # And touch it to make sure it gets made
     `touch $tmp_file`;
