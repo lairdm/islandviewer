@@ -1,4 +1,4 @@
-#package genomicislands;
+package Islandviewer::Dimob::genomicislands;
 #loosely associated subroutines for generating dinuc and dimob islands
 
 use strict;
@@ -8,11 +8,14 @@ use File::Basename;
 use Statistics::Descriptive;
 use Getopt::Long;
 use Carp;
+
+use Islandviewer::Dimob::tabdelimitedfiles;
+
 our ( @ISA, @EXPORT, @EXPORT_OK );
 use Exporter;
 @ISA       = qw(Exporter);
-@EXPORT    = qw(cal_dinuc cal_mean cal_stddev dinuc_islands dimob_islands);
-@EXPORT_OK = qw(cal_dinuc cal_mean cal_stddev dinuc_islands dimob islands);
+@EXPORT    = qw(cal_dinuc cal_mean cal_stddev dinuc_islands dimob_islands defline2gi);
+@EXPORT_OK = qw(cal_dinuc cal_mean cal_stddev dinuc_islands dimob islands defline2gi);
 
 #use Data::Dumper; ##enable only when trouble shooting
 

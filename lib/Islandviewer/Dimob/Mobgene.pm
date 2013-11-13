@@ -60,7 +60,7 @@ sub parse_hmmer {
 
 	my %domain_hash;
 	my %mobgenes;
-	open( HMMINPUT, $hmmer_file );
+#	open( HMMINPUT, $hmmer_file );
 
 	#making sure that the file is present and not empty
 	if ( -s "$hmmer_file" ) {

@@ -39,7 +39,7 @@ use Data::Dumper;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Dimob::genomicislands;
-use Islandviewer::Dimob::mobgene;
+use Islandviewer::Dimob::Mobgene;
 
 use MicrobeDB::Replicon;
 use MicrobeDB::Search;
@@ -69,7 +69,7 @@ sub BUILD {
 sub run_dimob {
     my $self = shift;
     my $rep_accnum = shift;
-    my @tmpfiles
+    my @tmpfiles;
 
     # We're given the rep_accnum, look up the files
     my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
@@ -81,7 +81,7 @@ sub run_dimob {
 
     # To make life easier, break out the formats available
     my $formats;
-    foreach (split /\s+/, $format_str) { $formats->{$_} = 1; }
+    foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; $formats->{$_} = 1; }
 
     # Ensure we have the needed files
     unless($formats->{ffn}) {
@@ -105,18 +105,31 @@ sub run_dimob {
     my $cmd = $cfg->{hmmer_cmd};
     my $hmmer_db = $cfg->{hmmer_db};
     $cmd .= " $hmmer_db $filename.faa >$hmmer_outfile";
+    $logger->debug("Running hmmer command $cmd");
+    my $rv = system($cmd);
+#	or $logger->logdie("Error runnging hmmer: $!");
+
+#    if($rv != 0) {
+#	$logger->logdie("Error running hmmer, rv: $rv");
+#    } 
+
+    unless( -s $hmmer_outfile ) {
+	$logger->logdie("Error, hmmer output seems to be empty");
+    }
 
     my $mob_list;
 
+    $logger->debug("Parsing hmmer results with Mobgene");
     my $mobgene_obj = Islandviewer::Dimob::Mobgene->new();
-    my $mobgenes = $mobgene_obj->parse_hmmer( $hmminput, $hmm_evalue );
+#    my $mobgenes = $mobgene_obj->parse_hmmer('/home/lairdm/islandviewer/workdir/dimob//blasttmpoHyYLgBj5w', $cfg->{hmmer_evalue} );
+    my $mobgenes = $mobgene_obj->parse_hmmer( $hmmer_outfile, $cfg->{hmmer_evalue} );
 
     foreach(keys %$mobgenes){
 	$mob_list->{$_}=1;   
     }
 
     #get a list of mobility genes from ptt file based on keyword match
-    my $mobgene_ptt = $mobgene_obj->parse_ptt($pttinput);
+    my $mobgene_ptt = $mobgene_obj->parse_ptt("$filename.ptt");
 
     foreach(keys %$mobgene_ptt){
 	$mob_list->{$_}=1;   
@@ -124,7 +137,7 @@ sub run_dimob {
 
     #calculate the dinuc bias for each gene cluster of 6 genes
     #input is a fasta file of ORF nucleotide sequences
-    my $dinuc_results = cal_dinuc($ffninput);
+    my $dinuc_results = cal_dinuc("$filename.ffn");
     my @dinuc_values;
     foreach my $val (@$dinuc_results) {
 	push @dinuc_values, $val->{'DINUC_bias'};
@@ -138,7 +151,7 @@ sub run_dimob {
     my $gi_orfs = dinuc_islands( $dinuc_results, $mean, $sd, 8 );
 
     #convert the def line to gi numbers (the data structure is maintained)
-    my $dinuc_islands = defline2gi( $gi_orfs, $pttinput );
+    my $dinuc_islands = defline2gi( $gi_orfs, "$filename.ptt" );
 
     #check the dinuc islands against the mobility gene list
     #any dinuc islands containing >=1 mobility gene are classified as
@@ -157,7 +170,7 @@ sub run_dimob {
     }
 
     # And cleanup after ourself
-#    $self->_remove_tmpfiles(@tmpfiles);
+    $self->_remove_tmpfiles(@tmpfiles);
 
     return @gis;
 }
