@@ -41,8 +41,12 @@ package Islandviewer::Islandpick::GenomeUtils;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use File::Copy;
 
 use Islandviewer::DBISingleton;
+
+use MicrobeDB::Replicon;
+use MicrobeDB::Search;
 
 use Bio::SeqIO;
 use Bio::Seq;
@@ -82,6 +86,14 @@ sub read_and_convert {
 
     $logger->debug("From filename $filename got $file, $extension");
 
+    # We're going to check what files we have, then only
+    # generate the ones we need.  Because this code is
+    # so nicely compact and to avoid duplication, we're
+    # just going to trick the code so if a file exists
+    # it gets written to /dev/null
+    $self->{base_filename} = $file;
+    my $formats = $self->parse_formats($self->file_file_types());
+
     my $in;
 
     if ( $extension =~ /embl/ ) {
@@ -92,6 +104,12 @@ sub read_and_convert {
 	    );
 	$logger->info("The genome sequence in $filename has been read.");
     } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
+	# Special case, our general purpose code likes .gbk...
+	if($extension =~ /gb/) {
+	    move($filename, "$file.gbk");
+	    $filename = "$file.gbk";
+	}
+
 	$in = Bio::SeqIO->new(
 	    -file   => $filename,
 	    -format => 'GENBANK'
@@ -104,11 +122,13 @@ sub read_and_convert {
     while ( my $seq = $in->next_seq() ) {
 	my $out;    
 	if ( $extension =~ /embl/ ) {
+	    my $outfile = ($formats->{gbk} ? '/dev/null' : $file . '.gbk');
 	    $out = Bio::SeqIO->new(
-		-file   => ">" . $file . '.gbk',
+		-file   => ">" . $outfile,
 		-format => 'GENBANK'
 		);
 	} elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
+	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
 	    $out = Bio::SeqIO->new(
 		-file   => ">" . $file . '.embl',
 		-format => 'EMBL'
@@ -117,20 +137,24 @@ sub read_and_convert {
 	    $logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
 	}
 
+	my $outfile = ($formats->{faa} ? '/dev/null' : $file . '.faa');
 	my $faa_out = Bio::SeqIO->new(
-	    -file   => ">" . $file . '.faa',
+	    -file   => ">" . $outfile,
 	    -format => 'FASTA'
 	    );
+	$outfile = ($formats->{ffn} ? '/dev/null' : $file . '.ffn');
 	my $ffn_out = Bio::SeqIO->new(
-	    -file   => ">" . $file . '.ffn',
+	    -file   => ">" . $outfile,
 	    -format => 'FASTA'
 	    );
+	$outfile = ($formats->{fna} ? '/dev/null' : $file . '.fna');
 	my $fna_out = Bio::SeqIO->new(
-	    -file   => ">" . $file . '.fna',
+	    -file   => ">" . $outfile,
 	    -format => 'FASTA'
 	    );
 
-	open( my $PTT_OUT, '>', $file . '.ptt' );
+	$outfile = ($formats->{ptt} ? '/dev/null' : $file . '.ptt');
+	open( my $PTT_OUT, '>', $outfile );
 
 	my $total_length = $seq->length();
 	my $total_seq    = $seq->seq();
@@ -301,6 +325,30 @@ sub read_and_convert {
     
 }    #end of gbk_or_embl_to_other_formats
 
+sub find_file_types {
+    my $self = shift;
+
+    unless($self->{base_filename}) {
+	$logger->error("Error, a genome must be read before you can testthe file types");
+	return '';
+    }
+
+    # Fetch and parse the formats we expect to find...
+    my $expected_formats = $self->parse_formats($cfg->{file_extensions});
+
+    my @formats;
+    foreach my $ext (keys $expected_formats) {
+	# For each format we expect to find, does the file exist?
+	# And is non-zero
+	if(-f "$self->{base_filename}.$ext" &&
+	   -s "$self->{base_filename}.$ext") {
+	    push @formats, ".$ext";
+	}
+    }
+
+    return join ' ', @formats;
+}
+
 sub insert_custom_genome {
     my $self = shift;
 
@@ -327,6 +375,93 @@ sub insert_custom_genome {
     $self->{rep_accnum} = $cid;
 
     return $cid;
+}
+
+# Lookup an identifier, determine if its from microbedb
+# or from the custom genomes.  Return a package of
+# information such as the base filename
+# We allow to say what type it is, custom or microbedb
+# if we know, to save a db hit
+
+sub lookup_genome {
+    my $self = shift;
+    my $rep_accnum = shift;
+    my $type = (@_ ? shift : 'unknown');
+
+    unless($rep_accnum =~ /\D/ || $type eq 'microbedb') {
+    # If we know we're not hunting for a microbedb genome identifier...
+    # or if there are non-digits, we know custom genomes are only integers
+    # due to it being the autoinc field in the CustomGenome table
+    # Do this one first since it'll be faster
+
+	# Only prep the statement once...
+	unless($self->{find_custom_name}) {
+	    my $dbh = Islandviewer::DBISingleton->dbh;
+
+	    my $sqlstmt = "SELECT name, filename, formats, cds_num, rep_size from CustomGenome WHERE cid = ?";
+	    $self->{find_custom_name} = $dbh->prepare($sqlstmt) or 
+		die "Error preparing statement: $sqlstmt: $DBI::errstr";
+	}
+
+	$self->{find_custom_name}->execute($rep_accnum);
+
+	# Do we have a hit? There should only be one row,
+	# its a primary key
+	if($self->{find_custom_name}->rows > 0) {
+	    my ($name,$filename,$formats, $cds_num, $total_length) = $self->{find_custom_name}->fetchrow_array;
+
+	    # Save the results
+	    $self->{name} = $name;
+	    $self->{base_filename} = $filename;
+	    $self->{num_proteins} = $cds_num;
+	    $self->{total_length} = $total_length;
+	    $self->{formats} = $self->parse_formats($formats);
+	    $self->{genome_read} = 1;
+
+	    return ($name,$filename,$formats);
+	}
+    }    
+
+    unless($type  eq 'custom') {
+    # If we know we're not hunting for a custom identifier    
+
+	my $sobj = new MicrobeDB::Search();
+
+	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
+								      version_id => $self->{microbedb_ver} ));
+	
+	# We found a result in microbedb
+	if( defined($rep_results) ) {
+	    # One extra step, we need the path to the genome file
+	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
+	    my ($gpo) = $search_obj->object_search($rep_results);
+
+	    $self->{name} = $rep_results->definition();
+	    $self->{base_filename} = $gpo->gpv_directory() . $rep_results->file_name();
+	    $self->{num_proteins} = $rep_results->protein_num();
+	    $self->{total_length} = $rep_results->cds_num();
+	    $self->{formats} = $self->parse_formats($rep_results->file_types());
+	    $self->{genome_read} = 1;
+
+	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
+	}
+    }
+
+    # This should actually never happen if we're
+    # doing things right, but handle it anyways
+    return ('unknown',undef,undef);
+
+}
+
+
+sub parse_formats {
+    my $self = shift;
+    my $format_str = shift;
+
+    my $formats;
+    foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; print $_; $formats->{$_} = 1; }
+
+    return $formats;
 }
 
 #used to create ptt file
