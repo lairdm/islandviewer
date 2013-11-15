@@ -36,12 +36,13 @@
 
 =cut
 
-package Islandviewer::Islandpick::GenomeUtils;
+package Islandviewer::GenomeUtils;
 
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Copy;
+use File::Basename;
 
 use Islandviewer::DBISingleton;
 
@@ -61,9 +62,9 @@ sub BUILD {
 
     $logger = Log::Log4perl->get_logger;
 
-    die "Error, work dir not specified: $args->{workdir}"
-	unless( -d $args->{workdir} );
-    $self->{workdir} = $args->{workdir};
+#    die "Error, work dir not specified: $args->{workdir}"
+#	unless( -d $args->{workdir} );
+#    $self->{workdir} = $args->{workdir};
 
 }
 
@@ -92,7 +93,7 @@ sub read_and_convert {
     # just going to trick the code so if a file exists
     # it gets written to /dev/null
     $self->{base_filename} = $file;
-    my $formats = $self->parse_formats($self->file_file_types());
+    my $formats = $self->parse_formats($self->find_file_types());
 
     my $in;
 
@@ -130,7 +131,7 @@ sub read_and_convert {
 	} elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
 	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
 	    $out = Bio::SeqIO->new(
-		-file   => ">" . $file . '.embl',
+		-file   => ">" . $outfile,
 		-format => 'EMBL'
 		);
 	} else {
@@ -334,10 +335,10 @@ sub find_file_types {
     }
 
     # Fetch and parse the formats we expect to find...
-    my $expected_formats = $self->parse_formats($cfg->{file_extensions});
+    my $expected_formats = $self->parse_formats($cfg->{expected_exts});
 
     my @formats;
-    foreach my $ext (keys $expected_formats) {
+    foreach my $ext (keys %$expected_formats) {
 	# For each format we expect to find, does the file exist?
 	# And is non-zero
 	if(-f "$self->{base_filename}.$ext" &&
@@ -375,6 +376,43 @@ sub insert_custom_genome {
     $self->{rep_accnum} = $cid;
 
     return $cid;
+}
+
+# Move a custom genome and all its children to a new location,
+# then update the database
+
+sub move_and_update {
+    my $self = shift;
+    my $cid = shift;
+    my $new_path = shift;
+
+    # First let's ensure this is a directory
+    unless( -d $new_path ) {
+	$logger->error("Error, $new_path doesn't seem to be a directory");
+	return 0;
+    }
+
+    # If we're trying to insert the genome without
+    # calling read_and_convert first, fail
+    return 0 unless($self->{genome_read});
+
+    my($filename, $directory, $suffix) = 
+	fileparse($self->{base_filename});
+
+    # Move the files over to the new location
+#    my @old_files = glob ($self->{base_filename} . '*');
+    foreach my $f (glob ($self->{base_filename} . '*')) {
+	move($f, $new_path);
+    }
+
+    # Now update the base name in the database
+    my $newfile = "$new_path/$filename";
+    $newfile =~ s/\/\//\//g;
+    $self->{base_filename} = $newfile;
+    my $dbh = Islandviewer::DBISingleton->dbh;
+    $dbh->do("UPDATE TABLE CustomGenome SET (filename) VALUES (?)", undef, $newfile);
+
+    return 1;
 }
 
 # Lookup an identifier, determine if its from microbedb
@@ -416,6 +454,7 @@ sub lookup_genome {
 	    $self->{num_proteins} = $cds_num;
 	    $self->{total_length} = $total_length;
 	    $self->{formats} = $self->parse_formats($formats);
+	    $self->{type} = 'custom';
 	    $self->{genome_read} = 1;
 
 	    return ($name,$filename,$formats);
@@ -427,8 +466,9 @@ sub lookup_genome {
 
 	my $sobj = new MicrobeDB::Search();
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version_id => $self->{microbedb_ver} ));
+	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum ));
+									  
+#								      version_id => $self->{microbedb_ver} ));
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
@@ -441,6 +481,8 @@ sub lookup_genome {
 	    $self->{num_proteins} = $rep_results->protein_num();
 	    $self->{total_length} = $rep_results->cds_num();
 	    $self->{formats} = $self->parse_formats($rep_results->file_types());
+	    $self->{type} = 'microbedb';
+	    $self->{version} = $rep_results->version_id();
 	    $self->{genome_read} = 1;
 
 	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
@@ -459,7 +501,7 @@ sub parse_formats {
     my $format_str = shift;
 
     my $formats;
-    foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; print $_; $formats->{$_} = 1; }
+    foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; $formats->{$_} = 1; }
 
     return $formats;
 }
