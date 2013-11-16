@@ -49,6 +49,7 @@ use MicrobeDB::GenomeProject;
 use Net::ZooKeeper::WatchdogQueue;
 
 use Islandviewer::Schema;
+use Islandviewer::GenomeUtils;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -71,6 +72,9 @@ sub BUILD {
 
     $self->{block} = (defined($args->{block}) ? $args->{block} : 0);
 
+    $self->{microbedb_ver} = (defined($args->{microbedb_ver}) ?
+			      $args->{microbedb_ver} : undef );
+
     die "Error, work dir not specified:  $args->{workdir}"
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
@@ -86,6 +90,13 @@ sub BUILD {
     $logger->info("Using workdir " .  $self->{workdir});
     $logger->info("Using num_jobs " . $self->{num_jobs}) if($self->{num_jobs});
 
+}
+
+sub run {
+    my $self = shift;
+    my $accnum = shift;
+
+    $self->add_replicon(cid => $accnum);
 }
 
 sub calculate_all {
@@ -261,12 +272,17 @@ sub add_replicon {
 
     my $cid = $args{cid};
 
-    # Fetch the record from the database for this custom genome
-    my $custom_genome = $self->{schema}->resultset('CustomGenome')->find(
-	{ c_id => $cid } ) or
-	return 0;
+    my $genome_obj = Islandviewer::GenomeUtils->new();
+    my($name,$filename,$format_str) = $genome_obj->lookup_genome($cid);
 
-    my $filename = $custom_genome->filename;
+    my $formats = $genome_obj->parse_formats($format_str);
+
+    # Fetch the record from the database for this custom genome
+#    my $custom_genome = $self->{schema}->resultset('CustomGenome')->find(
+#	{ c_id => $cid } ) or
+#	return 0;
+
+#    my $filename = $custom_genome->filename;
 
     # Do some checking on the file name and munge it for our needs
     unless($filename =~ /^\//) {
@@ -276,7 +292,8 @@ sub add_replicon {
     }
 
     # Filenames are just saved as basenames, check if the fasta version exists
-    unless( -f "$filename.faa" ) {
+#    unless( -f "$filename.faa" ) {
+    unless( $formats->{faa} ) {
 	$logger->error("Error, can't find filename $filename.faa");
 	return 0;
     }

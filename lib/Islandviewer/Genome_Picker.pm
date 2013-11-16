@@ -80,7 +80,7 @@ sub find_comparative_genomes {
     my $self = shift;
     my $rep_accnum = shift;
 
-    $logger->debug("Finding comparative genomes for $rep_accnum");
+    $logger->debug("Finding comparative genomes for $rep_accnum using microbedb_ver " . $self->{microbedb_ver});
 
     # First let's get all the genomes which meet our distance
     # criteria, we'll now have a hash matching that
@@ -136,15 +136,20 @@ sub find_comparative_genomes {
 
     # Do a quick sanity check, do we have at least one matching the min/max
     # single distance cutoffs? If not, we're done, bye bye.
-    return undef
-	unless($self->check_thresholds);
+    unless($self->check_thresholds) {
+	$logger->trace("Didn't match threshold criteria");
+	return undef;
+    }
 
     # Another quick sanity check, do we have the minimum number
     # of genomes?
     # No? Return nothing, failed.
-    return undef
-	if(scalar(keys %{$self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}}) <
-	   $self->{min_compare_cutoff});
+    if(scalar(keys %{$self->{dist_set}->{$self->{primary_rep_accnum}}->{dists}}) <
+       $self->{min_compare_cutoff}) {
+
+	$logger->trace("Didn't meet minimum number of genomes");
+	return undef;
+    }
     
     # Now let's start the trimming loop
     # Trim while we have too many results

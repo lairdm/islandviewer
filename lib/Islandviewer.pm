@@ -31,6 +31,7 @@ use Moose;
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
+use Islandviewer::Analysis;
 
 use Log::Log4perl qw(get_logger :nowarn);
 
@@ -74,8 +75,8 @@ sub submit_and_prep {
     $genome_obj->read_and_convert($file, $genome_name);
 
     # Sanity checking, did we get all the correct types?
-    unless($cfg->{expected_exts} eq $genome_objs->find_file_types()) {
-	$logger->error("Error, we don't have the correct file types, we can't continue");
+    unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
+	$logger->error("Error, we don't have the correct file types, we can't continue, have \"" . $genome_obj->find_file_types() . "\", expecting \"$cfg->{expected_exts}\"");
 	return 0;
     }
 
@@ -96,12 +97,58 @@ sub submit_and_prep {
     return $cid;
 }
 
+# We're trying to keep things abstract as possible
+# but at some level someone has to know about all
+# the pipeline components, its this guy.
+
 sub submit_analysis {
     my $self = shift;
     my $cid = shift;
     my $args = shift;
 
+    my $genome_obj = Islandviewer::GenomeUtils->new();
 
+    my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
+
+    # Sanity checking, did we get all the correct types?
+    unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
+	# We need to regenerate the files
+	unless($genome_obj->regenerate_files()) {
+	    # Oops, we weren't able to regenerate for some reason, failed
+	    $logger->("Error, we don't have the needed files, we can't do an alaysis");
+	    return 0;
+	}
+    }    
+
+    # We should be ready to go, let's submit our analysis!
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}});
+    my $aid;
+
+    eval {
+	$aid = $analysis_obj->submit($genome_obj, $args);
+    };
+    if($@) { 
+	$logger->error("Error, we couldn't submit the analysis");
+	return 0;
+    }
+
+    return $aid;
+}
+
+sub run {
+    my $self = shift;
+    my $aid = shift;
+    my $module = shift;
+
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
+
+    my $ret;
+    eval {
+	$ret = $analysis_obj->run($module);
+    };
+    if($@) {
+	$logger->error("Error running module $module: $@");
+    }
 }
 
 1;

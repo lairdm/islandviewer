@@ -83,6 +83,7 @@ sub read_and_convert {
     my $genome_name = (@_ ? shift : 'custom_genome');
 
     #seperate extension from filename
+    $filename =~ s/\/\//\//g;
     my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
 
     $logger->debug("From filename $filename got $file, $extension");
@@ -319,12 +320,43 @@ sub read_and_convert {
 	$self->{base_filename} = $file;
 	$self->{ext} = $extension;
 	$self->{orig_filename} = $filename;
+	$self->{formats} = $self->parse_formats($self->find_file_types());
+#	$self->{type} = 'custom';
 	$self->{genome_read} = 1;
 
 	close($PTT_OUT);
     }    #end of while
     
 }    #end of gbk_or_embl_to_other_formats
+
+sub regenerate_files {
+    my $self = shift;
+
+    unless($self->{base_filename}) {
+	$logger->error("Error, we can't regenerate the files unless we have a base filename");
+	return 0;
+    }
+
+    if($self->{formats}->{gbk}) {
+	$logger->trace("Regenerating based on genbank format");
+	$self->read_and_convert($self->{base_filename} . '.gbk', $self->{name});
+    } elsif($self->{formats}->{embl}) {
+	$logger->trace("Regenerating based on Embl format");
+	$self->read_and_convert($self->{base_filename} . '.embl', $self->{name});
+    } else {
+	$logger->error("Error, we don't have either genbank or embl, can't generate needed files");
+	return 0;
+    }
+
+    if($cfg->{expected_exts} eq $self->find_file_types()) {
+	# The regeneration was successful!
+	return 1;
+    } else {
+	$logger->error("Error, we didn't regenerate all the files we expected to, failed");
+	return 0;
+    }
+
+}
 
 sub find_file_types {
     my $self = shift;
@@ -335,10 +367,16 @@ sub find_file_types {
     }
 
     # Fetch and parse the formats we expect to find...
-    my $expected_formats = $self->parse_formats($cfg->{expected_exts});
+    my @expected;
+    foreach (split /\s+/, $cfg->{expected_exts}) { 
+	$_ =~ s/^\.//; 
+	push @expected, $_; 
+    }
+
+#    my $expected_formats = $self->parse_formats($cfg->{expected_exts});
 
     my @formats;
-    foreach my $ext (keys %$expected_formats) {
+    foreach my $ext (@expected) {
 	# For each format we expect to find, does the file exist?
 	# And is non-zero
 	if(-f "$self->{base_filename}.$ext" &&
@@ -410,7 +448,7 @@ sub move_and_update {
     $newfile =~ s/\/\//\//g;
     $self->{base_filename} = $newfile;
     my $dbh = Islandviewer::DBISingleton->dbh;
-    $dbh->do("UPDATE TABLE CustomGenome SET (filename) VALUES (?)", undef, $newfile);
+    $dbh->do("UPDATE CustomGenome SET filename=? WHERE cid = ?", undef, $newfile, $cid);
 
     return 1;
 }
@@ -450,6 +488,7 @@ sub lookup_genome {
 
 	    # Save the results
 	    $self->{name} = $name;
+	    $self->{accnum} = $rep_accnum;
 	    $self->{base_filename} = $filename;
 	    $self->{num_proteins} = $cds_num;
 	    $self->{total_length} = $total_length;

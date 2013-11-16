@@ -86,8 +86,11 @@ sub BUILD {
 	or die "Error, can't connect to Islandviewer via DBIx";
 
     die "Error, you must specify a microbedb version"
-	unless($args->{microbedb_version});
-    $self->{microbedb_ver} = $args->{microbedb_version};
+	unless($args->{microbedb_ver});
+    $self->{microbedb_ver} = $args->{microbedb_ver};
+
+    $self->{comparison_genomes} = (defined $args->{comparison_genomes} ? 
+				   $args->{comparison_genomes} : undef );
 
     # Setup the cutoffs for the run, we'll use the defaults
     # unless we're explicitly told otherwise
@@ -102,6 +105,21 @@ sub BUILD {
     $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
 
 
+}
+
+# The generic run to be called from the scheduler
+# magically do everything.
+
+sub run {
+    my $self = shift;
+    my $accnum = shift;
+
+    my @comparison_genomes;
+    if(defined $self->{comparison_genomes}) {
+	@comparison_genomes= split ' ', $self->{comparison_genomes};
+    }
+
+    $self->run_islandpick($accnum, @comparison_genomes);
 }
 
 # To run islandpick we'll need to do the following:
@@ -133,8 +151,10 @@ sub run_islandpick {
 	my $results = $picker_obj->find_comparative_genomes($rep);
 
 	# Didn't get any results, return an empty set
-	return () 
-	    unless($results);
+	unless($results) {
+	    $logger->debug("No comparison genomes found");
+	    return () ;
+	}
 
 	# Loop through the results
 	foreach my $tmp_rep (keys %{$results}) {
