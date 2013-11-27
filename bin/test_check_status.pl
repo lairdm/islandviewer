@@ -14,13 +14,12 @@ sub mypath { return $path; }
 
 use lib "../lib";
 use Islandviewer;
-use Islandviewer::Analysis;
+use Islandviewer::Status;
 
 MAIN: {
-    my $cfname; my $aid; my $module; my $logger;
+    my $cfname; my $logger; my $aid;
     my $res = GetOptions("config=s"   => \$cfname,
-			 "analyis=s" => \$aid,
-			 "module=s"  => \$module,
+			 "aid=s" => \$aid,
     );
 
     die "Error, no config file given"
@@ -32,11 +31,13 @@ MAIN: {
     if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
-
-	my $app = Log::Log4perl->appender_by_name("errorlog");
-	$app->file_switch($cfg->{analysis_log});
-	$logger->debug("Logging initialized, aid $aid, module $module");
+	$logger->debug("Logging initialized");
     }
 
-    $Islandviewer->run($aid, $module);
+    my $status = Islandviewer::Status->new();
+
+    my $modules = $status->check_status($aid);
+
+    print Dumper $modules;
+
 };

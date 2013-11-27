@@ -61,6 +61,19 @@ sub BUILD {
 
 }
 
+sub change_logfile {
+    my $self = shift;
+
+    my $app = Log::Log4perl->appender_by_name("errorlog");
+    if($self->{workdir}) {
+	$app->file_switch($self->{workdir} . "/analysis.log");
+
+    } else {
+	$app->file_switch($self->{base_workdir} . "/analysis.log");
+    }
+    $logger->debug("Logging initialized, aid $self->{aid}");
+}
+
 sub load_analysis {
     my $self = shift;
     my $aid = shift;
@@ -84,7 +97,19 @@ sub load_analysis {
     } else {
 	$logger->logdie("Error, can't find analysis $aid");
     }
+
+    unless( -d $self->{base_workdir} ) {
+	$logger->logdie("Error, workdir " . $self->{base_workdir} . " doesn't exist for aid " . $self->{aid});
+    }
+
+    # Move the logging over to the analysis
+    $self->change_logfile();
+
 }
+
+# Submit the analysis and all its pieces in to the
+# database, this is the guy who has to know about all
+# the various modules for a submission.
 
 sub submit {
     my $self = shift;
@@ -101,7 +126,7 @@ sub submit {
 			      $genome_obj->{accnum}, 
 			      ($args->{default_analysis} ? 1 : 0),
 			      $STATUS_MAP->{PENDING},
-	) or $logger->logdie("Error inserting analysis: $DBI::errstr");
+	) or $logger->logdie("Error inserting analysis, accnum $genome_obj->{accnum}: $DBI::errstr");
 
     # Now we fetch the analysis id, because this is needed in making
     # the workdir....
@@ -116,6 +141,10 @@ sub submit {
 	$self->set_status('ERROR');
 	return 0;
     }
+
+    # Move the logging over to the analysis
+    $self->change_logfile();
+
     $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $self->{workdir}, $aid);
 
     # Alright, we have our analysis inserted, now time to add the components
@@ -187,7 +216,9 @@ sub run {
 	$logger->logdie("Error, can't find analysis task $module");
     }
 
-    # Now we need to make our workinf directory
+    $self->set_module_status('RUNNING');
+
+    # Now we need to make our working directory
     $self->{workdir} = $self->{base_workdir} . "/$module";
     unless( -d $self->{workdir} ) {
 	unless(mkdir $self->{workdir}) {
@@ -199,21 +230,56 @@ sub run {
 	}
     }
 
+    # Move the logging over to the analysis
+    $self->change_logfile();
+
     # Setup the needed arguments for the modules
     $args->{workdir} = $self->{workdir};
     $args->{microbedb_ver} = $self->{microbedb_ver};
+    print "Sending args:\n";
     print Dumper $args;
 
-    my $mod_obj;
+    my $mod_obj; my $res;
     eval {
 	no strict 'refs';
 	$logger->trace("Loading module $module");
 	require "Islandviewer/$module.pm";
 	$mod_obj = "Islandviewer::$module"->new($args);
-	$mod_obj->run($self->{ext_id});
+
+	# How we're going to do it is the module doesn't
+	# need to know about how to write results or such
+	# it just reports back success or failure.  But we'll
+	# pass ourself in, and provide an interface for it
+	# to send results to, if it has any (things like Distance
+	# do it themself)
+	$res = $mod_obj->run($self->{ext_id}, $self);
     };
     if($@) {
+	$self->set_module_status('ERROR');
 	$logger->logdie("Can't run module $module: $@");
+    }
+
+    if($res) {
+	$self->set_module_status('COMPLETE');
+	return 1;
+    } else {
+	$self->set_module_status('ERROR');
+	return 0;
+    }
+}
+
+sub record_islands {
+    my $self = shift;
+    my $module_name = shift;
+    my @islands = @_;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $insert_island = $dbh->prepare("INSERT INTO GenomicIsland (aid_id, start, end, prediction_method) VALUES (?, ?, ?, ?)");
+
+    foreach my $island (@islands) {
+	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
+	    or $logger->logdie("Error loading island: $DBI::errstr");
     }
 }
 
@@ -244,10 +310,14 @@ sub set_module_status {
 
     # Make sure its a valid status
     if($STATUS_MAP->{$status}) {
+	my $datestr = '';
+	$datestr = ', start_date = NOW() ' if($status eq 'RUNNING');
+	$datestr = ', complete_date = NOW() ' if($status eq 'COMPLETE');
+
 	$logger->trace("Updating analysis " .  $self->{aid} . ", module " . $self->{module} . " to status $status");
-	$dbh->do("UPDATE GIAnalysisTask SET status = ? WHERE taskid = ?", undef, $STATUS_MAP->{$status}, $self->{taskid});
+	$dbh->do("UPDATE GIAnalysisTask SET status = ? $datestr WHERE taskid = ?", undef, $STATUS_MAP->{$status}, $self->{taskid});
     } else {
-	$logger->error("Error, status $status doesn't seem to be valid");
+	$logger->error("Error, status $status doesn't seem to be valid (module $self->{module})");
     }
 }
 

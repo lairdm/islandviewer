@@ -54,6 +54,8 @@ use Islandviewer::Genome_Picker;
 
 my $cfg; my $logger; my $cfg_file;
 
+my $module_name = 'Islandpick';
+
 # Method to build an instance
 #
 # Islandviewer::Islandpick->new({arg => value, ...});
@@ -113,13 +115,27 @@ sub BUILD {
 sub run {
     my $self = shift;
     my $accnum = shift;
+    my $callback = shift;
 
     my @comparison_genomes;
     if(defined $self->{comparison_genomes}) {
 	@comparison_genomes= split ' ', $self->{comparison_genomes};
     }
 
-    $self->run_islandpick($accnum, @comparison_genomes);
+    my @islands = $self->run_islandpick($accnum, @comparison_genomes);
+
+    if(@islands) {
+	# If we get a undef set it doesn't mean failure, just
+	# nothing found.  Write the results to the callback
+	# if we have any
+	if($callback) {
+	    $callback->record_islands($module_name, @islands);
+	}
+    }
+
+    # We just return 1 because any failure for this module
+    # would be in the form of an exception thrown.
+    return 1;
 }
 
 # To run islandpick we'll need to do the following:

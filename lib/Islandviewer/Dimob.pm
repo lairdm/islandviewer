@@ -46,6 +46,8 @@ use MicrobeDB::Search;
 
 my $cfg; my $logger; my $cfg_file;
 
+my $module_name = 'Dimob';
+
 sub BUILD {
     my $self = shift;
     my $args = shift;
@@ -60,9 +62,34 @@ sub BUILD {
     $self->{workdir} = $args->{workdir};
 
     die "Error, you must specify a microbedb version"
-	unless($args->{microbedb_version});
-    $self->{microbedb_ver} = $args->{microbedb_version};
+	unless($args->{microbedb_ver});
+    $self->{microbedb_ver} = $args->{microbedb_ver};
 
+    
+}
+
+# The generic run to be called from the scheduler
+# magically do everything.
+
+sub run {
+    my $self = shift;
+    my $accnum = shift;
+    my $callback = shift;
+
+    my @islands = $self->run_dimob($accnum);
+
+    if(@islands) {
+	# If we get a undef set it doesn't mean failure, just
+	# nothing found.  Write the results to the callback
+	# if we have any
+	if($callback) {
+	    $callback->record_islands($module_name, @islands);
+	}
+    }
+
+    # We just return 1 because any failure for this module
+    # would be in the form of an exception thrown.
+    return 1;
     
 }
 

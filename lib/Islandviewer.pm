@@ -33,6 +33,8 @@ use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
 use Islandviewer::Analysis;
 
+use Net::ZooKeeper::WatchdogQueue;
+
 use Log::Log4perl qw(get_logger :nowarn);
 
 my $cfg; my $logger;
@@ -99,7 +101,7 @@ sub submit_and_prep {
 
 # We're trying to keep things abstract as possible
 # but at some level someone has to know about all
-# the pipeline components, its this guy.
+# the pipeline components, its not this guy.
 
 sub submit_analysis {
     my $self = shift;
@@ -140,15 +142,24 @@ sub run {
     my $aid = shift;
     my $module = shift;
 
+    # Create our watchdog so observers can keep an eye
+    # on our status
+    my $watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
+						     $cfg->{zk_analysis});
+
     my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
 
     my $ret;
     eval {
+	$watchdog->create_timer("$aid.$module");
 	$ret = $analysis_obj->run($module);
     };
     if($@) {
 	$logger->error("Error running module $module: $@");
+	return 0;
     }
+
+    return $ret;
 }
 
 1;

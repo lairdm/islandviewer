@@ -96,7 +96,7 @@ sub run {
     my $self = shift;
     my $accnum = shift;
 
-    $self->add_replicon(cid => $accnum);
+    return $self->add_replicon(cid => $accnum);
 }
 
 sub calculate_all {
@@ -308,6 +308,8 @@ sub add_replicon {
     } else {
 	$self->calculate_all(custom_replicon => $custom_rep);
     }
+
+    return 1;
 
 }
 
