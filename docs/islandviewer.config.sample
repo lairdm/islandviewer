@@ -1,11 +1,57 @@
+[main]
 workdir = /home/lairdm/islandviewer/workdir/
+custom_genomes = /home/lairdm/islandviewer/custom_genomes
+analysis_directory=/home/lairdm/islandviewer/analysis
+component_runner=/home/lairdm/islandviewer/bin/run_module.pl
+
+logger_conf = ../etc/logger.conf
+analysis_log = /home/lairdm/islandviewer/logs/analysis.log
+submit_log = /home/lairdm/islandviewer/logs/submit.log
 
 dist_table = iv4_distance
+dist_log_table=DistanceAttempts
+expected_exts=".gbk .fna .faa .ffn .ptt .embl"
 
 default_scheduler = Islandviwer::MetaScheduler
+distance_scheduler = Islandviwer::NullScheduler
 cvtree_dispatcher = "/home/lairdm/islandviewer/run_cvtree.pl -w %s -s %s -n %s"
 cvtree_cmd = "/usr/local/bin/cvtree -i %s -k5 -t aa -S -q -l %s >>%s 2>&1"
+mauve_cmd = "/home/lairdm/islandviewer/utils/mauve_1.2.3/mauveAligner"
+save_failed = 1
+
+ip_blastprog = blastn
+ip_e_cutoff = 1
+blastdir = /usr/local/pkg/blast-2.2.26
+formatdb = /usr/local/pkg/blast-2.2.26/bin/formatdb
+
+sigi_cmd="/home/lairdm/islandviewer/utils/Colombo_3.8/SigiHMM"
+sigi_path="/home/lairdm/islandviewer/utils/Colombo_3.8/"
+java_bin="/usr/bin/java"
+
+hmmer_cmd = /home/lairdm/islandviewer/utils/hmmer-3.1b1-linux-intel-x86_64/binaries/hmmscan
+#hmmer_cmd = /home/lairdm/islandviewer/utils/hmmer/bin/hmmpfam
+#hmmer_db = /home/lairdm/islandviewer/etc/Pfam_ls_mobgene_selected_June172005_HMMER2
+hmmer_db = /home/lairdm/islandviewer/etc/Pfam_ls_mobgene_selected_June172005_HMMER3
+hmmer_evalue = 0.001
 
 dsn=DBI:mysql:database=islandviewer;host=localhost
 dbuser=user
 dbpass=password
+
+zookeeper=localhost:7000
+zk_root="/cvtree"
+zk_analysis="/islandviewer/analysis"
+zk_analysis_timer=1800
+zk_analysis_timer_Distance=7200
+zk_timer=360
+
+qsub_cmd = "/home/lairdm/metascheduler/bin/qsub.pl"
+
+MAX_CUTOFF=0.42
+MIN_CUTOFF=0.1
+MIN_COMPARE_CUTOFF = 3
+MAX_COMPARE_CUTOFF = 6
+MAX_DIST_SINGLE_CUTOFF = 0.3
+MIN_DIST_SINGLE_CUTOFF = 0.34
+MIN_GI_SIZE = 8000
+mauve_island_size = 4000
