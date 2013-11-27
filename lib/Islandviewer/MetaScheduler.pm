@@ -30,16 +30,21 @@ package Islandviewer::MetaScheduler;
 
 use strict;
 use Moose;
+use Log::Log4perl qw(get_logger :nowarn);
+use JSON;
 
 use Islandviewer::Config;
 
-my $cfg;
+my $cfg; my $cfg_file; my $logger;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
     $cfg = Islandviewer::Config->config;
+    $cfg_file = File::Spec->rel2abs(Islandviewer::Config->config_file);
+
+    $logger = Log::Log4perl->get_logger;
 
 }
 
@@ -62,6 +67,61 @@ sub submit {
     close QSUB;
 
     
+}
+
+sub build_and_submit {
+    my $self = shift;
+    my $aid = shift;
+    my $job_type = shift;
+    my $workdir = shift;
+    my $args = shift;
+    my @modules = @_;
+
+    $logger->debug("Building metascheduler submission for analysis $aid");
+
+    # Now we need to start making our metascheduler job file
+    my $meta_job->{job_name} = "IV $aid";
+    $meta_job->{job_id} = $aid;
+    $meta_job->{job_type} = $job_type;
+    $meta_job->{job_scheduler} = 'Torque';
+    $meta_job->{job_email} = [{'email' => $args->{email}}] if($args->{email});
+    
+    # Now add the components
+    foreach my $component (@modules) {
+	my $c->{component_type} = $component;
+	$c->{qsub_file} = "$workdir/$component.qsub";
+	push @{$meta_job->{components}}, $c;
+
+	# Now we need to make these qsub files...
+	$self->create_qsub("$workdir/$component.qsub",
+	    $cfg->{component_runner} . " -c $cfg_file -a $aid -m $component");
+    }
+
+    # Convert it to JSON and write it out
+    my $JSONstr = to_json($meta_job, {pretty => 1});
+    open(JSON, ">$workdir/metascheduler.job") 
+	or $logger->logdie("Error creating metascheduler job file for $aid, $@");
+
+    print JSON $JSONstr;
+    close JSON;
+
+    # And submit the job file to metascheduler...
+
+}
+
+sub create_qsub {
+    my $self = shift;
+    my $qsub_file = shift;
+    my $cmd = shift;
+
+    open(QSUB, ">$qsub_file") 
+	or $logger->logdie("Error creating qsub file $qsub_file: $@");
+
+    print QSUB "# qsub file for Islandviewer\n\n";
+    print QSUB "echo \"Starting submission, command: $cmd\"\n";
+    print QSUB "$cmd\n";
+
+    close QSUB;
 }
 
 1;

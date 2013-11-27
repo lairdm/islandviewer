@@ -1,0 +1,56 @@
+{
+  "job_type": "IslandViewer",
+  "first_component": "Distance",
+  "admin_email": "lairdm@sfu.ca",
+  "mailer_from": "islandpick-mail@sfu.ca",
+  "mailer_script": "/home/shared/Modules/islandviwer/mailuser.pl %%jobid%%",
+  "components": [
+      {
+          "name": "Distance",
+          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Sigi,Dimob,Islandpick",
+          "on_failure": "Summary",
+          "success_required": "true"
+      },
+      {
+          "name": "Sigi",
+          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Summary",
+          "on_failure": "Summary",
+          "success_required": "false"
+      },
+      {
+          "name": "Islandpick",
+          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Summary",
+          "on_failure": "Summary",
+          "success_required": "false"
+      },
+      {
+          "name": "Dimob",
+          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Summary",
+          "on_failure": "Summary",
+          "success_required": "false"
+      },
+      {
+          "name": "Summary",
+          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "depends_on": [
+              {
+                "component": "Sigi",
+                "success_required": "false"
+              },
+              {
+                "component": "Dimob",
+                "success_required": "false"
+              },
+              {
+                "component": "Islandpick",
+                "success_required": "false"
+              }
+          ],
+          "success_required": "true"
+      }
+  ]
+}

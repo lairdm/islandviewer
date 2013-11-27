@@ -1,5 +1,10 @@
 #!/usr/bin/env perl
 
+# Used to submit a custom genome, given a file name it copies it over
+# and tries to prep it for analysis
+# Returns the cid number which can be used to sub the analysis
+# for execution.
+
 use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
@@ -16,9 +21,10 @@ use lib "../lib";
 use Islandviewer;
 
 MAIN: {
-    my $cfname; my $filename; my $logger;
+    my $cfname; my $filename; my $name; my $logger;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "filename=s" => \$filename,
+			 "name=s"     => \$name
     );
 
     die "Error, no config file given"
@@ -33,19 +39,21 @@ MAIN: {
 	$logger->debug("Logging initialized");
     }
 
-    my $cid = $Islandviewer->submit_and_prep($filename, "My test");
+    unless( -f $filename && -r $filename ) {
+	$logger->error("Custom genome $filename is not readable, failing");
+	print "0\n";
+	exit;
+    }
 
-    print "cid: $cid\n";
+    eval {
+	my $cid = $Islandviewer->submit_and_prep($filename, 
+						 ($name ? $name : 'custom genome'));
+    };
+    if($@) {
+	$logger->error("Failed upload of file $filename: $@");
+	print "0\n$@\n";
+	exit;
+    }
 
-    my $args->{Islandpick} = {comparison_genomes => "NC_11111 NC_22222",
-			      MIN_GI_SIZE => 4000};
-    $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
-    $args->{microbedb_ver} = 80;
-    $args->{email} = 'lairdm@sfu.ca';
-    print Dumper $args;
-
-    my $aid = $Islandviewer->submit_analysis($cid, $args);
-
-    print "aid: $aid\n";
-
+    print "$cid\n";
 };

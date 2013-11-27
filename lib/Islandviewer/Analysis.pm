@@ -36,6 +36,8 @@ use Data::Dumper;
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
+use MicrobeDB::Versions;
+
 my $cfg; my $logger; my $cfg_file;
 
 my @modules = qw(Distance Islandpick Sigi Dimob Summary);
@@ -118,14 +120,26 @@ sub submit {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
     
+    my $microbedb_ver;
+    # Create a Versions object to look up the correct version
+    my $versions = new MicrobeDB::Versions();
+
+    # If we've been given a microbedb version AND its valid...
+    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+	$microbedb_ver = $args->{microbedb_ver}
+    } else {
+	$microbedb_ver = $versions->newest_version();
+    }
+
     # Submit the analysis!
-    my $insert_analysis = $dbh->prepare("INSERT INTO Analysis (atype, ext_id, default_analysis, status) VALUES (?, ?, ?, ?)");
+    my $insert_analysis = $dbh->prepare("INSERT INTO Analysis (atype, ext_id, default_analysis, status, microbedb_ver) VALUES (?, ?, ?, ?, ?)");
     
     $logger->trace("Submitting analysis type: " . $genome_obj->{type} . ", id: " . $genome_obj->{accnum});
     $insert_analysis->execute($genome_obj->{type}, 
 			      $genome_obj->{accnum}, 
 			      ($args->{default_analysis} ? 1 : 0),
 			      $STATUS_MAP->{PENDING},
+			      $microbedb_ver
 	) or $logger->logdie("Error inserting analysis, accnum $genome_obj->{accnum}: $DBI::errstr");
 
     # Now we fetch the analysis id, because this is needed in making
@@ -158,6 +172,25 @@ sub submit {
 	    return 0;
 	}
     }
+
+    # We need to submit the job to the scheduler
+    $logger->debug("Submitting aid $aid to scheduler " . $cfg->{default_scheduler});
+    my $scheduler;
+    eval {
+	no strict 'refs';
+	$logger->trace("Initializing scheduler... (aid $aid)");
+	(my $mod = "$cfg->{default_scheduler}.pm") =~ s|::|/|g; # Foo::Bar::Baz => Foo/Bar/Baz.pm
+	require "$mod";
+	$scheduler = "$cfg->{default_scheduler}"->new();
+    };
+    if($@) {
+	$self->set_status('ERROR');
+	$logger->logdie("Error, can't load scheduler (aid $aid): $@");
+    }
+
+    # We have a scheduler object, submit!
+    my $job_type = ($args->{job_type} ? $args->{job_type} : 'Islandviewer');
+    $scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
 
     $logger->trace("Finished submitting aid $aid");
     return $aid;

@@ -65,7 +65,7 @@ sub BUILD {
     if($args->{scheduler}) {
 	$self->{scheduler} = $args->{scheduler};
     } else {
-	$self->{scheduler} = $cfg->{default_scheduler};
+	$self->{scheduler} = $cfg->{distance_scheduler};
     }
 
     $self->{num_jobs} = $args->{num_jobs};
@@ -328,6 +328,7 @@ sub submit_sets {
 
     # If we're running in blocking mode, we need the watchdog module
     if($block) {
+	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . "$$");
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $cfg->{zk_root} . $$);
 
