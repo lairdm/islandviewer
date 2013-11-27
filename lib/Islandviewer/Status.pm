@@ -136,7 +136,14 @@ sub find_timer {
     # Find our module
     if(my $t_alive = $timers->{"$aid.$method"}) {
 	# If our timer has expired that's a fail
-	return ($t_alive > $cfg->{zk_analysis_timer} ? 0 : 1);
+	# But we're going to allow some modules to take longer
+	# than others, we want to have a pretty short default
+	# time but allow a per module custom time limit
+	if($cfg->{"zk_analysis_timer_$method"}) {
+	    return ($t_alive > $cfg->{"zk_analysis_timer_$method"} ? 0 : 1);
+	} else {
+	    return ($t_alive > $cfg->{zk_analysis_timer} ? 0 : 1);
+	}
     }
 
     # If we don't find it, that's a fail
