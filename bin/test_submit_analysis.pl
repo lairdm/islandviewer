@@ -37,7 +37,8 @@ MAIN: {
 
     print "cid: $cid\n";
 
-    my $args->{Islandpick} = {comparison_genomes => "NC_11111 NC_22222",
+#    my $args->{Islandpick} = {comparison_genomes => "NC_11111 NC_22222",
+    my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = 80;

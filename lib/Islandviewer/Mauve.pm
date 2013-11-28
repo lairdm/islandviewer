@@ -76,6 +76,9 @@ sub BUILD {
     # Set default island size
     $self->{island_size} = 4000;
 
+    $self->{clean_tmpfiles} = $cfg->{clean_tmpfiles}
+        if($cfg->{clean_tmpfiles});
+
     #Set each attribute that is given as an arguement
     foreach ( keys(%{$args}) ) {
 	$self->{$_} = $args->{$_};
@@ -173,7 +176,7 @@ sub run {
 
     # And clean up the temp files if we've been asked to
     if($self->{clean_tmpfiles}) {
-	$logger->debug("Cleaning up temp files");
+	$logger->debug("Cleaning up temp files for Mauve");
 	$self->_remove_tmpfiles(@tmp_files);
     }
 

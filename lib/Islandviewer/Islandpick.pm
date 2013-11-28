@@ -211,15 +211,15 @@ sub run_islandpick {
     my $num_genomes = 0;
     foreach my $tmp_rep (@comparison_genomes) {
 	unless($self->fill_in_info($tmp_rep)) {
-	    $logger->warn("Unable to fill in info for genome $tmp_rep");
-	    return ();
+	    $logger->logdie("Unable to fill in info for genome $tmp_rep");
+#	    return ();
 	}
 
 	# And again, if we don't have the correct format, what's
 	# the point, bail.
 	unless($self->{genomes}->{$tmp_rep}->{formats}->{fna}) {
-	    $logger->warn("No fna file for genome $tmp_rep");
-	    return ();
+	    $logger->logdie("No fna file for genome $tmp_rep");
+#	    return ();
 	}
 
 	$logger->debug("Starting comparison against genome $tmp_rep");
@@ -420,7 +420,10 @@ sub blast_screen {
     }
 
     # And cleanup after ourself
-#    $self->_remove_tmpfiles(@tmpfiles);
+    if($cfg->{clean_tmpfiles}) {
+	$logger->trace("Cleaning up temp files for Islandpick");
+    $self->_remove_tmpfiles(@tmpfiles);
+    }
 
     # And return the results....
     return @filtered_unique_regions;

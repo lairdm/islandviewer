@@ -163,7 +163,10 @@ sub run_sigi {
     my @gis = $self->parse_sigi($tmp_out_gff);
 
     # And cleanup after ourself
-    $self->_remove_tmpfiles(@tmpfiles);
+    if($cfg->{clean_tmpfiles}) {
+	$logger->trace("Cleaning up temp files for Sigi");
+	$self->_remove_tmpfiles(@tmpfiles);
+    }
 
     # And its that simple, we should be done...
     return @gis;

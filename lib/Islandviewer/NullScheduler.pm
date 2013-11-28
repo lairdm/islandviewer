@@ -5,6 +5,9 @@
 =head1 DESCRIPTION
 
     Run jobs using a straight system() call
+    using a & to background the process.
+    This module does NOT block for the system
+    call.
 
 =head1 SYNOPSIS
 

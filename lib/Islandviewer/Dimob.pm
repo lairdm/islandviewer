@@ -197,7 +197,10 @@ sub run_dimob {
     }
 
     # And cleanup after ourself
-    $self->_remove_tmpfiles(@tmpfiles);
+    if($cfg->{clean_tmpfiles}) {
+	$logger->trace("Cleaning up temp files for Dimob");
+	$self->_remove_tmpfiles(@tmpfiles);
+    }
 
     return @gis;
 }

@@ -18,6 +18,7 @@ cvtree_dispatcher = "/home/lairdm/islandviewer/run_cvtree.pl -w %s -s %s -n %s"
 cvtree_cmd = "/usr/local/bin/cvtree -i %s -k5 -t aa -S -q -l %s >>%s 2>&1"
 mauve_cmd = "/home/lairdm/islandviewer/utils/mauve_1.2.3/mauveAligner"
 save_failed = 1
+clean_tmpfiles = 1
 
 ip_blastprog = blastn
 ip_e_cutoff = 1
