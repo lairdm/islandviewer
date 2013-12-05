@@ -18,10 +18,11 @@ use Islandviewer::GenomeUtils;
 
 
 MAIN: {
-    my $cfname; my $workdir; my $filename;
+    my $cfname; my $workdir; my $filename; my $cid;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "workdir=s"  => \$workdir,
 			 "filename=s" => \$filename,
+			 "accnum=s"   => \$cid,
     );
 
     die "Error, no config file given"
@@ -30,13 +31,19 @@ MAIN: {
     my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
     my $cfg = Islandviewer::Config->config;
 
-    my $genome_obj = Islandviewer::Islandpick::GenomeUtils->new(
+    my $genome_obj = Islandviewer::GenomeUtils->new(
 	{ workdir => $workdir});
 
-    my($length, $min, $max, $mean, @gc_values) = $genome_obj->calculate_gc($filename);
+    if($cid) {
+	$genome_obj->lookup_genome($cid);
+	$genome_obj->insert_gc($cid);
+    } else {
 
-    print "$length, $min, $max, $mean\n";
-    print "var gc_values=[" . (join ',', @gc_values);
-    print  "]\n";
+	my($length, $min, $max, $mean, @gc_values) = $genome_obj->calculate_gc($filename);
+
+	print "$length, $min, $max, $mean\n";
+	print "var gc_values=[" . (join ',', @gc_values);
+	print  "]\n";
+    }
 
 }

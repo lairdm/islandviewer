@@ -411,7 +411,7 @@ sub insert_custom_genome {
 	return 0;
     }
 
-    $self->{rep_accnum} = $cid;
+    $self->{accnum} = $cid;
 
     return $cid;
 }
@@ -550,6 +550,21 @@ sub tag {
 	my ( $f, $tag ) = @_;
 	return '-' unless $f->has_tag($tag);
 	return join( ' ', $f->get_tag_values($tag) );
+}
+
+# Store the GC values in the database for the front end
+
+sub insert_gc {
+    my $self = shift;
+    my $cid = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my($seq_size, $min, $max, $mean, @gc_values)
+	= $self->calculate_gc($self->{base_filename} . '.fna');
+
+    my $update_gc = $dbh->prepare("INSERT IGNORE INTO GC (ext_id, min, max, mean, gc) VALUES (?, ?, ?, ?, ?)");
+    $update_gc->execute($cid, $min, $max, $mean, join(',', @gc_values));
 }
 
 sub calculate_gc {
