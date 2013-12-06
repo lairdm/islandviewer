@@ -122,6 +122,9 @@ sub submit_analysis {
 	}
     }    
 
+    # Ensure we have our GC values calculated and ready to go
+    $genome_obj->insert_gc($cid);
+
     # We should be ready to go, let's submit our analysis!
     my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}});
     my $aid;
