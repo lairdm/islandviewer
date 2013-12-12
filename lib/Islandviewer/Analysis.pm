@@ -349,7 +349,7 @@ sub record_genes {
     my $insert_gene = $dbh->prepare("INSERT INTO IslandGenes (ext_id, gi, start, end, name) VALUES (?, ?, ?, ?, ?)");
 
     for my $gene (@{$genes}) {
-	$insert_gene->execute($self->{aid}, $gene->[3], $gene->[0], $gene->[1], $gene->[2])
+	$insert_gene->execute($self->{ext_id}, $gene->[3], $gene->[0], $gene->[1], $gene->[2])
 	    or $logger->logdie("Error loading island: $DBI::errstr");
     }
     
