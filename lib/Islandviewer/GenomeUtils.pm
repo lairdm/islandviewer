@@ -495,7 +495,7 @@ sub lookup_genome {
 	    $self->{total_length} = $total_length;
 	    $self->{formats} = $self->parse_formats($formats);
 	    $self->{type} = 'custom';
-	    $self->{atype} = $ATYPE_MAP{custom};
+	    $self->{atype} = $ATYPE_MAP->{custom};
 	    $self->{genome_read} = 1;
 
 	    return ($name,$filename,$formats);
@@ -523,7 +523,7 @@ sub lookup_genome {
 	    $self->{total_length} = $rep_results->cds_num();
 	    $self->{formats} = $self->parse_formats($rep_results->file_types());
 	    $self->{type} = 'microbedb';
-	    $self->{atype} = $ATYPE_MAP{microbedb};
+	    $self->{atype} = $ATYPE_MAP->{microbedb};
 	    $self->{version} = $rep_results->version_id();
 	    $self->{genome_read} = 1;
 

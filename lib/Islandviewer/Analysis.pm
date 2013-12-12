@@ -40,7 +40,7 @@ use MicrobeDB::Versions;
 
 my $cfg; my $logger; my $cfg_file;
 
-my @modules = qw(Distance Islandpick Sigi Dimob Summary);
+my @modules = qw(Distance Islandpick Sigi Dimob Virulence Summary);
 
 sub BUILD {
     my $self = shift;
@@ -314,6 +314,45 @@ sub record_islands {
 	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
 	    or $logger->logdie("Error loading island: $DBI::errstr");
     }
+}
+
+# Fetch the islands for the current analysis
+
+sub fetch_islands {
+    my $self = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $get_islands = $dbh->prepare("SELECT gi, start, end, prediction_method FROM GenomicIsland WHERE aid_id = ?");
+
+    $get_islands->execute($self->{aid}) 
+	or $logger->logdie("Error, can't fetch islands for analysis $self->{aid}");
+    
+    my @islands;
+    while(my($gi, $start, $end, $method) = $get_islands->fetchrow_array) {
+	push @islands, [$gi, $start,$end,$method];
+    }
+
+    return \@islands;
+
+}
+
+# Write out genes associated with genomic islands, part
+# of the virulence factor calculations
+
+sub record_genes {
+    my $self = shift;
+    my $genes = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $insert_gene = $dbh->prepare("INSERT INTO IslandGenes (ext_id, gi, start, end, name) VALUES (?, ?, ?, ?, ?)");
+
+    for my $gene (@{$genes}) {
+	$insert_gene->execute($self->{aid}, $gene->[3], $gene->[0], $gene->[1], $gene->[2])
+	    or $logger->logdie("Error loading island: $DBI::errstr");
+    }
+    
 }
 
 sub set_status {
