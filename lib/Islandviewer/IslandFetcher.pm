@@ -79,6 +79,16 @@ sub fetchGenes {
 				      $feature_obj->get_tag_values('protein_id'),
 				      $gi
 			];
+		    } else {
+			# Blast! First time I wrote this I thought we only
+			# wanted genes in islands, but we actually need
+			# all of them... mark genes not in islands with 0
+			# for the GI number
+			push @genes, [$feature_obj->location->start, 
+				      $feature_obj->location->end,
+				      $feature_obj->get_tag_values('protein_id'),
+				      0
+			];
 		    }
 		}
 	    }
