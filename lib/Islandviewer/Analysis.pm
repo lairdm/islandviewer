@@ -346,10 +346,10 @@ sub record_genes {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $insert_gene = $dbh->prepare("INSERT INTO IslandGenes (ext_id, gi, start, end, name) VALUES (?, ?, ?, ?, ?)");
+    my $insert_gene = $dbh->prepare("INSERT INTO IslandGenes (ext_id, gi, start, end, strand, name, gene, product, locus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     for my $gene (@{$genes}) {
-	$insert_gene->execute($self->{ext_id}, $gene->[3], $gene->[0], $gene->[1], $gene->[2])
+	$insert_gene->execute($self->{ext_id}, $gene->[3], $gene->[0], $gene->[1], $gene->[4], $gene->[2], $gene->[5], $gene->[6], $gene->[7])
 	    or $logger->logdie("Error loading island: $DBI::errstr");
     }
     

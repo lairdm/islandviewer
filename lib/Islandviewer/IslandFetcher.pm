@@ -72,12 +72,31 @@ sub fetchGenes {
 	for my $feature_obj ($seq_obj->get_SeqFeatures) {
 	    if($feature_obj->primary_tag eq 'CDS') {
 		if($feature_obj->has_tag('protein_id')) {
+		    my $gene = undef; my @product = (); my @locus = ();
+		    if($feature_obj->has_tag('gene')) {
+			$gene = join '; ', $feature_obj->get_tag_values('gene');
+		    }
+		    if($feature_obj->has_tag('product')) {
+			for my $v ($feature_obj->get_tag_values('product')) {
+			    push @product, $v;
+			}
+		    }
+		    if($feature_obj->has_tag('locus_tag')) {
+			for my $v ($feature_obj->get_tag_values('locus_tag')) {
+			    push @locus, $v;
+			}
+		    }
+
 		    if(my $gi = $self->rangeinislands($feature_obj->location->start,
 					     $feature_obj->location->end)) {
 			push @genes, [$feature_obj->location->start, 
 				      $feature_obj->location->end,
 				      $feature_obj->get_tag_values('protein_id'),
-				      $gi
+				      $gi, 
+				      $feature_obj->strand,
+				      $gene,
+				      join(',', @product),
+				      join(',', @locus)
 			];
 		    } else {
 			# Blast! First time I wrote this I thought we only
@@ -87,9 +106,15 @@ sub fetchGenes {
 			push @genes, [$feature_obj->location->start, 
 				      $feature_obj->location->end,
 				      $feature_obj->get_tag_values('protein_id'),
-				      0
+				      0,
+				      $feature_obj->strand,
+				      $gene,
+				      join(',', @product),
+				      join(',', @locus)
 			];
 		    }
+		    my @ary = $genes[-1];
+
 		}
 	    }
 	}
