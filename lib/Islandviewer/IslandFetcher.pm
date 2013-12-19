@@ -33,6 +33,7 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use Data::Dumper;
+use List::Util qw[min max];
 
 use Bio::SeqIO;
 use Bio::Seq;
@@ -87,34 +88,36 @@ sub fetchGenes {
 			}
 		    }
 
-		    if(my $gi = $self->rangeinislands($feature_obj->location->start,
-					     $feature_obj->location->end)) {
-			push @genes, [$feature_obj->location->start, 
-				      $feature_obj->location->end,
-				      $feature_obj->get_tag_values('protein_id'),
-				      $gi, 
-				      $feature_obj->strand,
-				      $gene,
-				      join(',', @product),
-				      join(',', @locus)
-			];
-		    } else {
+#		    if(my $gis = $self->rangeinislands($feature_obj->location->start,
+#					     $feature_obj->location->end)) {
+		    my $gis = $self->rangeinislands($feature_obj->location->start,
+						    $feature_obj->location->end);
+		push @genes, [$feature_obj->location->start, 
+			      $feature_obj->location->end,
+			      $feature_obj->get_tag_values('protein_id'),
+			      $gis, 
+			      $feature_obj->strand,
+			      $gene,
+			      join(',', @product),
+			      join(',', @locus)
+		];
+#		    } else {
 			# Blast! First time I wrote this I thought we only
 			# wanted genes in islands, but we actually need
 			# all of them... mark genes not in islands with 0
 			# for the GI number
-			push @genes, [$feature_obj->location->start, 
-				      $feature_obj->location->end,
-				      $feature_obj->get_tag_values('protein_id'),
-				      0,
-				      $feature_obj->strand,
-				      $gene,
-				      join(',', @product),
-				      join(',', @locus)
-			];
-		    }
+#			push @genes, [$feature_obj->location->start, 
+#				      $feature_obj->location->end,
+#				      $feature_obj->get_tag_values('protein_id'),
+#				      0,
+#				      $feature_obj->strand,
+#				      $gene,
+#				      join(',', @product),
+#				      join(',', @locus)
+#			];
+#		    }
 		    my @ary = $genes[-1];
-
+		print Dumper @ary;
 		}
 	    }
 	}
@@ -128,14 +131,22 @@ sub rangeinislands {
     my $start = shift;
     my $end = shift;
 
+    my @gis = ();
+
     for my $island (@{$self->{islands}}) {
-	if(($start >= $island->[1]) &&
-	   ($end <= $island->[2])) {
-	    return  $island->[0];
+	my $overlap = max(0, (min($end, $island->[2]) - max($start, $island->[1])));
+	if($overlap > 0) {
+	    push @gis, $island->[0];
 	}
     }
+	
+#	if(($start >= $island->[1]) &&
+#	   ($end <= $island->[2])) {
+#	    return  $island->[0];
+#	}
+#    }
 
-    return 0;
+    return \@gis;
 }
 
 1;
