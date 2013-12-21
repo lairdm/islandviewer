@@ -112,7 +112,11 @@ sub submit_analysis {
 
     my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
 
-    $logger->debug("For cid $cid we found filenames $name, $base_filename, $types");
+    $logger->trace("For cid $cid we found filenames $name, $base_filename, $types");
+    unless($base_filename) {
+	$logger->error("Error, we couldn't find cid $cid");
+	return 0;
+    }
 
     # Sanity checking, did we get all the correct types?
     unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
