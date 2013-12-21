@@ -8,7 +8,7 @@
       {
           "name": "Distance",
           "status_test":  "/data/Modules/iv-backend/islandviewer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
-          "on_success": "Sigi,Dimob,Islandpick,Virulence/data/Modules/iv-backend",
+          "on_success": "Sigi,Dimob,Islandpick,Virulence",
           "on_failure": "Summary",
           "success_required": "true"
       },
