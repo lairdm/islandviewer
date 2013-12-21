@@ -113,6 +113,9 @@ sub submit_analysis {
     # If we've been given a microbedb version AND its valid...
     # Yes we do this in Analysis too, but I didn't think through we need
     # the version when looking up microbedb genomes in a GenomeUtil object
+    # Create a Versions object to look up the correct version
+    my $versions = new MicrobeDB::Versions();
+
     my $microbedb_ver;
     if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
 	$microbedb_ver = $args->{microbedb_ver}
