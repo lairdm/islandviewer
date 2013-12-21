@@ -272,7 +272,7 @@ sub add_replicon {
 
     my $cid = $args{cid};
 
-    my $genome_obj = Islandviewer::GenomeUtils->new();
+    my $genome_obj = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
     my($name,$filename,$format_str) = $genome_obj->lookup_genome($cid);
 
     my $formats = $genome_obj->parse_formats($format_str);

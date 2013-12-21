@@ -35,6 +35,8 @@ use Islandviewer::Analysis;
 
 use Net::ZooKeeper::WatchdogQueue;
 
+use MicrobeDB::Versions;
+
 use Log::Log4perl qw(get_logger :nowarn);
 
 my $cfg; my $logger;
@@ -108,7 +110,17 @@ sub submit_analysis {
     my $cid = shift;
     my $args = shift;
 
-    my $genome_obj = Islandviewer::GenomeUtils->new();
+    # If we've been given a microbedb version AND its valid...
+    # Yes we do this in Analysis too, but I didn't think through we need
+    # the version when looking up microbedb genomes in a GenomeUtil object
+    my $microbedb_ver;
+    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+	$microbedb_ver = $args->{microbedb_ver}
+    } else {
+	$microbedb_ver = $versions->newest_version();
+    }
+
+    my $genome_obj = Islandviewer::GenomeUtils->new({microbedb_ver => $microbedb_ver });
 
     my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
 

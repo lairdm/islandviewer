@@ -63,6 +63,10 @@ sub BUILD {
 
     $logger = Log::Log4perl->get_logger;
 
+    if($args->{microbedb_ver}) {
+	$self->{microbedb_ver} = $args->{microbedb_ver};
+    }
+
 #    die "Error, work dir not specified: $args->{workdir}"
 #	unless( -d $args->{workdir} );
 #    $self->{workdir} = $args->{workdir};
@@ -507,9 +511,10 @@ sub lookup_genome {
 
 	my $sobj = new MicrobeDB::Search();
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum ));
+	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
+#));
 									  
-#								      version_id => $self->{microbedb_ver} ));
+								      version_id => $self->{microbedb_ver} ));
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
