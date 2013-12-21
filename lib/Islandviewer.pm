@@ -112,6 +112,8 @@ sub submit_analysis {
 
     my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
 
+    $logger->debug("For cid $cid we found filenames $name, $base_filename, $types");
+
     # Sanity checking, did we get all the correct types?
     unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
 	# We need to regenerate the files
