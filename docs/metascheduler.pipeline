@@ -3,39 +3,46 @@
   "first_component": "Distance",
   "admin_email": "lairdm@sfu.ca",
   "mailer_from": "islandpick-mail@sfu.ca",
-  "mailer_script": "/home/shared/Modules/islandviwer/mailuser.pl %%jobid%%",
+  "mailer_script": "/data/Modules/iv-backend/islandviewer/bin/mailuser.pl %%jobid%%",
   "components": [
       {
           "name": "Distance",
-          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
-          "on_success": "Sigi,Dimob,Islandpick",
+          "status_test":  "/data/Modules/iv-backend/islandviewer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Sigi,Dimob,Islandpick,Virulence/data/Modules/iv-backend",
           "on_failure": "Summary",
           "success_required": "true"
       },
       {
           "name": "Sigi",
-          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
           "on_success": "Summary",
           "on_failure": "Summary",
           "success_required": "false"
       },
       {
           "name": "Islandpick",
-          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
           "on_success": "Summary",
           "on_failure": "Summary",
           "success_required": "false"
       },
       {
           "name": "Dimob",
-          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
+          "on_success": "Summary",
+          "on_failure": "Summary",
+          "success_required": "false"
+      },
+      {
+          "name": "Virulence",
+          "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
           "on_success": "Summary",
           "on_failure": "Summary",
           "success_required": "false"
       },
       {
           "name": "Summary",
-          "status_test":  "/home/shared/Modules/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /home/lairdm/islandviewer/etc/islandviewer.cfg",
+          "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
           "depends_on": [
               {
                 "component": "Sigi",
@@ -47,6 +54,10 @@
               },
               {
                 "component": "Islandpick",
+                "success_required": "false"
+              }
+              {
+                "component": "Virulence",
                 "success_required": "false"
               }
           ],
