@@ -55,7 +55,7 @@
               {
                 "component": "Islandpick",
                 "success_required": "false"
-              }
+              },
               {
                 "component": "Virulence",
                 "success_required": "false"
