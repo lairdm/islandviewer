@@ -518,6 +518,7 @@ sub lookup_genome {
 	    my ($gpo) = $search_obj->object_search($rep_results);
 
 	    $self->{name} = $rep_results->definition();
+	    $self->{accnum} = $rep_accnum;
 	    $self->{base_filename} = $gpo->gpv_directory() . $rep_results->file_name();
 	    $self->{num_proteins} = $rep_results->protein_num();
 	    $self->{total_length} = $rep_results->cds_num();
