@@ -55,7 +55,6 @@ sub BUILD {
 sub fetchGenes {
     my $self = shift;
     my $genbank_file = shift;
-    my $islands = shift;
 
     # Sanity check, the file exists, right?
     unless( -e $genbank_file ) {
@@ -92,15 +91,18 @@ sub fetchGenes {
 #					     $feature_obj->location->end)) {
 		    my $gis = $self->rangeinislands($feature_obj->location->start,
 						    $feature_obj->location->end);
-		push @genes, [$feature_obj->location->start, 
-			      $feature_obj->location->end,
-			      $feature_obj->get_tag_values('protein_id'),
-			      $gis, 
-			      $feature_obj->strand,
-			      $gene,
-			      join(',', @product),
-			      join(',', @locus)
-		];
+
+		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis " . $gis);
+
+		    push @genes, [$feature_obj->location->start, 
+				  $feature_obj->location->end,
+				  $feature_obj->get_tag_values('protein_id'),
+				  $gis, 
+				  $feature_obj->strand,
+				  $gene,
+				  join(',', @product),
+				  join(',', @locus)
+		    ];
 #		    } else {
 			# Blast! First time I wrote this I thought we only
 			# wanted genes in islands, but we actually need

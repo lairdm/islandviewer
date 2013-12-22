@@ -72,14 +72,11 @@ sub run {
 
     my $islands = $callback->fetch_islands();
 
-    if($islands) {
-	my $genes = $self->run_virulence($accnum, $islands);
+    my $genes = $self->run_virulence($accnum, $islands);
 
-	$callback->record_genes($genes);
-	return 1;
-    }
+    $callback->record_genes($genes);
 
-    return 0;
+    return 1;
 }
 
 sub run_virulence {
@@ -90,11 +87,15 @@ sub run_virulence {
     # We're given the rep_accnum, look up the files
     my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
 
+    unless($filename) {
+	$logger->logdie("Error, couldn't find genome file for accnum $rep_accnum");
+    }
+
     $logger->trace("For accnum $rep_accnum found: $name, $filename, $format_str");
 
     my $fetcher_obj = Islandviewer::IslandFetcher->new({islands => $islands});
 
-    my $genes = $fetcher_obj->fetchGenes("$filename.gbk", $islands);
+    my $genes = $fetcher_obj->fetchGenes("$filename.gbk");
 
     return $genes;
 }
