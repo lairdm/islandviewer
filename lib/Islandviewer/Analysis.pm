@@ -250,6 +250,7 @@ sub run {
     }
 
     $self->set_module_status('RUNNING');
+    $self->set_status('RUNNING');
 
     # Now we need to make our working directory
     $self->{workdir} = $self->{base_workdir} . "/$module";
@@ -346,7 +347,7 @@ sub record_genes {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $insert_gene = $dbh->prepare("INSERT INTO Genes (ext_id, start, end, strand, name, gene, product, locus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    my $insert_gene = $dbh->prepare("INSERT INTO Genes (ext_id, start, end, strand, name, gene, product, locus) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)");
 
     my $insert_island = $dbh->prepare("INSERT INTO IslandGenes (gi, gene_id) VALUES (?, ?)");
 
