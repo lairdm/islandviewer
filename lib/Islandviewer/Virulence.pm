@@ -60,6 +60,8 @@ sub BUILD {
     die "Error, you must specify a microbedb version"
 	unless($args->{microbedb_ver});
     $self->{microbedb_ver} = $args->{microbedb_ver};
+
+    $logger->trace("Created Virulence object using microbedb_version " . $self->{microbedb_ver});
     
 }
 
@@ -87,6 +89,8 @@ sub run_virulence {
 
     # We're given the rep_accnum, look up the files
     my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
+
+    $logger->trace("For accnum $rep_accnum found: $name, $filename, $format_str");
 
     my $fetcher_obj = Islandviewer::IslandFetcher->new({islands => $islands});
 
