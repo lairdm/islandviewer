@@ -38,7 +38,7 @@
           "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
           "on_success": "Summary",
           "on_failure": "Summary",
-          "success_required": "false"
+          "success_required": "false",
           "depends_on": [
               {
                 "component": "Sigi",
@@ -52,8 +52,8 @@
                 "component": "Islandpick",
                 "success_required": "false"
               },
-          ],
-      },
+          ]
+      }
       {
           "name": "Summary",
           "status_test":  "/data/Modules/iv-backend/islandviwer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
