@@ -154,7 +154,7 @@ sub submit_analysis {
 	$aid = $analysis_obj->submit($genome_obj, $args);
     };
     if($@) { 
-	$logger->error("Error, we couldn't submit the analysis");
+	$logger->error("Error, we couldn't submit the analysis: $@");
 	return 0;
     }
 

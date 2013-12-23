@@ -171,6 +171,9 @@ sub calculate_all {
     }
 
     $self->submit_sets($self->{block});
+
+    # Return the version we used just for ease of use
+    return $version;
 }
 
 sub build_pairs {

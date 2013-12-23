@@ -65,6 +65,7 @@ sub BUILD {
 	unless($args->{microbedb_ver});
     $self->{microbedb_ver} = $args->{microbedb_ver};
 
+    $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
     
 }
 
