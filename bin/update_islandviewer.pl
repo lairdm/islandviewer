@@ -72,9 +72,9 @@ MAIN: {
     # We're going to use the same arguments for all the runs
     my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
-    my $args->{Sigi} = {
+    $args->{Sigi} = {
 			      MIN_GI_SIZE => 4000};
-    my $args->{Dimob} = {
+    $args->{Dimob} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
