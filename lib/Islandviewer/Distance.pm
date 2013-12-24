@@ -669,6 +669,8 @@ sub block_for_cvtree {
 	$logger->info("Waiting for a cvtree job to start");
     }
 
+    $logger->trace("Entering blocking loop");
+
     # Next we wait for all the children to empty the queue
     # and all children to finish, so as long as there is
     # something waiting in the queue or something running,
@@ -691,6 +693,7 @@ sub block_for_cvtree {
 	    $loop_count = 0;
 	    $logger->debug("Still waiting for cvtree, $alive alive");
 	}
+	$loop_count++;
 
     } while($watchdog->queue_count() || $alive);
 

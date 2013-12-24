@@ -20,12 +20,17 @@ use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
 
+use MicrobeDB::Versions;
 use MicrobeDB::Search;
 use MicrobeDB::Replicon;
 
 MAIN: {
     my $cfname; my $logger;
-    my $res = GetOptions("config=s" => \$cfname
+    my $filename; my $genome_name; my $microbedb_ver;
+    my $res = GetOptions("config=s" => \$cfname,
+			 "filename=s" => \$filename,
+			 "name=s" => \$genome_name,
+			 "microbedb=s" => \$microbedb_ver,
     );
 
     die "Error, no config file given"
@@ -44,30 +49,33 @@ MAIN: {
     my $datestr = UnixDate("now", "%Y%m%d");
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($cfg->{logdir}) {
-	$app->file_switch($cfg->{logdir} . "/ivupdate.$datestr.log");
+	$app->file_switch($cfg->{logdir} . "/custom_upload.log");
     }
+    $logger->info("Submitting genome $genome_name using file $filename");
 
-    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 120, block => 1 });
+    # Create a Versions object to look up the correct version
+    my $versions = new MicrobeDB::Versions();
 
-    my $microbedb_ver;
-    eval{
-	$microbedb_ver = $dist_obj->calculate_all();
-    };
-    if($@) {
-	die "Error updating islandviewer in distance phase: $@";
+    # If we've been given a microbedb version AND its valid... 
+    if($microbedb_ver && $versions->isvalid($microbedb_ver)) {
+	$microbedb_ver = $args->{microbedb_ver};
+    } else {
+	$microbedb_ver = $versions->newest_version();
     }
 
     unless($microbedb_ver) {
-	die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
+	$logger->logdie("Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver");
     }
     # We should have all the distances done now, let's do the IV
     my $so = new MicrobeDB::Search();
 
-    # Find all the replicons in this version
-    my @reps = $so->object_search(new MicrobeDB::Replicon(version_id => $microbedb_ver, rep_type=>'chromosome'));
-
-    my $dbh = Islandviewer::DBISingleton->dbh;
-    my $check_analysis = $dbh->prepare("SELECT aid, microbedb FROM Analysis WHERE ext_id = ? and default_analysis = 1");
+    eval {
+	my $cid = $Islandviewer->submit_and_prep($filename, $genome_name);
+    };
+    if($@) {
+	$logger->logdie("Error submitting custom genome ($filename): $@");
+    }
+    $logger->info("Submitted custom genome ($filename), cid $cid");
 
     # We're going to use the same arguments for all the runs
     my $args->{Islandpick} = {
@@ -78,31 +86,21 @@ MAIN: {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
-    $args->{default_analysis} = 1;
+    $args->{owner_id} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
-    foreach my $curr_rep (@reps) {
-	my $accnum = $curr_rep->rep_accnum();
-
-	# Has this replicon already been run before?
-	$check_analysis->execute($accnum);
-	if(my @row = $check_analysis->fetchrow_arry) {
-	    $logger->info("We already have $accnum in the database as analysis $row[0]");
-	    next;
-	}
-	
+    $aid;
+    eval {
 	# Submit the replicon for processing
-	eval {
-	    my $aid = $Islandviewer->submit_analysis($accnum, $args);
-	};
-	if($@) {
-	    $logger->error("Error submitting analysis $accnum: $@");
-	}
-	if($aid) {
-	    $logger->debug("Finished submitting $accnum, has analysis id $aid");
-	} else {
-	    $logger->error("Error submitting $accnum, didn't get an aid");
-	}
+	my $aid = $Islandviewer->submit_analysis($cid, $args);
+    };
+    if($@) {
+	$logger->logdie("Error submitting analysis ($filename, $cid): $@");
+    }
+    if($aid) {
+	$logger->info("Finished submitting $cid, has analysis id $aid");
+    } else {
+	$logger->logdie("Error, failed submitting, didn't get an analysis id");
     }
 
     $logger->info("All analysis should now be submitted");
