@@ -86,6 +86,7 @@ MAIN: {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
+    $args->{owner_id} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
     $aid;

@@ -132,12 +132,13 @@ sub submit {
     }
 
     # Submit the analysis!
-    my $insert_analysis = $dbh->prepare("INSERT INTO Analysis (atype, ext_id, default_analysis, status, microbedb_ver) VALUES (?, ?, ?, ?, ?)");
+    my $insert_analysis = $dbh->prepare("INSERT INTO Analysis (atype, ext_id, default_analysis, owner_id, status, microbedb_ver) VALUES (?, ?, ?, ?, ?, ?)");
     
     $logger->trace("Submitting analysis type: " . $genome_obj->{type} . ", id: " . $genome_obj->{accnum});
     $insert_analysis->execute($genome_obj->{atype}, 
 			      $genome_obj->{accnum}, 
 			      ($args->{default_analysis} ? 1 : 0),
+			      ($args->{owner_id} ? $args->{owner_id} : 0),
 			      $STATUS_MAP->{PENDING},
 			      $microbedb_ver
 	) or $logger->logdie("Error inserting analysis, accnum $genome_obj->{accnum}: $DBI::errstr");

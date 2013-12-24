@@ -78,6 +78,7 @@ MAIN: {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
+    $args->{default_analysis} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
     foreach my $curr_rep (@reps) {
