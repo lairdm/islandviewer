@@ -49,7 +49,7 @@ MAIN: {
 
     my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 120, block => 1 });
 
-    my $microbedb_ver, $sets_run;
+    my $microbedb_ver; my $sets_run;
     my $sets_run_last_cycle = 99999;
 
     # We're going to loop until we stop computing more distances,
@@ -111,8 +111,9 @@ MAIN: {
 	}
 	
 	# Submit the replicon for processing
+	my $aid = 0;
 	eval {
-	    my $aid = $Islandviewer->submit_analysis($accnum, $args);
+	    $aid = $Islandviewer->submit_analysis($accnum, $args);
 	};
 	if($@) {
 	    $logger->error("Error submitting analysis $accnum: $@");
