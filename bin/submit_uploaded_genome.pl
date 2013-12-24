@@ -58,7 +58,7 @@ MAIN: {
 
     # If we've been given a microbedb version AND its valid... 
     if($microbedb_ver && $versions->isvalid($microbedb_ver)) {
-	$microbedb_ver = $args->{microbedb_ver};
+	$microbedb_ver = $microbedb_ver;
     } else {
 	$microbedb_ver = $versions->newest_version();
     }
@@ -69,11 +69,15 @@ MAIN: {
     # We should have all the distances done now, let's do the IV
     my $so = new MicrobeDB::Search();
 
+    my $cid = 0;
     eval {
-	my $cid = $Islandviewer->submit_and_prep($filename, $genome_name);
+	$cid = $Islandviewer->submit_and_prep($filename, $genome_name);
     };
     if($@) {
 	$logger->logdie("Error submitting custom genome ($filename): $@");
+    }
+    unless($cid) {
+	$logger->logdie("Error, didn't get a cid for custom genome ($filename)");
     }
     $logger->info("Submitted custom genome ($filename), cid $cid");
 
@@ -89,10 +93,10 @@ MAIN: {
     $args->{owner_id} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
-    $aid;
+    my $aid;
     eval {
 	# Submit the replicon for processing
-	my $aid = $Islandviewer->submit_analysis($cid, $args);
+	$aid = $Islandviewer->submit_analysis($cid, $args);
     };
     if($@) {
 	$logger->logdie("Error submitting analysis ($filename, $cid): $@");
@@ -104,4 +108,8 @@ MAIN: {
     }
 
     $logger->info("All analysis should now be submitted");
+
+    # Spit out the analysis id back for the web service
+    print $aid;
+
 }
