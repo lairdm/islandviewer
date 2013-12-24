@@ -49,17 +49,36 @@ MAIN: {
 
     my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 60, block => 1 });
 
-    my $microbedb_ver;
-    eval{
-	$microbedb_ver = $dist_obj->calculate_all();
-    };
-    if($@) {
-	die "Error updating islandviewer in distance phase: $@";
-    }
+    my $microbedb_ver, $sets_run;
+    my $sets_run_last_cycle = 99999;
 
+    # We're going to loop until we stop computing more distances,
+    # this will catch dying children that might cause some of our
+    # distances to not be caught
+    while(1) {
+	eval{
+	    ($microbedb_ver,$sets_run) = $dist_obj->calculate_all();
+	};
+	if($@) {
+	    die "Error updating islandviewer in distance phase: $@";
+	}
+
+	if($sets_run < $sets_run_last_cycle) {
+	    $logger->info("We ran $sets_run this attempt, $sets_run_last_cycle last time");
+	} elsif($sets_run == $sets_run_last_cycle) {
+	    # This can either be if its stuck not getting more or if it hits zero
+	    $logger->info("We ran the same number of sets as last cycle ($sets_run), moving on...");
+	    last;
+	} else {
+	    $logger->logdie("Something really weird happened, this cycle: $sets_run, last cycle: $sets_run_last_cycle");
+	}
+
+	$sets_run_last_cycle = $sets_run;
+    }
     unless($microbedb_ver) {
 	die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
     }
+
     # We should have all the distances done now, let's do the IV
     my $so = new MicrobeDB::Search();
 

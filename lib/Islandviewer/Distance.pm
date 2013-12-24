@@ -173,7 +173,7 @@ sub calculate_all {
     $self->submit_sets($self->{block});
 
     # Return the version we used just for ease of use
-    return $version;
+    return ($version, scalar(keys %{$runpairs}));
 }
 
 sub build_pairs {
