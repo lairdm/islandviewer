@@ -40,7 +40,7 @@ MAIN: {
 
     my $picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => 80});
 
-    my $results = $picker_obj->find_comparative_genomes(2);
+    my $results = $picker_obj->find_comparative_genomes(28);
 #    my $results = $picker_obj->find_comparative_genomes('NC_020564.1');
 
     print Dumper $results;

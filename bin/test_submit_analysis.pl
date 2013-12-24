@@ -43,7 +43,7 @@ MAIN: {
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = 80;
     $args->{email} = 'lairdm@sfu.ca';
-    print Dumper $args;
+#    print Dumper $args;
 
     my $aid = $Islandviewer->submit_analysis($cid, $args);
 

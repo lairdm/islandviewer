@@ -47,7 +47,7 @@ MAIN: {
 	$app->file_switch($cfg->{logdir} . "/ivupdate.$datestr.log");
     }
 
-    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 60, block => 1 });
+    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 120, block => 1 });
 
     my $microbedb_ver;
     eval{
