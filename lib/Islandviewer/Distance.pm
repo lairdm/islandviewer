@@ -679,6 +679,8 @@ sub block_for_cvtree {
     do {
 	($alive, $expired) = $watchdog->check_timers();
 
+	$logger->debug("Are we stuck? $alive, $expired");
+
 	if($expired) {
 	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
 	    return 0;
