@@ -331,7 +331,7 @@ sub submit_sets {
 
     # If we're running in blocking mode, we need the watchdog module
     if($block) {
-	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . "$$");
+	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . localtime);
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $cfg->{zk_root} . localtime);
 
