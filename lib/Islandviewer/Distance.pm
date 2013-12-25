@@ -333,7 +333,7 @@ sub submit_sets {
     if($block) {
 	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . "$$");
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
-						      $cfg->{zk_root} . $$);
+						      $cfg->{zk_root} . localtime);
 
 	$watchdog->create_queue(timer => $cfg->{zk_timer},
 				queue => \@sets,
