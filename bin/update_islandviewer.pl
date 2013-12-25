@@ -86,7 +86,7 @@ MAIN: {
     my @reps = $so->object_search(new MicrobeDB::Replicon(version_id => $microbedb_ver, rep_type=>'chromosome'));
 
     my $dbh = Islandviewer::DBISingleton->dbh;
-    my $check_analysis = $dbh->prepare("SELECT aid, microbedb FROM Analysis WHERE ext_id = ? and default_analysis = 1");
+    my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1");
 
     # We're going to use the same arguments for all the runs
     my $args->{Islandpick} = {
