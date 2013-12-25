@@ -158,7 +158,9 @@ sub submit {
     }
 
     # Move the logging over to the analysis
-    $self->change_logfile();
+    # Let's not, this screws up mass submitting, save the log
+    # file there for *running* the analysis
+#    $self->change_logfile();
 
     $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $self->{workdir}, $aid);
 
