@@ -105,7 +105,7 @@ MAIN: {
 
 	# Has this replicon already been run before?
 	$check_analysis->execute($accnum);
-	if(my @row = $check_analysis->fetchrow_arry) {
+	if(my @row = $check_analysis->fetchrow_array) {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
 	    next;
 	}
