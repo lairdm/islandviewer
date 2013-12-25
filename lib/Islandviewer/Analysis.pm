@@ -153,6 +153,7 @@ sub submit {
     $self->{workdir} = $self->{base_workdir} . "/$aid";
     unless(mkdir $self->{workdir}) {
 	# Oops, we weren't able to make the workdir...
+	$logger->error("Oops, we weren't able to make the workdir $self->{workdir} for analysis $aid");
 	$self->set_status('ERROR');
 	return 0;
     }
