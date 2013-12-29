@@ -110,6 +110,12 @@ my $count = 0;
 	if(my @row = $check_analysis->fetchrow_array) {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
 	    next;
+	} else {
+	    # Else its new so add it to the name cache
+	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name) VALUES (?, ?)", undef,
+		     $accnum,
+		     $curr_rep->definition()
+		) or $logger->logdie("Error inserting in to NameCache for $accnum, " . $curr_rep->definition());
 	}
 	
 	# Submit the replicon for processing
