@@ -100,6 +100,8 @@ MAIN: {
     $args->{default_analysis} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
+my $count = 0;
+
     foreach my $curr_rep (@reps) {
 	my $accnum = $curr_rep->rep_accnum();
 
@@ -123,6 +125,10 @@ MAIN: {
 	} else {
 	    $logger->error("Error submitting $accnum, didn't get an aid");
 	}
+	if($count > 25) {
+	    last;
+	}
+	$count++;
     }
 
     $logger->info("All analysis should now be submitted");
