@@ -62,7 +62,10 @@ sub run {
     my $accnum = shift;
     my $callback = shift;
 
-    # We actually do nothing with this right now
+    # We actually do nothing with this right now except set the analysis
+    # as complete, later we should do a check through of the modules
+    # to ensure they all ran correctly and maybe notify of problems
+    $callback->set_status('COMPLETE');
 
     return 1;
 }
