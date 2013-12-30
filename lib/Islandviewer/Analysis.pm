@@ -367,6 +367,24 @@ sub record_genes {
     
 }
 
+# Allows a modules to write back updated parameters if it sets/remembers anything
+
+sub update_args {
+    my $self = shift;
+    my $args = shift;
+
+    # Load the module information
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $JSON_args;
+    if($args) {
+	$JSON_args = to_json($args);
+
+	$dbh->do("UPDATE GIAnalysisTask SET parameters = ? WHERE aid_id = ? AND prediction_method = ?", {}, $JSON_args, $self->{aid}, $self->{module});
+    }
+
+}
+
 sub set_status {
     my $self = shift;
     my $status = shift;

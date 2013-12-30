@@ -78,6 +78,9 @@ sub BUILD {
 
     $logger = Log::Log4perl->get_logger;
 
+    # Save the args for later
+    $self->{args} = $args;
+
     die "Error, work dir not specified:  $args->{workdir}"
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
@@ -123,6 +126,13 @@ sub run {
     }
 
     my @islands = $self->run_islandpick($accnum, @comparison_genomes);
+
+    # Write back the comparison genomes if we've predicted some and weren't
+    # given any
+    if($self->{comparison_genomes} && ! exists ($self->{args}->{comparison_genomes})) {
+	$self->{args}->{comparison_genomes} = $self->{comparison_genomes};
+	$callback->update_args($self->{args});
+    }
 
     if(@islands) {
 	# If we get a undef set it doesn't mean failure, just
@@ -186,6 +196,9 @@ sub run_islandpick {
 	# What if, the unthinkable situation, we received
 	# results but nothing was picked... fail.
 	return () unless(@comparison_genomes);
+
+	# Save the comparison genomes to our object
+	$self->{comparison_genomes} = join(' ', @comparison_genomes);
     }
 
     # At this point we have a set of comparison genomes,
