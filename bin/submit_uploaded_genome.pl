@@ -25,12 +25,13 @@ use MicrobeDB::Search;
 use MicrobeDB::Replicon;
 
 MAIN: {
-    my $cfname; my $logger;
+    my $cfname; my $logger; my $logger_cfg;
     my $filename; my $genome_name; my $microbedb_ver;
     my $res = GetOptions("config=s" => \$cfname,
 			 "filename=s" => \$filename,
 			 "name=s" => \$genome_name,
 			 "microbedb=s" => \$microbedb_ver,
+			 "logger=s" => \$logger_cfg,
     );
 
     die "Error, no config file given"
@@ -40,7 +41,11 @@ MAIN: {
 
     my $cfg = Islandviewer::Config->config;
 
-    if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
+    if($logger_cfg && ( -r $logger_cfg )) {
+	Log::Log4perl::init($logger_cfg);
+	$logger = Log::Log4perl->get_logger;
+	$logger->debug("Logging initialize");
+    elsif($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
 	$logger->debug("Logging initialize");
