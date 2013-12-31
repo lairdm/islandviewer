@@ -45,7 +45,7 @@ MAIN: {
 	Log::Log4perl::init($logger_cfg);
 	$logger = Log::Log4perl->get_logger;
 	$logger->debug("Logging initialize");
-    elsif($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
+    } elsif($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
 	$logger->debug("Logging initialize");
