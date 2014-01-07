@@ -37,7 +37,7 @@ MAIN: {
     if($root) {
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $root);
-	$watchdog->create_timer("pid".$$);
+	$watchdog->create_timer("pid".$$."set".$set);
 	# We're throwing away the set because we're not
 	# actually doing it that way, we get passed the
 	# set on our command line
