@@ -114,11 +114,32 @@ sub run {
 	# how many we think are currently possible)
 	my ($success, $failure) = $self->fetch_run_stats();
 	my $total = $success + $failure;
+	my $runnum = $self->{runnum};
 
 	$self->{args}->{distances_calculated} = $success;
 	$self->{args}->{distances_attempted} = $total;
+	$self->{args}->{num_to_run} = $runnum;
 	if($callback) {
 	    $callback->update_args($self->{args});
+	}
+
+	# Declare victory or failure.... 
+	# let's do some basic sanity testing....
+
+	# We'll allow for 5 complete failures, since these
+	# should never happen, if more than 5 just don't
+	# run in any way (no failure notice even), sound
+	# the alarm.
+	if($total < ($runnum - 5)) {
+	    $logger->error("Error, we thought there should be $runnum run but only $total ran");
+	    return 0;
+	}
+
+	# Require at least 85% of the runs are successful, if its higher than that,
+	# something odd is going on.
+	if(($success / $total) < 0.85) {
+	    $logger->error("Error, we ran $total jobs but only $success were successful, that's too low");
+	    return 0;
 	}
     }
 
@@ -187,6 +208,11 @@ sub calculate_all {
 	# Just a normal run, microbedb everything vs everything...
 	$runpairs = $self->build_pairs($replicon, $replicon);
     }
+
+    $logger->debug("We have " . scalar($runpairs) . " pairs to run");
+
+    # Remember the number of pairs we're wanting to run
+    $self->{runnum} = scalar($runpairs);
 
     if($custom_rep) {
 	($custom_vs_custom ? 

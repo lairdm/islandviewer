@@ -434,7 +434,7 @@ sub fetch_module_statuses {
 
     my $fetch_status = $dbh->prepare("SELECT status FROM GIAnalysisTask WHERE prediction_method = ?");
 
-    $status_set;
+    my $status_set;
 
     foreach my $mod (@modules) {
 	$logger->trace("Fetching status for $mod");
