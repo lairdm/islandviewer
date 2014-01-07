@@ -53,6 +53,8 @@ use Islandviewer::GenomeUtils;
 
 my $cfg; my $logger; my $cfg_file;
 
+my $module_name = 'Distance';
+
 sub BUILD {
     my $self = shift;
     my $args = shift;
@@ -84,6 +86,9 @@ sub BUILD {
 					       $cfg->{dbpass})
 	or die "Error, can't connect to Islandviewer via DBIx";
 
+    # Save the args for later
+    $self->{args} = $args;
+
     # Vocalize a little
     $logger->info("Initializing Islandviewer::Distance");
     $logger->info("Using scheduler " . $self->{scheduler});
@@ -95,8 +100,29 @@ sub BUILD {
 sub run {
     my $self = shift;
     my $accnum = shift;
+    my $callback = shift;
 
-    return $self->add_replicon(cid => $accnum);
+    $self->{accnum} = $accnum;
+
+    my $ret =  $self->add_replicon(cid => $accnum);
+
+    if($ret) {
+	# Save how many distance attempts we've done vs how many
+	# we've tried it.  Do it this way from the DB so the module
+	# is idempotent no matter how many times its rerun (vs.
+	# recording how many attempts we made this iterations and
+	# how many we think are currently possible)
+	my ($success, $failure) = $self->fetch_run_stats();
+	my $total = $success + $failure;
+
+	$self->{args}->{distances_calculated} = $success;
+	$self->{args}->{distances_attempted} = $total;
+	if($callback) {
+	    $callback->update_args($self->{args});
+	}
+    }
+
+    return $ret;
 }
 
 sub calculate_all {
@@ -657,6 +683,41 @@ sub set_version {
     return 0 unless($versions->isvalid($v));
 
     return $v;
+}
+
+# Fetch from the database how many runs we've done
+# and how many we attempted, this will be used to
+# update the analysis arguments so we can test the 
+# job for success or failure
+
+sub fetch_run_stats {
+    my $self = shift;
+
+    my $rep_accnum = $self->{accnum};
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $sqlstmt = "SELECT status, count(status) FROM $cfg->{dist_log_table} WHERE (rep_accnum1 = ? OR rep_accnum2 = ?) GROUP BY status";
+    my $find_dists = $dbh->prepare($sqlstmt) or 
+	die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    $find_dists->execute($rep_accnum, $rep_accnum) or
+	die "Error, can't execute query: $DBI::errstr";
+
+    # Alright, now let's build a set of the distances in a data structure
+    my $success = 0; my $failure = 0;
+    while(my @row = $find_dists->fetchrow_array) {
+	if($row[0] == 1) {
+	    $success = $row[1];
+	} elsif($row[0] == 0) {
+	    $failure = $row[1];
+	} else {
+	    $logger->error("Received an unknown distance status type $row[0] (count $row[1]) for $rep_accnum");
+	}
+    }
+
+    return ($success, $failure);
+
 }
 
 sub block_for_cvtree {

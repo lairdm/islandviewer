@@ -125,7 +125,13 @@ sub run {
 	@comparison_genomes= split ' ', $self->{comparison_genomes};
     }
 
-    my @islands = $self->run_islandpick($accnum, @comparison_genomes);
+    my @islands = ();
+    eval {
+	@islands = $self->run_islandpick($accnum, @comparison_genomes);
+    };
+    if($@) {
+	$logger->logdie("Error running module, $@");
+    }
 
     # Write back the comparison genomes if we've predicted some and weren't
     # given any
@@ -195,7 +201,9 @@ sub run_islandpick {
 
 	# What if, the unthinkable situation, we received
 	# results but nothing was picked... fail.
-	return () unless(@comparison_genomes);
+	unless(@comparison_genomes) {
+	    $logger->logdie("We received comparison genomes, but none were 'picked', oops!");
+	}
 
 	# Save the comparison genomes to our object
 	$self->{comparison_genomes} = join(' ', @comparison_genomes);
@@ -204,8 +212,8 @@ sub run_islandpick {
     # At this point we have a set of comparison genomes,
     # lets find out a little about our contestants....
     unless($self->fill_in_info($rep)) {
-	$logger->error("Error, can't fill in info for $rep");
-	return ();
+	$logger->logdie("Error, can't fill in info for $rep");
+#	return ();
     }
 
     # Remember the query rep for later
@@ -214,8 +222,8 @@ sub run_islandpick {
     # And again, if we don't have the correct format, what's
     # the point, bail.
     unless($self->{genomes}->{$rep}->{formats}->{fna}) {
-	$logger->error("No fna file for $rep");
-	return ();
+	$logger->logdie("No fna file for $rep");
+#	return ();
     }
 
     # And while we're going through them we'll run
