@@ -415,7 +415,7 @@ sub submit_sets {
 
 	my $cmd = sprintf($cfg->{cvtree_dispatcher}, $self->{workdir},
 			  $set, $cfg_file);
-	$cmd .= " -b $skroot"
+	$cmd .= " -b $zkroot"
 	    if($block);
 
 	# Submit it to the scheduler
