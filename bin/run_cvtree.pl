@@ -19,7 +19,7 @@ use Islandviewer::Distance;
 use Net::ZooKeeper::WatchdogQueue;
 
 MAIN: {
-    my $cfname; my $set; my $workdir; my $root;
+    my $cfname; my $set; my $workdir; my $root; my $logger;
     my $watchdog;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "set=s"      => \$set,
@@ -33,20 +33,45 @@ MAIN: {
     my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
     my $cfg = Islandviewer::Config->config;
 
+    if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
+	Log::Log4perl::init($cfg->{logger_conf});
+	$logger = Log::Log4perl->get_logger;
+	$logger->debug("Logging initialize for set $set");
+    }
+
+    my $app = Log::Log4perl->appender_by_name("errorlog");
+    if(-d "$workdir/$set") {
+	$app->file_switch("$workdir/$set/distance.log");
+	$logger->info("Initializing logging for set $set");
+    } else {
+	$logger->error("Error, can't switch log file for set $set");
+    }
+
+
     # If we're working in blocking mode we make a watchdog
     if($root) {
-	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
+	eval {
+	    $logger->debug("Creating zookeeper node $root/pid$$set$set");
+
+	    $watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $root);
-	$watchdog->create_timer("pid".$$."set".$set);
-	# We're throwing away the set because we're not
-	# actually doing it that way, we get passed the
-	# set on our command line
-	$watchdog->consume();
+
+            $watchdog->create_timer("pid".$$."set".$set);
+	    # We're throwing away the set because we're not
+	    # actually doing it that way, we get passed the
+	    # set on our command line
+	    $watchdog->consume();
+	};
+	if($@) {
+	    $logger->logdie("Error creating cvtree node for set $set: $@");
+	}
     }
 
     # Now we have to actually run the set through cvtree
     eval {
 	my $dist_obj = Islandviewer::Distance->new({workdir => "$workdir/$set" });
+	$logger->debug("Starting cvtree run");
+
 	$dist_obj->run_and_load("$workdir/$set", $watchdog);
     };
 
@@ -54,6 +79,7 @@ MAIN: {
 	open(ERRORLOG, ">>$workdir/$set/error.log") or
 	    die "Wow, we're really in trouble! Can't open error log!";
 	print ERRORLOG "Error running cvtree task: $@";
+	$logger->error("Error running cvtree task: $@");
 	close ERRORLOG;
 	die "Error running cvtree task: $@"
     }
