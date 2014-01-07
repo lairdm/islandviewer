@@ -19,7 +19,7 @@ use Islandviewer::Distance;
 use Net::ZooKeeper::WatchdogQueue;
 
 MAIN: {
-    my $cfname; my $set; my $workdir; my $root;
+    my $cfname; my $set; my $workdir; my $root; my $logger;
     my $watchdog;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "set=s"      => \$set,
