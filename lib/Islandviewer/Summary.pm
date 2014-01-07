@@ -62,6 +62,30 @@ sub run {
     my $accnum = shift;
     my $callback = shift;
 
+    my $status_set = $callback->fetch_module_statuses();
+
+    for my $mod (keys %{$status_set}) {
+	if($status_set->{$mod}->{status} ne 'COMPLETE') {
+	    # We *may* have a problem....
+
+	    if($status_set->{$mod}->{required}) {
+		# We're required to be successful and we're not.
+		# This catches non-run modules, which if they've
+		# not run by this point are a failure.
+		$callback->set_status('ERROR');
+	    } elsif($status_set->{$mod}->{status} ne 'ERROR') {
+		# We're not required to be successful, but we're
+		# not in error either, didn't run? That's a problem.
+		$callback->set_status('ERROR');
+	    }
+
+	    # Ok, no problem after all, we were in error, but we're
+	    # not required to be successful.
+    }
+
+    # Otherwise if any other module failed, that's ok, we're going
+    # to declare victory.
+
     # We actually do nothing with this right now except set the analysis
     # as complete, later we should do a check through of the modules
     # to ensure they all ran correctly and maybe notify of problems

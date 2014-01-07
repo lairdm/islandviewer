@@ -41,6 +41,7 @@ use MicrobeDB::Versions;
 my $cfg; my $logger; my $cfg_file;
 
 my @modules = qw(Distance Islandpick Sigi Dimob Virulence Summary);
+my @required_success = qw(Distance Virulence);
 
 sub BUILD {
     my $self = shift;
@@ -421,6 +422,35 @@ sub set_module_status {
     } else {
 	$logger->error("Error, status $status doesn't seem to be valid (module $self->{module})");
     }
+}
+
+# Fetch the status for all the modules and return
+# that set
+
+sub fetch_module_statuses {
+    my $self = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $fetch_status = $dbh->prepare("SELECT status FROM GIAnalysisTask WHERE prediction_method = ?");
+
+    my $status_set;
+
+    foreach my $mod (@modules) {
+	$logger->trace("Fetching status for $mod");
+	$fetch_status->execute($mod) or
+	    $logger->logdie("Error running sql statement: $DBI::errstr");
+	if(my @row = $fetch_status->fetchrow_array) {
+	    my $status = $REV_STATUS_MAP->{$row[0]};
+
+	    $status_set->{$mod}->{status} = $status;
+	    if($mod ~~ @required_success) {
+		$status_set->{mod}->{required} = 1;
+	    }
+	}
+    }
+
+    return $status_set;
 }
 
 # We could use a trigger like this for the insertion in to
