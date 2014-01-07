@@ -384,7 +384,7 @@ sub submit_sets {
     # If we're running in blocking mode, we need the watchdog module
     if($block) {
 	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . localtime);
-	my $zkroot = $cfg->{zk_root} . localtime;
+	my $zkroot = $cfg->{zk_root} . time;
 	$logger->debug("Making zookeeper root $zkroot");
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $zkroot);
@@ -415,7 +415,7 @@ sub submit_sets {
 
 	my $cmd = sprintf($cfg->{cvtree_dispatcher}, $self->{workdir},
 			  $set, $cfg_file);
-	$cmd .= " -b " . $cfg->{zk_root} . $$
+	$cmd .= " -b $skroot"
 	    if($block);
 
 	# Submit it to the scheduler
