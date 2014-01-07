@@ -209,10 +209,10 @@ sub calculate_all {
 	$runpairs = $self->build_pairs($replicon, $replicon);
     }
 
-    $logger->debug("We have " . scalar($runpairs) . " pairs to run");
+    $logger->debug("We have " . scalar(keys %{$runpairs}) . " pairs to run");
 
     # Remember the number of pairs we're wanting to run
-    $self->{runnum} = scalar($runpairs);
+    $self->{runnum} = scalar(keys %{$runpairs});
 
     if($custom_rep) {
 	($custom_vs_custom ? 
