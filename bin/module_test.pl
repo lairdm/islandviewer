@@ -96,7 +96,7 @@ MAIN: {
 	$logger->trace("Reporting all modules for analysis $aid");
 	# The user didn't specify the module, so report all of them...
 	for my $c (keys %{$modules}) {
-	    $logger->debug("Analysis $aid, module $componenet in " . $REV_STATUS_MAP->{$modules->{$c}});
+	    $logger->debug("Analysis $aid, module $component in " . $REV_STATUS_MAP->{$modules->{$c}});
 	    print "$c\t" . $REV_STATUS_MAP->{$modules->{$c}} . "\n";
 	}
     }
