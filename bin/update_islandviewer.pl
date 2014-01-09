@@ -50,7 +50,7 @@ MAIN: {
     my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 60, block => 1 });
 
     my $microbedb_ver; my $sets_run;
-    my $sets_run_last_cycle = 99999;
+    my $sets_run_last_cycle = 99999999;
 
     # We're going to loop until we stop computing more distances,
     # this will catch dying children that might cause some of our
