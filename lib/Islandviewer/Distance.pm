@@ -323,7 +323,7 @@ sub build_sets {
 	}
     }
 
-    $self->{jobs_to_start} = $jobs;
+    $self->{jobs_to_start} = $job;
 
     close $fh if($fh);
 
