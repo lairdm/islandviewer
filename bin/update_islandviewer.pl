@@ -47,7 +47,7 @@ MAIN: {
 	$app->file_switch($cfg->{logdir} . "/ivupdate.$datestr.log");
     }
 
-    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 120, block => 1 });
+    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 200, block => 1 });
 
     my $microbedb_ver; my $sets_run;
     my $sets_run_last_cycle = 99999;
@@ -131,7 +131,7 @@ my $count = 0;
 	} else {
 	    $logger->error("Error submitting $accnum, didn't get an aid");
 	}
-	if($count > 25) {
+	if($count > 250) {
 	    last;
 	}
 	$count++;
