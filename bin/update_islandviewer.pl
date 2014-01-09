@@ -66,7 +66,7 @@ MAIN: {
 	eval{
 	    # We need the trailing slash becauce the code that uses this expects
 	    # it, my bad...
-	    $cycle_workdir =  catdir($base_work_dir, "cycle$cycle_num") . '/';
+	    my $cycle_workdir =  catdir($base_work_dir, "cycle$cycle_num") . '/';
 	    $logger->debug("Making workdir for cycle $cycle_num: $cycle_workdir");
 	    mkdir $cycle_workdir;
 
