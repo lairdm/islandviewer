@@ -5,6 +5,7 @@ use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Date::Manip;
+use File::Spec::Functions;
 
 BEGIN{
 # Find absolute path of script
@@ -47,16 +48,30 @@ MAIN: {
 	$app->file_switch($cfg->{logdir} . "/ivupdate.$datestr.log");
     }
 
-    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cfg->{workdir}, num_jobs => 60, block => 1 });
+    my $base_work_dir = catdir($cfg->{workdir},"$datestr");
+    $logger->debug("Making working directory for distance $base_work_dir");
+    if( -d $base_work_dir) {
+	$logger->logdie("Error, workdir already exists for today, not proceeding");
+    }
+    mkdir $base_work_dir;
 
     my $microbedb_ver; my $sets_run;
     my $sets_run_last_cycle = 99999999;
+    my $cycle_num = 1;
 
     # We're going to loop until we stop computing more distances,
     # this will catch dying children that might cause some of our
     # distances to not be caught
     while(1) {
 	eval{
+	    # We need the trailing slash becauce the code that uses this expects
+	    # it, my bad...
+	    $cycle_workdir =  catdir($base_work_dir, "cycle$cycle_num") . '/';
+	    $logger->debug("Making workdir for cycle $cycle_num: $cycle_workdir");
+	    mkdir $cycle_workdir;
+
+	    my $dist_obj = Islandviewer::Distance->new({scheduler => 'Islandviewer::Torque', workdir => $cycle_workdir, num_jobs => 200, block => 1 });
+
 	    ($microbedb_ver,$sets_run) = $dist_obj->calculate_all();
 	};
 	if($@) {
@@ -100,6 +115,8 @@ MAIN: {
     $args->{default_analysis} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
+my $count = 0;
+
     foreach my $curr_rep (@reps) {
 	my $accnum = $curr_rep->rep_accnum();
 
@@ -129,6 +146,10 @@ MAIN: {
 	} else {
 	    $logger->error("Error submitting $accnum, didn't get an aid");
 	}
+	if($count > 250) {
+	    last;
+	}
+	$count++;
     }
 
     $logger->info("All analysis should now be submitted");
