@@ -47,7 +47,6 @@ MAIN: {
 
 	my $logpath = catdir($cfg->{analysis_directory}, $aid);
 	if( -d $logpath ) {
-	    $logger->trace("Switching logging to $logpath/analysis.log, analysis $aid, module $component");
 	    $app->file_switch("$logpath/analysis.log");	    
 	} else {
 	    $app->file_switch($cfg->{analysis_log});

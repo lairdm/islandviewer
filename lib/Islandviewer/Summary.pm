@@ -73,10 +73,12 @@ sub run {
 		# This catches non-run modules, which if they've
 		# not run by this point are a failure.
 		$callback->set_status('ERROR');
+		return 0;
 	    } elsif($status_set->{$mod}->{status} ne 'ERROR') {
 		# We're not required to be successful, but we're
 		# not in error either, didn't run? That's a problem.
 		$callback->set_status('ERROR');
+		return 0;
 	    }
 
 	    # Ok, no problem after all, we were in error, but we're
