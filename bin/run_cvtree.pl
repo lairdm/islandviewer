@@ -51,7 +51,7 @@ MAIN: {
     # If we're working in blocking mode we make a watchdog
     if($root) {
 	eval {
-	    $logger->debug("Creating zookeeper node $root/pid$$set$set");
+	    $logger->debug("Creating zookeeper node $root/pid".$$."set."$set);
 
 	    $watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $root);

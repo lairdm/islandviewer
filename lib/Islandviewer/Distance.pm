@@ -214,6 +214,12 @@ sub calculate_all {
     # Remember the number of pairs we're wanting to run
     $self->{runnum} = scalar(keys %{$runpairs});
 
+    # Why do all the rest if we have nothing to run
+    if($self->{runnum} == 0) {
+	$logger->debug("Nothing to run, goodbye.");
+	return ($version, 0);
+    }
+
     if($custom_rep) {
 	($custom_vs_custom ? 
 	 $self->build_sets($runpairs, $custom_rep, $custom_rep)
@@ -289,6 +295,8 @@ sub build_sets {
 	$batch_size = scalar(keys %{$pairs});
     }
 
+    $logger->debug("Building sets, writing out " . scalar(keys %{$pairs}) . " pairs");
+
     my $i = 0; my $job = 0; my $fh;
     foreach my $pair (keys %{$pairs}) {
 	unless($i) {
@@ -314,6 +322,8 @@ sub build_sets {
 	    $job++;
 	}
     }
+
+    $self->{jobs_to_start} = $jobs;
 
     close $fh if($fh);
 
@@ -436,7 +446,7 @@ sub submit_sets {
 
 	$watchdog->clear_timers();
 
-	die "Error while waiting for cvtree, bailing!"
+	$logger->logdie("Error while waiting for cvtree, bailing!")
 	    unless($ret);
     }
 }
