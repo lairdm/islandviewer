@@ -81,8 +81,8 @@ sub run {
 
 	    # Ok, no problem after all, we were in error, but we're
 	    # not required to be successful.
+	}
     }
-
     # Otherwise if any other module failed, that's ok, we're going
     # to declare victory.
 
