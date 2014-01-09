@@ -4,6 +4,7 @@ use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Data::Dumper;
+use File::Spec::Functions;
 
 # This is the tool metascheduler will use to test the
 # status of individual modules in a pipeline instance.
