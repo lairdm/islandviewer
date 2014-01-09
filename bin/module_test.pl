@@ -51,7 +51,7 @@ MAIN: {
 	    $app->file_switch($cfg->{analysis_log});
 	}
 
-	$logger->debug("Logging initialized, aid $aid, module $module");
+	$logger->debug("Logging initialized, aid $aid, module $component");
     }
 
     # Make a status check object
