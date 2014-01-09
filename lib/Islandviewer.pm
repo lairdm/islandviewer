@@ -175,7 +175,7 @@ sub run {
 
     my $ret;
     eval {
-#	$watchdog->create_timer("$aid.$module");
+	$watchdog->create_timer("$aid.$module");
 	$ret = $analysis_obj->run($module);
     };
     if($@) {

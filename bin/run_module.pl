@@ -4,6 +4,7 @@ use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Data::Dumper;
+use File::Spec::Functions;
 
 BEGIN{
 # Find absolute path of script
@@ -34,7 +35,14 @@ MAIN: {
 	$logger = Log::Log4perl->get_logger;
 
 	my $app = Log::Log4perl->appender_by_name("errorlog");
-	$app->file_switch($cfg->{analysis_log});
+
+	my $logpath = catdir($cfg->{analysis_directory}, $16);
+	if( -d $logpath ) {
+	    $app->file_switch("$logpath/analysis.log");	    
+	} else {
+	    $app->file_switch($cfg->{analysis_log});
+	}
+
 	$logger->debug("Logging initialized, aid $aid, module $module");
     }
 
