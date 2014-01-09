@@ -78,7 +78,10 @@ MAIN: {
 	    die "Error updating islandviewer in distance phase: $@";
 	}
 
-	if($sets_run < $sets_run_last_cycle) {
+	if($sets_run == 0) {
+	    $logger->info("No sets to run, moving on...");
+	    last;
+	} elsif($sets_run < $sets_run_last_cycle) {
 	    $logger->info("We ran $sets_run this attempt, $sets_run_last_cycle last time");
 	} elsif($sets_run == $sets_run_last_cycle) {
 	    # This can either be if its stuck not getting more or if it hits zero
