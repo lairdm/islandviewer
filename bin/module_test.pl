@@ -45,7 +45,7 @@ MAIN: {
 
 	my $app = Log::Log4perl->appender_by_name("errorlog");
 
-	my $logpath = catdir($cfg->{analysis_directory}, $16);
+	my $logpath = catdir($cfg->{analysis_directory}, $aid);
 	if( -d $logpath ) {
 	    $logger->trace("Switching logging to $logpath/analysis.log, analysis $aid, module $component");
 	    $app->file_switch("$logpath/analysis.log");	    
