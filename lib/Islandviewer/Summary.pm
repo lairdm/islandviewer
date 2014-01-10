@@ -64,6 +64,8 @@ sub run {
 
     my $status_set = $callback->fetch_module_statuses();
 
+    print Dumper $status_set;
+
     for my $mod (keys %{$status_set}) {
 	# Don't check ourself
 	if($mod eq $module_name) {
