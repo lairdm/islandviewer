@@ -92,7 +92,7 @@ sub fetchGenes {
 		    my $gis = $self->rangeinislands($feature_obj->location->start,
 						    $feature_obj->location->end);
 
-		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis " . @{$gis});
+		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis  @{$gis}");
 
 		    # A bit of a hack, but we only care about the YP_######
 		    # formated ids, so a basic filter in case there's
@@ -102,6 +102,7 @@ sub fetchGenes {
 		    for my $pid (@protein_ids) {
 			if($pid =~ /[A-Z][A-Z]_\d\d\d\d/) {
 			    $protein_id = $pid;
+			    $logger->trace("Found protein_id feature $pid");
 			    last;
 			}
 		    }
