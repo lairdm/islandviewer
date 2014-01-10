@@ -153,6 +153,7 @@ my $count = 0;
 	    last;
 	}
 	$count++;
+	sleep 1;
     }
 
     $logger->info("All analysis should now be submitted");
