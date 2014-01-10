@@ -340,7 +340,7 @@ sub record_islands {
 
     foreach my $island (@islands) {
 	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
-	    or $logger->logdie("Error loading island: $DBI::errstr");
+	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $self->{module}): $DBI::errstr");
     }
 }
 
@@ -380,11 +380,11 @@ sub record_genes {
 
     for my $gene (@{$genes}) {
 	$insert_gene->execute($self->{ext_id}, $gene->[0], $gene->[1], $gene->[4], $gene->[2], $gene->[5], $gene->[6], $gene->[7])
-	    or $logger->logdie("Error loading island: $DBI::errstr");
+	    or $logger->logdie("Error loading island ($self->{ext_id}, $gene->[0], $gene->[1], $gene->[4], $gene->[2], $gene->[5], $gene->[6], $gene->[7]): $DBI::errstr");
 	my $geneid = $dbh->last_insert_id(undef, undef, undef, undef);
 	foreach my $gi (@{$gene->[3]}) {
 	    $insert_island->execute($gi, $geneid)
-		or $logger->logdie("Error loading island: $DBI::errstr");
+		or $logger->logdie("Error loading island ($gi, $geneid): $DBI::errstr");
 	}
     }
     
