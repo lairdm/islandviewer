@@ -92,17 +92,23 @@ sub fetchGenes {
 		    my $gis = $self->rangeinislands($feature_obj->location->start,
 						    $feature_obj->location->end);
 
-		    # Ensure $gis is an array since we sometimes
-		    # get a scalar if only one is returned
-		    if(ref($gis) eq "SCALAR") {
-			$gis = [$gis];
-		    }
-
 		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis " . @{$gis});
+
+		    # A bit of a hack, but we only care about the YP_######
+		    # formated ids, so a basic filter in case there's
+		    # more than one
+		    my @protein_ids = $feature_obj->get_tag_values('protein_id');
+		    my $protein_id = undef;
+		    for my $pid (@protein_ids) {
+			if($pid =~ /[A-Z][A-Z]_\d\d\d\d/) {
+			    $protein_id = $pid;
+			    last;
+			}
+		    }
 
 		    push @genes, [$feature_obj->location->start, 
 				  $feature_obj->location->end,
-				  $feature_obj->get_tag_values('protein_id'),
+				  $protein_id,
 				  $gis, 
 				  $feature_obj->strand,
 				  $gene,
@@ -125,7 +131,7 @@ sub fetchGenes {
 #			];
 #		    }
 		    my @ary = $genes[-1];
-		print Dumper @ary;
+#		print Dumper @ary;
 		}
 	    }
 	}
