@@ -78,11 +78,13 @@ sub run {
 		# We're required to be successful and we're not.
 		# This catches non-run modules, which if they've
 		# not run by this point are a failure.
+		$logger->trace("Failure of required module $mod");
 		$callback->set_status('ERROR');
 		return 0;
 	    } elsif($status_set->{$mod}->{status} ne 'ERROR') {
 		# We're not required to be successful, but we're
 		# not in error either, didn't run? That's a problem.
+		$logger->trace("Module module in status " . $status_set->{$mod}->{status} . " this is unexpected");
 		$callback->set_status('ERROR');
 		return 0;
 	    }
