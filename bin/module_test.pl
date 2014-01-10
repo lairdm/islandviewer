@@ -79,8 +79,9 @@ MAIN: {
 	    # We have the module...
 	    print $REV_STATUS_MAP->{$modules->{$component}} . "\n";
 
-	    if($modules->{$component} == $STATUS_MAP->{PENDING} ||
-	       $modules->{$component} == $STATUS_MAP->{RUNNING}) {
+	    if($modules->{$component} == $STATUS_MAP->{PENDING}) {
+		exit 2;
+	    } elsif($modules->{$component} == $STATUS_MAP->{RUNNING}) {
 		exit 8;
 	    } elsif($modules->{$component} == $STATUS_MAP->{ERROR}) {
 		exit 4;
