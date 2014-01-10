@@ -102,8 +102,8 @@ sub run_sigi {
     my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
 
     unless($filename && $format_str) {
-	$logger->error("Error, can't find genome $rep_accnum");
-	return ();
+	$logger->logdie("Error, can't find genome $rep_accnum");
+#	return ();
     }    
 
     # To make life easier, break out the formats available
@@ -112,8 +112,8 @@ sub run_sigi {
 
     # Ensure we have the needed file
     unless($formats->{embl}) {
-	$logger->error("Error, we don't have the needed ebml file... looking in $filename");
-	return ();
+	$logger->logdie("Error, we don't have the needed ebml file... looking in $filename");
+#	return ();
     }
 
     # Now we need to start buildingthe command we'll run
