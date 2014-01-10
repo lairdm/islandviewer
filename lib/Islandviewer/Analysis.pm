@@ -467,7 +467,7 @@ sub fetch_module_statuses {
 
 	    $status_set->{$mod}->{status} = $status;
 	    if($mod ~~ @required_success) {
-		$status_set->{mod}->{required} = 1;
+		$status_set->{$mod}->{required} = 1;
 	    }
 	}
     }
