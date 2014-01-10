@@ -156,8 +156,9 @@ my $count = 0;
 	$count++;
 	my $diff = time - $starttime;
 	# We don't want to submit too quickly....
-	if($diff < 5) {
-	    sleep abs(5 - $diff);
+	if($diff < 10) {
+	    $logger->trace("Submission ran too quickly, pausing " . (10 - $diff) . ' seconds');
+	    sleep abs(10 - $diff);
 	}
 
     }
