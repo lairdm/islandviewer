@@ -36,9 +36,16 @@ MAIN: {
     die "Error, no config file given"
       unless($cfname);
 
-    my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
-    my $cfg = Islandviewer::Config->config;
- 
+    my $Islandviewer; my $cfg;
+    eval {
+	$Islandviewer = Islandviewer->new({cfg_file => $cfname });
+	$cfg = Islandviewer::Config->config;
+    };
+    if($@) {
+	print "Error initiating module_test for aid $aid, component $component";
+	exit 16;
+    }
+
     if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
