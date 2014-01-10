@@ -151,7 +151,11 @@ my $count = 0;
 	    $logger->error("Error submitting $accnum, didn't get an aid");
 	}
 	if($count > 250) {
-	    last;
+	    $logger->info("250 submitted, sleeping for 5 minutes");
+	    sleep 300;
+	    $count = 0;
+	    next;
+#	    last;
 	}
 	$count++;
 	my $diff = time - $starttime;
