@@ -66,7 +66,10 @@ sub run {
 
     for my $mod (keys %{$status_set}) {
 	# Don't check ourself
-	next if($mod eq $module_name);
+	if($mod eq $module_name) {
+	    $logger->trace("Don't check ourself");
+	    next;
+	}
 
 	if($status_set->{$mod}->{status} ne 'COMPLETE') {
 	    # We *may* have a problem....
