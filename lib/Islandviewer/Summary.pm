@@ -65,6 +65,9 @@ sub run {
     my $status_set = $callback->fetch_module_statuses();
 
     for my $mod (keys %{$status_set}) {
+	# Don't check ourself
+	next if($mod eq $module_name);
+
 	if($status_set->{$mod}->{status} ne 'COMPLETE') {
 	    # We *may* have a problem....
 

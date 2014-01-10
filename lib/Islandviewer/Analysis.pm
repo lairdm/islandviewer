@@ -231,6 +231,9 @@ sub run {
 
     $self->{module} = $module;
 
+    # Fetch the epoch seconds of when we start
+    my $starttime = time;
+
     # Load the module information
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -292,8 +295,27 @@ sub run {
 	# to send results to, if it has any (things like Distance
 	# do it themself)
 	$res = $mod_obj->run($self->{ext_id}, $self);
+
+	my $diff = time - $starttime;
+	# A bit of a hack, but we don't want modules to run
+	# too quickly.... a module should take at least 20 seconds
+	if($diff < 20) {
+	    $logger->trace("Module ran too quickly, pausing " . (20 - $diff) . ' seconds');
+	    sleep abs(20 - $diff);
+	}
+
     };
     if($@) {
+	# We need a special case to check the exception
+	# if its a failure due to connecting to the database,
+	# if so we're going to throw things back in to 
+	# pending so the scheduler tries again later.
+	if($@ =~ /Can't connect to MySQL server/) {
+	    $logger->warn("Module $module appears to have a problem connecting to the DB server, settingto pending: $@");
+	    $self->set_module_status('PENDING');
+	    return 1;
+	}
+
 	$self->set_module_status('ERROR');
 	$logger->logdie("Can't run module $module: $@");
     }
