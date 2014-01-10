@@ -92,7 +92,13 @@ sub fetchGenes {
 		    my $gis = $self->rangeinislands($feature_obj->location->start,
 						    $feature_obj->location->end);
 
-		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis " . $gis);
+		    # Ensure $gis is an array since we sometimes
+		    # get a scalar if only one is returned
+		    if(ref($gis) eq "SCALAR") {
+			$gis = [$gis];
+		    }
+
+		    $logger->trace("For " . $feature_obj->get_tag_values('protein_id') . " found gis " . @{$gis});
 
 		    push @genes, [$feature_obj->location->start, 
 				  $feature_obj->location->end,
