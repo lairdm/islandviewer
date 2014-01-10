@@ -138,6 +138,7 @@ my $count = 0;
 	
 	# Submit the replicon for processing
 	my $aid = 0;
+	my $starttime = time;
 	eval {
 	    $aid = $Islandviewer->submit_analysis($accnum, $args);
 	};
@@ -153,7 +154,12 @@ my $count = 0;
 	    last;
 	}
 	$count++;
-	sleep 1;
+	my $diff = time - $starttime;
+	# We don't want to submit too quickly....
+	if($diff < 5) {
+	    sleep abs(5 - $diff);
+	}
+
     }
 
     $logger->info("All analysis should now be submitted");
