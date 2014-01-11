@@ -36,10 +36,10 @@ MAIN: {
     }
 
     my $dimob_obj = Islandviewer::Dimob->new({workdir => "$workdir",
-                                         microbedb_version => 80,
+                                         microbedb_ver => 80,
                                          MIN_GI_SIZE => 4000});
 
-    my @gis = $dimob_obj->run_dimob(2);
+    my @gis = $dimob_obj->run_dimob("NC_004310.3");
 
     print Dumper @gis;
 };

@@ -190,6 +190,11 @@ sub run_dimob {
     foreach (@$dimob_islands) {
 
 	#get the pids from the  for just the start and end genes
+	unless($_->[0]{start} && $_->[-1]{end}) {
+	    $logger->warn("Warning, GI is missing either start or end: ($_->[0]{start}, $_->[-1]{end})");
+	    next;
+	}
+
 	push (@gis, [ $_->[0]{start}, $_->[-1]{end}]);
 	#my $start = $_->[0]{start};
 	#my $end = $_->[-1]{end};
