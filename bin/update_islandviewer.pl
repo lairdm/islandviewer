@@ -150,9 +150,9 @@ my $count = 0;
 	} else {
 	    $logger->error("Error submitting $accnum, didn't get an aid");
 	}
-	if($count > 250) {
-	    $logger->info("250 submitted, sleeping for 5 minutes");
-	    sleep 300;
+	if($count >= 250) {
+	    $logger->info("250 submitted, sleeping for 15 minutes");
+	    sleep 900;
 	    $count = 0;
 	    next;
 #	    last;
@@ -160,9 +160,9 @@ my $count = 0;
 	$count++;
 	my $diff = time - $starttime;
 	# We don't want to submit too quickly....
-	if($diff < 10) {
-	    $logger->trace("Submission ran too quickly, pausing " . (10 - $diff) . ' seconds');
-	    sleep abs(10 - $diff);
+	if($diff < 15) {
+	    $logger->trace("Submission ran too quickly, pausing " . (15 - $diff) . ' seconds');
+	    sleep abs(15 - $diff);
 	}
 
     }
