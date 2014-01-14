@@ -111,8 +111,13 @@ sub run_sigi {
     foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; print $_; $formats->{$_} = 1; }
 
     # Ensure we have the needed file
-    unless($formats->{embl}) {
-	$logger->logdie("Error, we don't have the needed ebml file... looking in $filename");
+    # Just check for the file, because GenomeUtils doesn't update the
+    # formats string for microbedb its not always accurate, if we've
+    # gotten to this point we must have generated the needed files,
+    # but sanity check anyways.
+    unless(-f "$filename.embl" ) {
+#    unless($formats->{embl}) {
+	$logger->logdie("Error, we don't have the needed embl file... looking in $filename");
 #	return ();
     }
 
