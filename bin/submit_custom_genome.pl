@@ -45,8 +45,9 @@ MAIN: {
 	exit;
     }
 
+    my $cid;
     eval {
-	my $cid = $Islandviewer->submit_and_prep($filename, 
+	$cid = $Islandviewer->submit_and_prep($filename, 
 						 ($name ? $name : 'custom genome'));
     };
     if($@) {
