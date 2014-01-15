@@ -136,9 +136,10 @@ sub submit_analysis {
     # Sanity checking, did we get all the correct types?
     unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
 	# We need to regenerate the files
+	$logger->trace("We don't have all the file types we need, only have: " . $genome_obj->find_file_types());
 	unless($genome_obj->regenerate_files()) {
 	    # Oops, we weren't able to regenerate for some reason, failed
-	    $logger->("Error, we don't have the needed files, we can't do an alaysis");
+	    $logger->error("Error, we don't have the needed files, we can't do an alaysis");
 	    return 0;
 	}
     }    

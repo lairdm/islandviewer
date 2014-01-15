@@ -357,7 +357,7 @@ sub regenerate_files {
 	# The regeneration was successful!
 	return 1;
     } else {
-	$logger->error("Error, we didn't regenerate all the files we expected to, failed");
+	$logger->error("Error, we didn't regenerate all the files we expected to, failed, only have: " . $self->find_file_types());
 	return 0;
     }
 
