@@ -1,10 +1,17 @@
 {
   "job_type": "IslandViewer",
-  "first_component": "Distance",
+  "first_component": "Prepare",
   "admin_email": "lairdm@sfu.ca",
   "mailer_from": "islandpick-mail@sfu.ca",
   "mailer_script": "/data/Modules/iv-backend/islandviewer/bin/mailuser.pl %%jobid%%",
   "components": [
+      {
+          "name": "Prepare",
+	  "status_test":  "/data/Modules/iv-backend/islandviewer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",
+	  "on_success": "Distance",
+	  "on_failure": "Summary",
+	  "success_required": "true"
+      },
       {
           "name": "Distance",
           "status_test":  "/data/Modules/iv-backend/islandviewer/bin/module_test.pl -a %%jobid%% -m %%component%% -c /data/Modules/iv-backend/islandviewer/etc/islandviewer.cfg",

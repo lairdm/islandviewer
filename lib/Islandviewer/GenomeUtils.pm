@@ -1,6 +1,6 @@
 =head1 NAME
 
-    Islandviewer::Islandpick::GenomeUtils
+    Islandviewer::GenomeUtils
 
 =head1 DESCRIPTION
 
@@ -13,9 +13,9 @@
 
 =head1 SYNOPSIS
 
-    use Islandviewer::Islandpick::GenomeUtils;
+    use Islandviewer::GenomeUtils;
 
-    my $genome_obj = Islandviewer::Islandpick::GenomeUtils->new(
+    my $genome_obj = Islandviewer::GenomeUtils->new(
                                            { workdir => '/tmp/dir/'});
 
     # $genome_name optional name, will be custom_genome otherwise
@@ -71,6 +71,80 @@ sub BUILD {
 #	unless( -d $args->{workdir} );
 #    $self->{workdir} = $args->{workdir};
 
+}
+
+# Read, but don't convert the genome, for cases
+# when we don't have access to overwrite files
+# in the filesystem, such as from the web frontend
+
+sub read_and_save {
+    my $self = shift;
+    my $filename = shift;
+    my $genome_name = (@_ ? shift : 'custom_genome');
+
+    #seperate extension from filename
+    $filename =~ s/\/\//\//g;
+    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+
+    $logger->debug("From filename $filename got $file, $extension");
+
+    $self->{base_filename} = $file;
+
+    if ( $extension =~ /embl/ ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
+	# Special case, our general purpose code likes .gbk...
+	if($extension =~ /gb/) {
+	    move($filename, "$file.gbk");
+	    $filename = "$file.gbk";
+	}
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } else {
+	$logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
+    }
+
+    while ( my $seq = $in->next_seq() ) {
+	my $total_length = $seq->length();
+	my $total_seq    = $seq->seq();
+
+	#Only keep those features coding for proteins
+	my @cds = grep { $_->primary_tag eq 'CDS' } $seq->get_SeqFeatures;
+
+	#Remove any pseudogenes
+	my @tmp_cds;
+	foreach (@cds) {
+	    unless ( $_->has_tag('pseudo') ) {
+		push( @tmp_cds, $_ );
+	    }
+	}
+	@cds = @tmp_cds;
+
+	my $num_proteins = scalar(@cds);
+
+	# Save the details of the file we just loaded
+	$self->{name} = $genome_name;
+	$self->{num_proteins} = $num_proteins;
+	$self->{total_length} = $total_length;
+	$self->{base_filename} = $file;
+	$self->{ext} = $extension;
+	$self->{orig_filename} = $filename;
+	$self->{formats} = $self->parse_formats($self->find_file_types());
+	$self->{genome_read} = 1;
+
+    }
+
+    # Save the genome to the database and return the cid
+    return $self->insert_custom_genome($self->{formats});
 }
 
 # Read in a genbank or Embl file and convert it to
@@ -355,6 +429,10 @@ sub regenerate_files {
 
     if($cfg->{expected_exts} eq $self->find_file_types()) {
 	# The regeneration was successful!
+	if($self->{type} eq 'custom') {
+	    $self->update_formats();
+	}
+
 	return 1;
     } else {
 	$logger->error("Error, we didn't regenerate all the files we expected to, failed, only have: " . $self->find_file_types());
@@ -395,6 +473,7 @@ sub find_file_types {
 
 sub insert_custom_genome {
     my $self = shift;
+    my $formats = (@_ ? shift : '.gbk .fna .faa .ffn .ptt .embl');
 
     # If we're trying to insert the genome without
     # calling read_and_convert first, fail
@@ -408,7 +487,7 @@ sub insert_custom_genome {
 
     $insert_genome->execute($self->{name}, $self->{num_proteins}, 
 			    $self->{total_length}, $self->{base_filename},
-			    '.gbk .fna .faa .ffn .ptt .embl');
+			    $formats);
 
     my $cid = $dbh->last_insert_id(undef, undef, undef, undef);
     unless($cid) {
@@ -421,6 +500,19 @@ sub insert_custom_genome {
     return $cid;
 }
 
+sub update_formats {
+    my $self = shift;
+    my $formats = (@_ ? shift : '.gbk .fna .faa .ffn .ptt .embl');
+
+    # If we're trying to insert the genome without
+    # calling read_and_convert first, fail
+    return 0 unless($self->{genome_read} && $self->{type} eq 'custom');
+ 
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    $dbh->do("UPDATE CustomGenome SET format = ? WHERE cid = ?", undef, $formats, $self->{accnum});
+}
+
 # Move a custom genome and all its children to a new location,
 # then update the database
 
@@ -428,6 +520,7 @@ sub move_and_update {
     my $self = shift;
     my $cid = shift;
     my $new_path = shift;
+    my $rename = (@_ ? shift : 0);
 
     # First let's ensure this is a directory
     unless( -d $new_path ) {
@@ -445,11 +538,20 @@ sub move_and_update {
     # Move the files over to the new location
 #    my @old_files = glob ($self->{base_filename} . '*');
     foreach my $f (glob ($self->{base_filename} . '*')) {
-	move($f, $new_path);
+	if($rename) {
+	    my($fname, $olddir, $suffix) = 
+		fileparse($f);
+	    move("$f", "$new_path/$cid.$suffix");
+	} else {
+	    move($f, $new_path);
+	}
     }
 
     # Now update the base name in the database
     my $newfile = "$new_path/$filename";
+    if($rename) {
+	$newfile = "$new_path/$cid";
+    }
     $newfile =~ s/\/\//\//g;
     $self->{base_filename} = $newfile;
     my $dbh = Islandviewer::DBISingleton->dbh;

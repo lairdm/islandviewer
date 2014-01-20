@@ -58,6 +58,33 @@ sub BUILD {
 
 }
 
+# Submit a file for analysis, for times
+# we can't prepare the analysis (ie. from
+# the web server where we don't have file 
+# permissions), do the submission but
+# but don't prepare the files or workdir
+
+sub submit_and_queue {
+    my $self = shift;
+    my $file = shift;
+    my $args = shift;
+    my $genome_name = (@_ ? shift : 'custom_genome');
+
+    $logger->info("Received file $file, checking and loading");
+    unless(-f $file && -s $file) {
+	$logger->logdie("Error, can't access $file");
+    }
+
+    # Make out genomeutils object
+    my $genome_obj = Islandviewer::GenomeUtils->new();
+
+    # Load it, but don't do the convertion, we obviously
+    # don't have permission to
+    my $cid = $genome_obj->read_and_save($file, $genome_name);
+    
+    
+}
+
 # Submit a file, it will be a custom genome,
 # load it in to the database and ensure
 # all needed formats are there

@@ -54,7 +54,7 @@ MAIN: {
     my $datestr = UnixDate("now", "%Y%m%d");
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($cfg->{logdir}) {
-	$app->file_switch($cfg->{logdir} . "/custom_upload.log");
+	$app->file_switch($cfg->{logdir} . "/custom_upload.$datestr.log");
     }
     $logger->info("Submitting genome $genome_name using file $filename");
 
