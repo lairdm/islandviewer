@@ -128,6 +128,7 @@ sub read_and_convert {
 
     while ( my $seq = $in->next_seq() ) {
 	my $out;    
+
 	if ( $extension =~ /embl/ ) {
 	    my $outfile = ($formats->{gbk} ? '/dev/null' : $file . '.gbk');
 	    $out = Bio::SeqIO->new(

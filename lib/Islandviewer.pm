@@ -90,7 +90,7 @@ sub submit_and_prep {
     # Now we need to move things in to place, so we're nice
     # and tidy with our file organization
     unless(mkdir($cfg->{custom_genomes} . "/$cid")) {
-	$logger->error("Error, can't make custom genome directory: $!");
+	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/$cid: $!");
 	return 0;
     }
     unless($genome_obj->move_and_update($cid, $cfg->{custom_genomes} . "/$cid")) {
