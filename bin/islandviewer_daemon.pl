@@ -30,7 +30,7 @@ MAIN: {
 
     # Find the config file and make sure we can open it
     $cfname |= '../etc/islandviewer.conf';
-    die "Error, no configuration file found" 
+    die "Error, no configuration file found at $cfname" 
         unless(-f $cfname && -r $cfname);    
 
     my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
