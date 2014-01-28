@@ -418,8 +418,9 @@ sub submit {
 #    $genome_data = decode_base64($genome_data);
     my $genome_data = urlsafe_b64decode($args->{genome_data});
 
+    my $aid;
     eval {
-	my $aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
+	$aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
     };
     if($@) {
 	$logger->error("Error submitting analysis: $@");
