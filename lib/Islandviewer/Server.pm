@@ -457,7 +457,7 @@ sub makeResStr {
     my $msg = shift;
     my $error_str = shift;
 
-    my $ret_json = "{\n \"code\": \"$code\",\n \"msg\": \"$msg\"\n";
+    my $ret_json = "{\n \"code\": $code,\n \"msg\": \"$msg\"\n";
     if($error_str) {
 	$ret_json .= ", \"user_error_msg\": \"$error_str\"\n";
     }
