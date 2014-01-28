@@ -345,7 +345,7 @@ sub process_request {
 
     if($@) {
 	$logger->error("Error dispatching action $action: $@");
-	return (500, $self->makeResStr(500, "Error dispatching action $action"));
+	return (500, $self->makeResStr(500, "Error dispatching action $action", "Error dispatching action $action"));
     }
 
     return ($ret_code, $ret_json);
@@ -418,10 +418,16 @@ sub submit {
 #    $genome_data = decode_base64($genome_data);
     my $genome_data = urlsafe_b64decode($args->{genome_data});
 
-    my $aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
+    eval {
+	my $aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
+    };
+    if($@) {
+	$logger->error("Error submitting analysis: $@");
+	return (500, $self->makeResStr(500, "Error submitting analysis: $@", "An error occurred when submitting the analysis, please try again later."));
+    }
 
     unless($aid) {
-	return (500, $self->makeResStr(500, "Unknown error, no aid returned"));
+	return (500, $self->makeResStr(500, "Unknown error, no aid returned", "No analysis id was returned when submitting, oops, something's wrong"));
     } else {
 	return (200, $self->makeResStr(200, "Job submitted, job id: [$aid]"));
     }
@@ -448,11 +454,11 @@ sub makeResStr {
     my $self = shift;
     my $code = shift;
     my $msg = shift;
-    my $res = shift;
+    my $error_str = shift;
 
     my $ret_json = "{\n \"code\": \"$code\",\n \"msg\": \"$msg\"\n";
-    if($res) {
-	$ret_json .= ", \"results\": $res\n";
+    if($error_str) {
+	$ret_json .= ", \"user_error_msg\": \"$error_str\"\n";
     }
     $ret_json .= "}\n";
 
