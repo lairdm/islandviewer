@@ -95,6 +95,9 @@ sub load_analysis {
 	$self->{ext_id} = $ext_id;
 	$self->{default_analysis} = $default_analysis;
 	$self->{status} = $status;
+	if($workdir =~ /{{.+}}/) {
+	    $workdir =~ s/{{([\w_]+)}}/$cfg->{$1}/eg;
+	}
 	$self->{base_workdir} = $workdir;
 	$self->{microbedb_ver} = $microbedb_ver;
     } else {
@@ -164,7 +167,24 @@ sub submit {
     # file there for *running* the analysis
 #    $self->change_logfile();
 
-    $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $self->{workdir}, $aid);
+    # See if we can shorten the directory to allow moving
+    # of install base in the future
+    my $shortened_workdir = $self->{workdir};
+    if($cfg->{analysis_directory} && 
+       $shortened_workdir =~ /$cfg->{analysis_directory}/) {
+	$shortened_workdir =~ s/$cfg->{analysis_directory}/{{analysis_directory}}/;
+	$logger->trace("Shortening workdir with analysis_directory: $shortened_workdir");
+    } elsif($cfg->{workdir} &&
+	    $shortened_workdir =~ /$cfg->{workdir}/) {
+	$shortened_workdir =~ s/$cfg->{workdir}/{{workdir}}/;
+	$logger->trace("Shortening workdir with workdir: $shortened_workdir");
+    } elsif($cfg->{rootdir} && 
+	    $shortened_workdir =~ /$cfg->{rootdir}/) {
+	$shortened_workdir =~ s/$cfg->{rootdir}/{{rootdir}}/;
+	$logger->trace("Shortening rootdir with workdir: $shortened_workdir");
+    }
+
+    $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $shortened_workdir, $aid);
 
     # Alright, we have our analysis inserted, now time to add the components
     foreach my $mod (@modules) {
