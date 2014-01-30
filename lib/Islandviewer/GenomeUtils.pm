@@ -454,7 +454,19 @@ sub move_and_update {
     $newfile =~ s/\/\//\//g;
     $self->{base_filename} = $newfile;
     my $dbh = Islandviewer::DBISingleton->dbh;
-    $dbh->do("UPDATE CustomGenome SET filename=? WHERE cid = ?", undef, $newfile, $cid);
+
+    my $shortened_filename = $newfile;
+    if($cfg->{custom_genomes} && 
+       $shortened_filename =~ /$cfg->{custom_genomes}/) {
+	$shortened_filename =~ s/$cfg->{custom_genomes}/{{custom_genomes}}/;
+	$logger->trace("Shortening filename with custom_genomes: $shortened_filename");
+    } elsif($cfg->{rootdir} &&
+	    $shortened_filename =~ /$cfg->{rootdir}/) {
+	$shortened_filename =~ s/$cfg->{rootdir}/{{rootdir}}/;
+	$logger->trace("Shortening filename with rootdir: $shortened_filename");
+    }
+
+    $dbh->do("UPDATE CustomGenome SET filename=? WHERE cid = ?", undef, $shortened_filename, $cid);
 
     return 1;
 }
@@ -495,6 +507,11 @@ sub lookup_genome {
 	    # Save the results
 	    $self->{name} = $name;
 	    $self->{accnum} = $rep_accnum;
+	    # Expand filename
+	    if($filename =~ /{{.+}}/) {
+		$filename =~ s/{{([\w_]+)}}/$cfg->{$1}/eg;
+	    }
+
 	    $self->{base_filename} = $filename;
 	    $self->{num_proteins} = $cds_num;
 	    $self->{total_length} = $total_length;

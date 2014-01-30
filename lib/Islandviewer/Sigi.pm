@@ -282,6 +282,11 @@ sub lookup_genome {
 	# its a primary key
 	if($self->{find_custom_name}->rows > 0) {
 	    my ($name,$filename,$formats) = $self->{find_custom_name}->fetchrow_array;
+            # Expand filename
+	    if($filename =~ /{{.+}}/) {
+		$filename =~ s/{{([\w_]+)}}/$cfg->{$1}/eg;
+	    }
+
 	    return ($name,$filename,$formats);
 	}
     }    
