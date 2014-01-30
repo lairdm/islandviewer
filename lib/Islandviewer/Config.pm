@@ -31,11 +31,29 @@ sub initialize {
 
     $self->_set_config($config);
 
+    $self->evaluate_parameters();
+
     # Save the file name so we can pass it to
     # helper scripts
     $self->_set_file($cfg_file);
 
     return $self;
+}
+
+# Go through the config variables and do
+# substitutions as needed
+
+sub evaluate_parameters {
+    my $self = shift;
+
+    my $config = $self->config;
+
+    for my $param (keys $config) {
+	if($config->{$param} =~ /{{.+}}/) {
+	    $config->{$param} =~ s/{{([\w_]+)}}/$config->{$1}/eg;
+	    
+	}
+    }
 }
 
 1;
