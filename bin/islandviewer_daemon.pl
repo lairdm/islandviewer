@@ -29,7 +29,7 @@ MAIN: {
     my $res = GetOptions("config=s" => \$cfname);
 
     # Find the config file and make sure we can open it
-    $cfname ||= '../etc/islandviewer.conf';
+    $cfname ||= '../etc/islandviewer.config';
     die "Error, no configuration file found at $cfname" 
         unless(-f $cfname && -r $cfname);    
 
