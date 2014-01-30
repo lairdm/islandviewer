@@ -57,6 +57,11 @@ MAIN: {
     my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
     $cfg = Islandviewer::Config->config;
 
+    $host = $cfg->{daemon_host}
+        if($cfg->{daemon_host});
+    $port ||= $cfg->{tcp_port}
+        if($cfg->{tcp_port});
+
     myconnect($host, $port);
 
     my $message = build_req($level);
