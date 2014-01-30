@@ -37,7 +37,7 @@ MAIN: {
 
     my $cfg = Islandviewer::Config->config;
 
-    Log::Log4perl::init($cfg->{logger_conf});
+    Log::Log4perl::init($cfg->{daemon_logger_conf});
     $logger = Log::Log4perl->get_logger;
     $logger->debug("Logging initialize");
 
