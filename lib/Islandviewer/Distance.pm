@@ -141,6 +141,8 @@ sub run {
 	    $logger->error("Error, we ran $total jobs but only $success were successful, that's too low");
 	    return 0;
 	}
+    } else {
+	$logger->error("We received a non-zero return value");
     }
 
     return $ret;
