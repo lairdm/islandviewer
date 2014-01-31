@@ -40,6 +40,8 @@ MAIN: {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
 	$logger->debug("Logging initialize");
+	# We want to ensure trace level for an update
+	$logger->level("TRACE");
     }
 
     my $datestr = UnixDate("now", "%Y%m%d");
