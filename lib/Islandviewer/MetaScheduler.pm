@@ -112,7 +112,10 @@ sub build_and_submit {
 	$logger->trace("From submitting analysis $aid: $res");
 	my $response = from_json($res);
 
-	print Dumper $response;
+	unless($response->{code} eq '200') {
+	    # Error!
+	    $logger->logdie("Error submitting analysis to scheduler, received: $res");
+	}
 
     } else {
 	$logger->logdie("Error, no metascheduler submit command defined, can't submit");

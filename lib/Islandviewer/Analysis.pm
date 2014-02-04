@@ -215,7 +215,14 @@ sub submit {
 
     # We have a scheduler object, submit!
     my $job_type = ($args->{job_type} ? $args->{job_type} : 'Islandviewer');
-    $scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
+    eval {
+	$scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
+    };
+    if($@) {
+	$logger->error("Error submitting analysis: $@");
+	$self->set_status('ERROR');
+	return 0;
+    }
 
     $logger->trace("Finished submitting aid $aid");
     return $aid;
