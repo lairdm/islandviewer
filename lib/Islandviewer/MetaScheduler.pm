@@ -113,6 +113,8 @@ sub build_and_submit {
 	$logger->logdie("Error, no metascheduler submit command defined, can't submit");
     }
 
+    print "$res\n";
+
 }
 
 sub create_qsub {
