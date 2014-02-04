@@ -214,7 +214,8 @@ sub submit {
     }
 
     # We have a scheduler object, submit!
-    my $job_type = ($args->{job_type} ? $args->{job_type} : 'Islandviewer');
+    my $job_type = ($cfg->{job_type} ? $cfg->{job_type} : 'Islandviewer');
+    my $job_type = $args->{job_type} if($args->{job_type});
     eval {
 	$scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
     };
