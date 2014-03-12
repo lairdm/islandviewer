@@ -37,6 +37,8 @@ use Data::Dumper;
 use Islandviewer::DBISingleton;
 use Islandviewer::IslandFetcher;
 
+use Islandviewer::GenomeUtils;
+
 use MicrobeDB::Replicon;
 use MicrobeDB::Search;
 
@@ -85,7 +87,9 @@ sub run_virulence {
     my $islands = shift;
 
     # We're given the rep_accnum, look up the files
-    my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
+#    my ($name, $filename, $format_str) = $self->lookup_genome($rep_accnum);
+    my $genome_obj = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+    my($name,$filename,$format_str) = $genome_obj->lookup_genome($rep_accnum);
 
     unless($filename) {
 	$logger->logdie("Error, couldn't find genome file for accnum $rep_accnum");
