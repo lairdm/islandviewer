@@ -279,6 +279,8 @@ sub build_pairs {
 	}
     }
     
+    $logger->trace("Finished building pairs");
+
     return $runpairs;
 }
 
