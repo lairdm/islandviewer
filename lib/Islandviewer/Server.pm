@@ -52,6 +52,7 @@ use Islandviewer;
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
+use Log::Log4perl::Level;
 
 use MicrobeDB::Versions;
 
@@ -74,6 +75,13 @@ my $actions = {
 };
 
 my @logging_levels = qw/TRACE DEBUG INFO WARN ERROR FATAL/;
+my %Logging_level_mappings = ( TRACE => $TRACE,
+                               DEBUG => $DEBUG,
+                               INFO  => $INFO,
+                               WARN  => $WARN,
+                               ERROR => $ERROR,
+                               FATAL => $FATAL 
+                             );
 
 sub initialize {
     my $self = shift;
@@ -441,7 +449,7 @@ sub logging {
     if($args->{level} ~~ @logging_levels) {
 	$logger->info("Adjusting logging level to " . $args->{level});
 
-	$logger->level($args->{level});
+	$logger->level($Logging_level_mappings{$args->{level}});
 
 
 	return (200, $self->makeResStr(200, "Success"));

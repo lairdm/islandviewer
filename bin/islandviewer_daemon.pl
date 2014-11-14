@@ -33,13 +33,14 @@ MAIN: {
     die "Error, no configuration file found at $cfname" 
         unless(-f $cfname && -r $cfname);    
 
-    my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
-
+    Islandviewer::Config->initialize({cfg_file => $cfname });
     my $cfg = Islandviewer::Config->config;
 
     Log::Log4perl::init($cfg->{daemon_logger_conf});
     $logger = Log::Log4perl->get_logger;
     $logger->debug("Logging initialize");
+
+    my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
 
     $server = Islandviewer::Server->initialize({islandviewer => $Islandviewer});
 
