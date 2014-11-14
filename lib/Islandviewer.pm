@@ -56,6 +56,8 @@ sub BUILD {
    
     $logger = Log::Log4perl->get_logger;
 
+    $logger->trace("Islandviewer initialized");
+
 }
 
 # Submit a file, it will be a custom genome,

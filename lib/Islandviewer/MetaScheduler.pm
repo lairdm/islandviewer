@@ -107,8 +107,14 @@ sub build_and_submit {
 
     # And submit the job file to metascheduler...
     if($cfg->{metascheduler_cmd}) {
+	$logger->debug("Issuing submit command: " . $cfg->{metascheduler_cmd} . " submit -i $workdir/metascheduler.job");
 	my $res = `$cfg->{metascheduler_cmd} submit -i $workdir/metascheduler.job`;
 	$logger->trace("From submitting analysis $aid: $res");
+	my $ret = from_json($res);
+	unless($ret->{code} eq "200") {
+	    $logger->logdie("Error, can't submit job to schedule: " . $ret->{msg});
+	}
+	    
     } else {
 	$logger->logdie("Error, no metascheduler submit command defined, can't submit");
     }

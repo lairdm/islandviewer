@@ -69,9 +69,11 @@ sub change_logfile {
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($self->{workdir}) {
+	$logger->trace("Switching log to: " . $self->{workdir} . "/analysis.log");
 	$app->file_switch($self->{workdir} . "/analysis.log");
 
     } else {
+	$logger->trace("Switching log to: " . $self->{base_workdir} . "/analysis.log");
 	$app->file_switch($self->{base_workdir} . "/analysis.log");
     }
     $logger->debug("Logging initialized, aid $self->{aid}");
