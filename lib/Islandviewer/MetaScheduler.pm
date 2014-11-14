@@ -32,6 +32,7 @@ use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use JSON;
+use Data::Dumper;
 
 use Islandviewer::Config;
 
@@ -110,11 +111,14 @@ sub build_and_submit {
 	$logger->debug("Issuing submit command: " . $cfg->{metascheduler_cmd} . " submit -i $workdir/metascheduler.job");
 	my $res = `$cfg->{metascheduler_cmd} submit -i $workdir/metascheduler.job`;
 	$logger->trace("From submitting analysis $aid: $res");
-	my $ret = from_json($res);
-	unless($ret->{code} eq "200") {
-	    $logger->logdie("Error, can't submit job to schedule: " . $ret->{msg});
+
+	my $response = from_json($res);
+
+	unless($response->{code} eq '200') {
+	    # Error!
+	    $logger->logdie("Error submitting analysis to scheduler, received: $res");
 	}
-	    
+
     } else {
 	$logger->logdie("Error, no metascheduler submit command defined, can't submit");
     }
