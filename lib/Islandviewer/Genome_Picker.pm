@@ -343,7 +343,7 @@ sub find_distance_range {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $sqlstmt = "SELECT rep_accnum1, rep_accnum2, distance FROM Distance WHERE (rep_accnum1 = ? OR rep_accnum2 = ?) AND distance < $self->{max_cutoff} AND distance > $self->{min_cutoff}";
+    my $sqlstmt = "SELECT rep_accnum1, rep_accnum2, distance FROM Distance WHERE (rep_accnum1 = ? OR rep_accnum2 = ?) AND distance <= $self->{max_cutoff} AND distance >= $self->{min_cutoff}";
     my $find_dists = $dbh->prepare($sqlstmt) or 
 	die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
@@ -360,7 +360,7 @@ sub find_distance_range {
 	    $dists->{$row[0]} = $row[2];
 	}
     }
-    
+
     return $dists;
 }
 

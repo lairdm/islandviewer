@@ -52,6 +52,7 @@ use Islandviewer;
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
+use Islandviewer::Genome_Picker;
 
 use MicrobeDB::Versions;
 
@@ -70,6 +71,7 @@ tie %ready, 'Tie::RefHash';
 
 my $actions = {
     submit => 'submit',
+    picker => 'picker',
     logging => 'logging',
 };
 
@@ -144,6 +146,36 @@ sub runServer {
     }
 
     $logger->info("Exiting!");
+}
+
+sub pick_genomes {
+    my $self = shift;
+    my $accnum = shift;
+    my $args = shift;
+
+    # Create a Versions object to look up the correct version
+    my $microbedb_ver;
+    my $versions = new MicrobeDB::Versions();
+
+    # If we've been given a microbedb version AND its valid... 
+    unless($args->{microbedb_version} && $versions->isvalid($args->{microbedb_version})) {
+	$args->{microbedb_version} = $versions->newest_version();
+    }
+    print Dumper $args;
+
+    $logger->trace("Running genome picker for $accnum");
+
+    my $picker_obj = Islandviewer::Genome_Picker->new($args);
+
+    my $results = $picker_obj->find_comparative_genomes($accnum);
+
+    # Didn't get any results, return an empty set
+    unless($results) {
+	$logger->debug("No comparison genomes found");
+	return () ;
+    }
+
+    return $results;
 }
 
 sub submit_job {
@@ -294,7 +326,17 @@ sub process_requests {
         if ($rv == length $outbuffer{$client} ||
             $! == POSIX::EWOULDBLOCK) {
             substr($outbuffer{$client}, 0, $rv) = '';
-            delete $outbuffer{$client} unless length $outbuffer{$client};
+	    # If there's nothing left in the send buffer, shut it down, remove it
+	    unless(length $outbuffer{$client}) {
+		delete $inbuffer{$client};
+		delete $outbuffer{$client};
+		delete $ready{$client};
+
+		$sel->remove($client);
+		delete $outbuffer{$client} ;
+		close($client);
+		$logger->debug("We're done sending, closing socket");
+	    }
         } else {
             # Couldn't write all the data, and it wasn't because
             # it would have blocked.  Shutdown and move on.
@@ -327,13 +369,13 @@ sub process_request {
     };
     if($@) {
 	$logger->error("Error decoding submitted json:\t$req");
-	return (400, "{ \"code\": \"400\",\n\"msg\": \"Error decoding JSON\" }");
+	return (400, $self->makeResStr(400, "Error decoding JSON"));
     }
 
     # Does the job have a valid action?
     unless($json->{action} && $actions->{$json->{action}}) {
 	$logger->error("Error, no valid action was submitted: " . $json->{action});
-	return (400, "{ \"code\": \"400\",\n\"msg\": \"Error, no valid action submitted\" }");
+	return (400, $self->makeResStr(400, "Error, no valid action submitted"));
     }
 
     # Dispatch the request
@@ -345,7 +387,7 @@ sub process_request {
 
     if($@) {
 	$logger->error("Error dispatching action $action: $@");
-	return (500, $self->makeResStr(500, "Error dispatching action $action", "Error dispatching action $action"));
+	return (500, $self->makeResStr(500, "Error dispatching action $action", '', "Error dispatching action $action"));
     }
 
     return ($ret_code, $ret_json);
@@ -424,14 +466,42 @@ sub submit {
     };
     if($@) {
 	$logger->error("Error submitting analysis: $@");
-	return (500, $self->makeResStr(500, "Error submitting analysis: $@", "An error occurred when submitting the analysis, please try again later."));
+	return (500, $self->makeResStr(500, "Error submitting analysis: $@", '', "An error occurred when submitting the analysis, please try again later."));
     }
 
     unless($aid) {
-	return (500, $self->makeResStr(500, "Unknown error, no aid returned", "No analysis id was returned when submitting, oops, something's wrong"));
+	return (500, $self->makeResStr(500, "Unknown error, no aid returned", '', "No analysis id was returned when submitting, oops, something's wrong"));
     } else {
 	return (200, $self->makeResStr(200, "Job submitted, job id: [$aid]"));
     }
+}
+
+sub picker {
+    my $self = shift;
+    my $args = shift;
+
+    my $picker_args = {};
+    my $results;
+
+    eval{
+	$picker_args->{microbedb_version} = $args->{microbedb_ver} if($args->{microbedb_ver});
+
+	$picker_args->{MAX_CUTOFF} = $args->{max_cutoff} || $cfg->{MAX_CUTOFF};
+	$picker_args->{MIN_CUTOFF} = $args->{min_cutoff} || $cfg->{MIN_CUTOFF};
+	$picker_args->{MAX_COMPARE_CUTOFF} = $args->{max_compare_cutoff} || $cfg->{MAX_COMPARE_CUTOFF};
+	$picker_args->{MIN_COMPARE_CUTOFF} = $args->{min_compare_cutoff} || $cfg->{MIN_COMPARE_CUTOFF};
+	$picker_args->{MAX_DIST_SINGLE_CUTOFF} = $args->{max_dist_single_cutoff} || $cfg->{MAX_DIST_SINGLE_CUTOFF};
+	$picker_args->{MIN_DIST_SINGLE_CUTOFF} = $args->{min_dist_single_cutoff} || $cfg->{MIN_DIST_SINGLE_CUTOFF};
+
+	$results = $self->pick_genomes($args->{accnum}, $picker_args);
+    };
+    if($@) {
+	$logger->error("Error picking comparison genomes for $args->{accnum}: $@");
+	return (500, $self->makeResStr(500, "Error picking comparison genomes for $args->{accnum}", '', "An error occurred when picking comparison genomes."));
+    }
+
+    return (200, $self->makeResStr(200, "Selection successful", $results));
+
 }
 
 sub logging {
@@ -455,13 +525,26 @@ sub makeResStr {
     my $self = shift;
     my $code = shift;
     my $msg = shift;
+    my $data = shift;
     my $error_str = shift;
 
-    my $ret_json = "{\n \"code\": $code,\n \"msg\": \"$msg\"\n";
+    my $struct = {code => $code,
+		  msg =>  $msg,
+		  data => ($data ? $data : '')
+    };
+
     if($error_str) {
-	$ret_json .= ", \"user_error_msg\": \"$error_str\"\n";
+	$struct->{user_error_msg} = $error_str;
     }
-    $ret_json .= "}\n";
+
+#    my $ret_json = to_json($struct, { pretty => 1 } );
+    my $ret_json = to_json($struct);
+
+#    my $ret_json = "{\n \"code\": $code,\n \"msg\": \"$msg\"\n";
+#    if($error_str) {
+#	$ret_json .= ", \"user_error_msg\": \"$error_str\"\n";
+#    }
+#    $ret_json .= "}\n";
 
     return $ret_json;
 }
