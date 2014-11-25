@@ -41,6 +41,8 @@ use Data::Dumper;
 use Islandviewer::Schema;
 use Islandviewer::Islandpick::BlastIslands;
 
+use Islandviewer::GenomeUtils;
+
 #Bioperl
 use Bio::Tools::Run::StandAloneBlast;
 use Bio::SearchIO;
@@ -548,7 +550,9 @@ sub fill_in_info {
     my $self = shift;
     my $accnum = shift;
 
-    my ($name, $filename, $format_str) = $self->lookup_genome($accnum);
+#    my ($name, $filename, $format_str) = $self->lookup_genome($accnum);
+    my $genome_obj = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+    my($name,$filename,$format_str) = $genome_obj->lookup_genome($accnum);
 
     # We're going to require that the comparison genomes
     # can be looked up, otherwise, what's the point?

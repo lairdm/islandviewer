@@ -56,6 +56,8 @@ sub BUILD {
    
     $logger = Log::Log4perl->get_logger;
 
+    $logger->trace("Islandviewer initialized");
+
 }
 
 # Submit a file, it will be a custom genome,
@@ -129,7 +131,7 @@ sub submit_analysis {
 
     $logger->trace("For cid $cid we found filenames $name, $base_filename, $types");
     unless($base_filename) {
-	$logger->error("Error, we couldn't find cid $cid");
+	$logger->error("Error, we couldn't find cid $cid ($base_filename)");
 	return 0;
     }
 
@@ -139,7 +141,7 @@ sub submit_analysis {
 	$logger->trace("We don't have all the file types we need, only have: " . $genome_obj->find_file_types());
 	unless($genome_obj->regenerate_files()) {
 	    # Oops, we weren't able to regenerate for some reason, failed
-	    $logger->error("Error, we don't have the needed files, we can't do an alaysis");
+	    $logger->error("Error, we don't have the needed files, we can't do an alaysis ($base_filename)");
 	    return 0;
 	}
     }    

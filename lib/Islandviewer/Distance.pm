@@ -132,6 +132,7 @@ sub run {
 	# the alarm.
 	if($total < ($runnum - 5)) {
 	    $logger->error("Error, we thought there should be $runnum run but only $total ran");
+	    $callback->set_status("ERROR");
 	    return 0;
 	}
 
@@ -139,6 +140,7 @@ sub run {
 	# something odd is going on.
 	if(($success / $total) < 0.85) {
 	    $logger->error("Error, we ran $total jobs but only $success were successful, that's too low");
+	    $callback->set_status("ERROR");
 	    return 0;
 	}
     } else {
@@ -279,6 +281,8 @@ sub build_pairs {
 	}
     }
     
+    $logger->trace("Finished building pairs");
+
     return $runpairs;
 }
 

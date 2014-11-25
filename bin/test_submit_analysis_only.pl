@@ -39,7 +39,7 @@ MAIN: {
     my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
-    $args->{microbedb_ver} = 80;
+    $args->{microbedb_ver} = 82;
     $args->{email} = 'lairdm@sfu.ca';
     print Dumper $args;
 

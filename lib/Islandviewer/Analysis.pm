@@ -69,9 +69,11 @@ sub change_logfile {
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($self->{workdir}) {
+	$logger->trace("Switching log to: " . $self->{workdir} . "/analysis.log");
 	$app->file_switch($self->{workdir} . "/analysis.log");
 
     } else {
+	$logger->trace("Switching log to: " . $self->{base_workdir} . "/analysis.log");
 	$app->file_switch($self->{base_workdir} . "/analysis.log");
     }
     $logger->debug("Logging initialized, aid $self->{aid}");
@@ -214,8 +216,16 @@ sub submit {
     }
 
     # We have a scheduler object, submit!
-    my $job_type = ($args->{job_type} ? $args->{job_type} : 'Islandviewer');
-    $scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
+    my $job_type = ($cfg->{job_type} ? $cfg->{job_type} : 'Islandviewer');
+    $job_type = $args->{job_type} if($args->{job_type});
+    eval {
+	$scheduler->build_and_submit($aid, $job_type, $self->{workdir}, $args, @modules);
+    };
+    if($@) {
+	$logger->error("Error submitting analysis: $@");
+	$self->set_status('ERROR');
+	return 0;
+    }
 
     $logger->trace("Finished submitting aid $aid");
     return $aid;
