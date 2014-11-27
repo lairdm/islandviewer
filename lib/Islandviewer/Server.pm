@@ -167,6 +167,8 @@ sub pick_genomes {
     my $microbedb_ver;
     my $versions = new MicrobeDB::Versions();
 
+    $logger->trace("Picking genomes for $accnum, arguments: " . Dumper($args));
+
     # If we've been given a microbedb version AND its valid... 
     unless($args->{microbedb_version} && $versions->isvalid($args->{microbedb_version})) {
 	$args->{microbedb_version} = $versions->newest_version();
