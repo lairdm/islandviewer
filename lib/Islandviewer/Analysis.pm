@@ -312,6 +312,7 @@ sub run {
 
     # Check to see if we're rerunning and this module has already been
     # completed
+    $logger->trace("Task $self->{module} for aid $self->{aid} is in state " . $REV_STATUS_MAP->{$task_status} . "($task_status)");
     if($task_status == $REV_STATUS_MAP->{COMPLETE} || $task_status == $REV_STATUS_MAP->{PENDING}) {
 	$logger->info("Task $self->{module} for aid $self->{aid} is already in mode " . $REV_STATUS_MAP->{$task_status} . ", not rerunning");
 	# This isn't an error running it, we just don't need to rerun it,
