@@ -53,7 +53,7 @@ MAIN: {
 
     $host = $cfg->{daemon_host}
         if($cfg->{daemon_host});
-    $port ||= $cfg->{tcp_port}
+    $port = $cfg->{tcp_port}
         if($cfg->{tcp_port});
 
     myconnect($host, $port);
