@@ -31,6 +31,7 @@ sub initialize {
 
     $self->_set_config($config);
 
+    # Expand the variables in the config file
     $self->evaluate_parameters();
 
     # Save the file name so we can pass it to

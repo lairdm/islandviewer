@@ -73,7 +73,9 @@ tie %ready, 'Tie::RefHash';
 my $actions = {
     submit => 'submit',
     picker => 'picker',
+    clone  => 'clone',
     logging => 'logging',
+    rotate => 'rotate',
 };
 
 my @logging_levels = qw/TRACE DEBUG INFO WARN ERROR FATAL/;
@@ -184,6 +186,23 @@ sub pick_genomes {
     }
 
     return $results;
+}
+
+sub rotate_log {
+    my $self = shift;
+
+    return $islandviewer->log_rotate();
+}
+
+sub clone_job {
+    my $self = shift;
+    my $aid = shift;
+    my $args = shift;
+
+    $logger->trace("Clone job for aid $aid: $args");
+    my $new_aid = $islandviewer->clone_job($aid, $args);
+
+    return $new_aid;
 }
 
 sub submit_job {
@@ -372,6 +391,7 @@ sub process_request {
 
     my $json;
 
+    $logger->trace("Received tcp request: $req");
     eval {
 	$json = decode_json($req);
     };
@@ -481,6 +501,46 @@ sub submit {
 	return (500, $self->makeResStr(500, "Unknown error, no aid returned", '', "No analysis id was returned when submitting, oops, something's wrong"));
     } else {
 	return (200, $self->makeResStr(200, "Job submitted, job id: [$aid]"));
+    }
+}
+
+sub rotate {
+    my $self = shift;
+
+    $logger->info("Log rotation request");
+
+    my $logfile;
+    eval {
+	$logfile = $self->rotate_log();
+    };
+    if($@) {
+	$logger->error("Error rotating log file: $@");
+	return (500, $self->makeResStr(500, "Error rotating log file", '', 'An error occurred while trying to rotate the log files'));
+    }
+
+    return (200, $self->makeResStr(200, "Logfile rotated, new file: $logfile", $logfile));   
+}
+
+sub clone {
+    my $self = shift;
+    my $args = shift;
+
+    $logger->trace("Request to clone analysis received");
+
+    my $new_aid;
+    eval {
+        $new_aid = $self->clone_job($args->{aid}, $args->{args});
+    };
+    if($@) {
+	$logger->error("Error cloning analysis $args->{aid}: $@");
+	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new alanysis'));
+    }
+
+    if($new_aid) {
+	return (200, $self->makeResStr(200, "Submission successful, new job id: [$new_aid]", $new_aid));
+    } else {
+	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new alanysis'));
+
     }
 }
 

@@ -63,6 +63,12 @@ sub BUILD {
 	unless($args->{microbedb_ver});
     $self->{microbedb_ver} = $args->{microbedb_ver};
 
+    # If we're told to process only specific modules, remember that
+    if($args->{modules}) {
+	$logger->trace("Only doing virulence for module(s): " . $args->{modules});
+	$self->{modules} = $args->{modules};
+    }
+
     $logger->trace("Created Virulence object using microbedb_version " . $self->{microbedb_ver});
     
 }
@@ -72,7 +78,8 @@ sub run {
     my $accnum = shift;
     my $callback = shift;
 
-    my $islands = $callback->fetch_islands();
+    # Call with optional arguments
+    my $islands = $callback->fetch_islands(($self->{modules} ? $self->{modules} : undef));
 
     my $genes = $self->run_virulence($accnum, $islands);
 

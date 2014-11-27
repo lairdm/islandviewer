@@ -3,7 +3,8 @@
 $|++;
 
 #
-# Pick comparison genomes for islandpick
+# Clone a job and rerun islandpick with
+# given genomes
 #
 
 use strict;
@@ -27,6 +28,7 @@ use Fcntl qw/O_NONBLOCK/;
 #use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
 use MIME::Base64;
 use URI::Escape;
+use JSON;
 
 use lib "../lib";
 use Islandviewer;
@@ -40,9 +42,10 @@ my $alarm_timeout = 60;
 my $protocol_version = '1.0';
 
 MAIN: {
-    my $cfname; my $accnum;
+    my $cfname; my $aid; my $genomelist;
     my $res = GetOptions("config=s"   => \$cfname,
-			 "accnum=s" => \$accnum,
+			 "aid=s" => \$aid,
+			 "genomelist=s" => \$genomelist,
     );
 
     die "Error, no config file given"
@@ -58,7 +61,7 @@ MAIN: {
 
     myconnect($host, $port);
 
-    my $message = build_req($accnum);
+    my $message = build_req($aid, $genomelist);
 
     my $recieved = send_req($message);
 
@@ -81,7 +84,7 @@ sub send_req {
     my $msg = shift;
     my $received = '';
 
-    print "sending: $msg\n";
+    print "Sending: $msg\n";
 
     # Check if the message ends with a LF, if not
     # add one
@@ -156,14 +159,28 @@ sub send_req {
 }
 
 sub build_req {
-    my $accnum = shift;
+    my $aid = shift;
+    my $genomelist = shift;
+
+    my $genomelist_str = join(' ', split(',', $genomelist));
+    my $modules = { islandpick => { args => { comparison_genomes => $genomelist_str } } };
+
+    my $req = { version => $protocol_version,
+		action => 'clone',
+		aid => $aid,
+		args => { modules => $modules }
+    };
+
+    my $req_str = to_json($req, { pretty => 1});
+
+    $req_str .= "\nEOF";
 
     my $str = "{\n \"version\": \"$protocol_version\",\n";
-    $str .= " \"action\": \"picker\",\n";
+    $str .= " \"action\": \"clone\",\n";
 #    $str .= " \"max_cutoff\": \"0.48\",\n";
 #    $str .= " \"max_compare_cutoff\": \"10\",\n";
-    $str .= " \"accnum\": \"$accnum\"\n";
+    $str .= " \"aid\": \"$aid\"\n";
     $str .= " }\nEOF";
 
-    return $str;
+    return $req_str;
 }

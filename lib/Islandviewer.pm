@@ -28,6 +28,9 @@ package Islandviewer;
 
 use strict;
 use Moose;
+use Data::Dumper;
+use Date::Manip;
+
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
@@ -55,6 +58,9 @@ sub BUILD {
                                              pass => $cfg->{'dbpass'} });
    
     $logger = Log::Log4perl->get_logger;
+
+    # Initialize the logfile with the current date
+    $self->log_rotate();
 
     $logger->trace("Islandviewer initialized");
 
@@ -101,6 +107,29 @@ sub submit_and_prep {
 
     # We're ready to go... return our new cid
     return $cid;
+}
+
+sub log_rotate {
+    my $self = shift;
+
+    # Build the logfile name we want to use
+    my $datestr = UnixDate("now", "%Y%m%d");
+    my $logfile = $cfg->{logdir} . "/islandviewer.$datestr.log";
+
+    my $app = Log::Log4perl->appender_by_name("errorlog");
+
+    unless($app) {
+	$logger->warn("Logging doesn't seem to be defined, you might not even see this");
+	return;
+    }
+
+    if($app->filename eq $logfile) {
+	$logger->info("Asked to rotate the logfile, nothing to do, keeping " . $app->filename);
+    } else {
+	$logger->info("Rotating log file, current file: " . $app->filename . ", switching to: " . $logfile);
+	$app->file_switch($logfile);
+	$logger->info("Initializing logfile, rotated.");
+    }
 }
 
 # We're trying to keep things abstract as possible
@@ -162,6 +191,53 @@ sub submit_analysis {
     }
 
     return $aid;
+}
+
+# Clone an analysis and rerun the requested
+# modules with the updated defaults
+
+sub clone_job {
+    my $self = shift;
+    my $aid = shift;
+    my $args = shift;
+
+    $logger->info("Cloning and restarting analysis $aid");
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
+
+    eval {
+	my $new_analysis_obj = $analysis_obj->clone();
+
+	my @modules;
+	foreach my $m (keys $args->{modules}) {
+	    $logger->trace("Purging module $m for cloned analysis $aid, new aid: $new_analysis_obj->{aid}");
+	    push @modules, $m;
+	    # If we're actually changing arguments, rather than just rerunning 
+	    # a module, set those arguments
+	    if($args->{modules}->{$m}->{args}) {
+		my $old_args = $new_analysis_obj->fetch_args($m);
+		# Loop through and update the arguments with the new
+		# values we've received
+		foreach my $a (keys $args->{modules}->{$m}->{args}) {
+		    $old_args->{$a} = $args->{modules}->{$m}->{args}->{$a};
+		}
+		$new_analysis_obj->update_args($old_args, $m);
+	    }
+	    $new_analysis_obj->purge($m);
+	    $new_analysis_obj->set_module_status('PENDING');
+	}
+
+	$new_analysis_obj->set_status('PENDING');
+
+	# Need something here to deal with email addresses
+	$new_analysis_obj->submit_to_scheduler({});
+
+	return $new_analysis_obj->{aid};
+    };
+    if($@) {
+	$logger->error("Error cloning and restarting analysis $aid: $@");
+	return 0;
+    }
+
 }
 
 sub run {

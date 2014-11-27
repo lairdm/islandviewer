@@ -3,7 +3,7 @@
 $|++;
 
 #
-# Pick comparison genomes for islandpick
+# Change the log level of the daemon
 #
 
 use strict;
@@ -40,9 +40,8 @@ my $alarm_timeout = 60;
 my $protocol_version = '1.0';
 
 MAIN: {
-    my $cfname; my $accnum;
+    my $cfname;
     my $res = GetOptions("config=s"   => \$cfname,
-			 "accnum=s" => \$accnum,
     );
 
     die "Error, no config file given"
@@ -58,7 +57,7 @@ MAIN: {
 
     myconnect($host, $port);
 
-    my $message = build_req($accnum);
+    my $message = build_req();
 
     my $recieved = send_req($message);
 
@@ -81,7 +80,6 @@ sub send_req {
     my $msg = shift;
     my $received = '';
 
-    print "sending: $msg\n";
 
     # Check if the message ends with a LF, if not
     # add one
@@ -156,13 +154,9 @@ sub send_req {
 }
 
 sub build_req {
-    my $accnum = shift;
 
     my $str = "{\n \"version\": \"$protocol_version\",\n";
-    $str .= " \"action\": \"picker\",\n";
-#    $str .= " \"max_cutoff\": \"0.48\",\n";
-#    $str .= " \"max_compare_cutoff\": \"10\",\n";
-    $str .= " \"accnum\": \"$accnum\"\n";
+    $str .= " \"action\": \"rotate\"\n";
     $str .= " }\nEOF";
 
     return $str;

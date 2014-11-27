@@ -4,7 +4,7 @@
 
 =head1 DESCRIPTION
 
-    Object to barse the genbank file and fetch all the
+    Object to parse the genbank file and fetch all the
     records within a given set of islands
 
 =head1 SYNOPSIS
