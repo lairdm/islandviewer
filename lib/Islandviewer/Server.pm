@@ -543,6 +543,8 @@ sub clone {
 	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new alanysis'));
     }
 
+    $logger->trace("Received back new aid $new_aid");
+
     if($new_aid) {
 	return (200, $self->makeResStr(200, "Submission successful, new job id: [$new_aid]", $new_aid));
     } else {
