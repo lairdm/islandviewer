@@ -142,6 +142,11 @@ sub runServer {
 
     $logger->info("Running the server, start the loop!");
 
+    # Record in islandviewer we're in daemon mode
+    # (vs standalone mode)
+    $islandviewer->{daemon} = 1;
+    $cfg->{daemon} = 1;
+
     # while we haven't received a finish signal
     while(!$sig_int) {
 
@@ -201,7 +206,7 @@ sub clone_job {
     my $aid = shift;
     my $args = shift;
 
-    $logger->trace("Clone job for aid $aid: $args");
+    $logger->trace("Clone job for aid $aid: " . Dumper($args));
     my $new_aid = $islandviewer->clone_job($aid, $args);
 
     return $new_aid;

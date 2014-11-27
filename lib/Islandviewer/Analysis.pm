@@ -68,6 +68,11 @@ sub BUILD {
 sub change_logfile {
     my $self = shift;
 
+    if($cfg->{daemon}) {
+	$logger->trace("We're in daemon mode, not changing the log file");
+	return;
+    }
+
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($self->{workdir}) {
 	$logger->trace("Switching log to: " . $self->{workdir} . "/analysis.log");
