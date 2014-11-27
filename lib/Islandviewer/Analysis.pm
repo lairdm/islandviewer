@@ -285,6 +285,8 @@ sub fetch_module {
     # Load the module information
     my $dbh = Islandviewer::DBISingleton->dbh;
 
+    $logger->trace("Fetching module $module in analysis $self->{aid}");
+
     my $fetch_task = $dbh->prepare("SELECT taskid, status, parameters FROM GIAnalysisTask WHERE aid_id = ? AND prediction_method = ?");
     
     $fetch_task->execute($self->{aid}, $module) 
