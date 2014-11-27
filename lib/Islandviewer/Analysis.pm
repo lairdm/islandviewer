@@ -278,6 +278,36 @@ sub submit_module {
 
 }
 
+sub fetch_module {
+    my $self = shift;
+    my $module = shift;
+
+    # Load the module information
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $fetch_task = $dbh->prepare("SELECT taskid, status, parameters FROM GIAnalysisTask WHERE aid_id = ? AND prediction_method = ?");
+    
+    $fetch_task->execute($self->{aid}, $module) 
+	or $logger->logdie("Error, can't fetch analysis $module");
+
+    # There should only be one
+    my($taskid, $task_status, $parameters, $args);
+    if(($taskid, $task_status, $parameters) =
+       $fetch_task->fetchrow_array) {
+	$self->{taskid} = $taskid;
+	$self->{task_status} = $task_status;
+
+	if($parameters) {
+	    $args = decode_json $parameters;
+	    $logger->trace("Parameters for $module: " . Dumper($args));
+	    $self->{module_args} = $args;
+	}
+    } else {
+	$logger->logdie("Error, can't find analysis task $module");
+    }
+
+}
+
 sub run {
     my $self = shift;
     my $module = shift;
@@ -290,29 +320,13 @@ sub run {
     # Load the module information
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $fetch_task = $dbh->prepare("SELECT taskid, status, parameters FROM GIAnalysisTask WHERE aid_id = ? AND prediction_method = ?");
-    
-    $fetch_task->execute($self->{aid}, $module) 
-	or $logger->logdie("Error, can't fetch analysis $module");
-    
-    # There should only be one
-    my($taskid, $task_status, $parameters, $args);
-    if(($taskid, $task_status, $parameters) =
-       $fetch_task->fetchrow_array) {
-	$self->{taskid} = $taskid;
-
-	if($parameters) {
-	    $args = decode_json $parameters;
-	    print "Parameters for $module\n";
-	    print Dumper $args;
-	}
-    } else {
-	$logger->logdie("Error, can't find analysis task $module");
-    }
+    $self->fetch_module($module);
+    my $task_status = $self->{task_status};
+    my $args = $self->{module_args};
 
     # Check to see if we're rerunning and this module has already been
     # completed
-    $logger->trace("Task $self->{module} for aid $self->{aid} is in state " . $REV_STATUS_MAP->{$task_status} . " ($task_status)");
+    $logger->trace("Task $self->{module} for aid $self->{aid} is in state " . $REV_STATUS_MAP->{$task_status});
     if(($task_status eq $STATUS_MAP->{COMPLETE}) || ($task_status eq $STATUS_MAP->{PENDING})) {
 	$logger->info("Task $self->{module} for aid $self->{aid} is already in mode " . $REV_STATUS_MAP->{$task_status} . ", not rerunning");
 	# This isn't an error running it, we just don't need to rerun it,
@@ -341,8 +355,7 @@ sub run {
     # Setup the needed arguments for the modules
     $args->{workdir} = $self->{workdir};
     $args->{microbedb_ver} = $self->{microbedb_ver};
-    print "Sending args:\n";
-    print Dumper $args;
+    $logger->trace("Sending args: " . Dumper($args));
 
     my $mod_obj; my $res;
     eval {

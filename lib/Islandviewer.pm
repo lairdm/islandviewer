@@ -213,8 +213,11 @@ sub clone_job {
 	    push @modules, $m;
 	    # If we're actually changing arguments, rather than just rerunning 
 	    # a module, set those arguments
+	    $new_analysis_obj->fetch_module($m);
+
 	    if($args->{modules}->{$m}->{args}) {
-		my $old_args = $new_analysis_obj->fetch_args($m);
+		my $old_args = $new_analysis_obj->{module_args};
+		#my $old_args = $new_analysis_obj->fetch_args($m);
 		# Loop through and update the arguments with the new
 		# values we've received
 		foreach my $a (keys $args->{modules}->{$m}->{args}) {

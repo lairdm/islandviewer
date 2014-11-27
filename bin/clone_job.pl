@@ -163,7 +163,7 @@ sub build_req {
     my $genomelist = shift;
 
     my $genomelist_str = join(' ', split(',', $genomelist));
-    my $modules = { islandpick => { args => { comparison_genomes => $genomelist_str } } };
+    my $modules = { Islandpick => { args => { comparison_genomes => $genomelist_str } } };
 
     my $req = { version => $protocol_version,
 		action => 'clone',
