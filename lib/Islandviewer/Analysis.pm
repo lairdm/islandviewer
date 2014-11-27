@@ -310,6 +310,15 @@ sub run {
 	$logger->logdie("Error, can't find analysis task $module");
     }
 
+    # Check to see if we're rerunning and this module has already been
+    # completed
+    if($task_status == $REV_STATUS_MAP->{COMPLETE} || $task_status == $REV_STATUS_MAP->{PENDING}) {
+	$logger->info("Task $self->{module} for aid $self->{aid} is already in mode " . $REV_STATUS_MAP->{$task_status} . ", not rerunning");
+	# This isn't an error running it, we just don't need to rerun it,
+	# so return all ok.
+	return 1;
+    }
+
     $self->set_module_status('RUNNING');
     $self->set_status('RUNNING');
 
