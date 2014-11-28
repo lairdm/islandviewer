@@ -436,10 +436,10 @@ sub fetch_islands {
     if($modules) {
 	$logger->trace("Only fetching islands for module(s): " . Dumper($modules));
 	if(ref($modules) eq 'ARRAY') {
-	    $logger->trace("Module list for $self->{aid} is type ARRAY")
+	    $logger->trace("Module list for $self->{aid} is type ARRAY");
 	    $stmt .= " and prediction_method in (" . join(',', @$modules) . ')';
 	} else {
-	    $logger->trace("Module list for $self->{aid} is type SCALAR (we hope)")
+	    $logger->trace("Module list for $self->{aid} is type SCALAR (we hope)");
 	    $stmt .= " and prediction_method = '$modules'";
 	}
     }
