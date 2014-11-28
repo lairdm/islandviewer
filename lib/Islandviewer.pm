@@ -259,6 +259,8 @@ sub clone_job {
 	return 0;
     }
 
+    $logger->error("We should never be here");
+
 }
 
 sub run {
