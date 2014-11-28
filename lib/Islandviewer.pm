@@ -200,6 +200,7 @@ sub clone_job {
     my $self = shift;
     my $aid = shift;
     my $args = shift;
+    my $new_aid = 0;
 
     $logger->info("Cloning and restarting analysis $aid");
     my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
@@ -252,14 +253,15 @@ sub clone_job {
 	$new_analysis_obj->submit_to_scheduler({});
 
 	$logger->trace("Finished cloning analysis, new aid $new_analysis_obj->{aid}");
-	return $new_analysis_obj->{aid};
+	$new_aid = $new_analysis_obj->{aid};
+
     };
     if($@) {
 	$logger->error("Error cloning and restarting analysis $aid: $@");
 	return 0;
     }
 
-    $logger->error("We should never be here");
+    return $new_aid;
 
 }
 
