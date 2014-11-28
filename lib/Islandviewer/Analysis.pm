@@ -303,6 +303,8 @@ sub fetch_module {
 	    $args = decode_json $parameters;
 	    $logger->trace("Parameters for $module: " . Dumper($args));
 	    $self->{module_args} = $args;
+	} else {
+	    $self->{module_args} = {};
 	}
     } else {
 	$logger->logdie("Error, can't find analysis task $module");
