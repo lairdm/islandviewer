@@ -229,6 +229,17 @@ sub clone_job {
 	    $new_analysis_obj->set_module_status('PENDING');
 	}
 
+	if(@modules) {
+	    # If we're rerunning any modules we need to rerun
+	    # Virulence to update the gene-gi mappings
+	     $new_analysis_obj->fetch_module('Virulence');
+	     my $old_args = $new_analysis_obj->{module_args};
+	     $old_args->{modules} = @modules;
+	     $logger->trace("Resetting Virulence module for aid $new_analysis_obj->{aid} with new arguments: " . Dumper($old_args));
+	     $new_analysis_obj->update_args($old_args, 'Virulence');
+	     $new_analysis_obj->set_module_status('PENDING');
+	}
+
 	$new_analysis_obj->set_status('PENDING');
 
 	# Need something here to deal with email addresses

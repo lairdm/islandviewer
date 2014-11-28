@@ -65,7 +65,7 @@ sub BUILD {
 
     # If we're told to process only specific modules, remember that
     if($args->{modules}) {
-	$logger->trace("Only doing virulence for module(s): " . $args->{modules});
+	$logger->trace("Only doing virulence for module(s): " . Dumper($args->{modules}));
 	$self->{modules} = $args->{modules};
     }
 
