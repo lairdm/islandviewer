@@ -240,6 +240,11 @@ sub clone_job {
 	     $new_analysis_obj->set_module_status('PENDING');
 	}
 
+	# And we always need to reset Summary, to get things to finish
+	# nicely
+	$new_analysis_obj->fetch_module('Summary');
+	$new_analysis_obj->set_module_status('PENDING');
+
 	$new_analysis_obj->set_status('PENDING');
 
 	# Need something here to deal with email addresses
