@@ -298,6 +298,7 @@ sub fetch_module {
        $fetch_task->fetchrow_array) {
 	$self->{taskid} = $taskid;
 	$self->{task_status} = $task_status;
+	$self->{module} = $module;
 
 	if($parameters) {
 	    $args = decode_json $parameters;
