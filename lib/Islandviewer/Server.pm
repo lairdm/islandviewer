@@ -208,6 +208,7 @@ sub clone_job {
 
     $logger->trace("Clone job for aid $aid: " . Dumper($args));
     my $new_aid = $islandviewer->clone_job($aid, $args);
+    $logger->trace("New analysis id is $new_aid");
 
     return $new_aid;
 }
