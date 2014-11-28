@@ -242,6 +242,7 @@ sub clone_job {
 
 	# And we always need to reset Summary, to get things to finish
 	# nicely
+	$logger->trace("Resetting Summary module to Pending for aid $self->{aid}");
 	$new_analysis_obj->fetch_module('Summary');
 	$new_analysis_obj->set_module_status('PENDING');
 
