@@ -74,6 +74,7 @@ my $actions = {
     submit => 'submit',
     picker => 'picker',
     clone  => 'clone',
+    rerun  => 'rerun',
     logging => 'logging',
     rotate => 'rotate',
 };
@@ -206,9 +207,24 @@ sub clone_job {
     my $aid = shift;
     my $args = shift;
 
+    # Reuse the clone function to rerun modules too
+    # so turn cloning on (otherwise it just loads the existing aid)
+    $args->{clone} = 1;
+
     $logger->trace("Clone job for aid $aid: " . Dumper($args));
-    my $new_aid = $islandviewer->clone_job($aid, $args);
+    my $new_aid = $islandviewer->rerun_job($aid, $args);
     $logger->trace("New analysis id is $new_aid");
+
+    return $new_aid;
+}
+
+sub rerun_module {
+    my $self = shift;
+    my $aid = shift;
+    my $args = shift;
+
+    $logger->trace("Rerun job for aid $aid: " . Dumper($args));
+    my $new_aid = $islandviewer->rerun_job($aid, $args);
 
     return $new_aid;
 }
@@ -541,7 +557,7 @@ sub clone {
     };
     if($@) {
 	$logger->error("Error cloning analysis $args->{aid}: $@");
-	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new alanysis'));
+	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new analysis'));
     }
 
     $logger->trace("Received back new aid $new_aid");
@@ -549,7 +565,32 @@ sub clone {
     if($new_aid) {
 	return (200, $self->makeResStr(200, "Submission successful, new job id: [$new_aid]", $new_aid));
     } else {
-	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new alanysis'));
+	return (500, $self->makeResStr(500, "Error cloning analysis $args->{aid}", '', 'An error occurred when submitting your new analysis'));
+
+    }
+}
+
+sub rerun {
+    my $self = shift;
+    my $args = shift;
+
+    $logger->trace("Request to rerun analysis received");
+
+    my $new_aid;
+    eval {
+        $new_aid = $self->rerun_job($args->{aid}, $args->{args});
+    };
+    if($@) {
+	$logger->error("Error rerunning analysis $args->{aid}: $@");
+	return (500, $self->makeResStr(500, "Error rerunning analysis $args->{aid}", '', 'An error occurred when submitting your new analysis'));
+    }
+
+    $logger->trace("Received back aid $new_aid");
+
+    if($new_aid) {
+	return (200, $self->makeResStr(200, "Submission successful, job id: [$new_aid]", $new_aid));
+    } else {
+	return (500, $self->makeResStr(500, "Error rerunning analysis $args->{aid}", '', 'An error occurred when submitting your analysis'));
 
     }
 }

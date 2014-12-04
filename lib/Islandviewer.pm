@@ -196,7 +196,7 @@ sub submit_analysis {
 # Clone an analysis and rerun the requested
 # modules with the updated defaults
 
-sub clone_job {
+sub rerun_job {
     my $self = shift;
     my $aid = shift;
     my $args = shift;
@@ -206,7 +206,15 @@ sub clone_job {
     my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
 
     eval {
-	my $new_analysis_obj = $analysis_obj->clone();
+	my $new_analysis_obj;
+
+	# If we're told to clone, do so, otherwise just use
+	# the existing analysis object
+	if($args->{clone}) {
+	    $new_analysis_obj = $analysis_obj->clone();
+	} else {
+	    $new_analysis_obj = $analysis_obj;
+	}
 
 	my @modules;
 	foreach my $m (keys $args->{modules}) {

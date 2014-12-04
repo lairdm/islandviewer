@@ -437,7 +437,7 @@ sub fetch_islands {
     my $stmt = "SELECT gi, start, end, prediction_method FROM GenomicIsland WHERE aid_id = ?";
 
     if($modules) {
-	$logger->trace("Only fetching islands for module(s): " . Dumper($modules));
+	$logger->trace("Only fetching islands for module(s): " . join(',', @$modules));
 	if(ref($modules) eq 'ARRAY') {
 	    $logger->trace("Module list for $self->{aid} is type ARRAY");
 	    $stmt .= " and prediction_method in (" . join(',', @$modules) . ')';
@@ -449,10 +449,11 @@ sub fetch_islands {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
+    $logger->trace($stmt);
     my $get_islands = $dbh->prepare($stmt);
 
     $get_islands->execute($self->{aid}) 
-	or $logger->logdie("Error, can't fetch islands for analysis $self->{aid}");
+	or $logger->logdie("Error, can't fetch islands for analysis $self->{aid}: $DBI::errstr");
     
     my @islands;
     while(my($gi, $start, $end, $method) = $get_islands->fetchrow_array) {
