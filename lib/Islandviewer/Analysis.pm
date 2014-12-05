@@ -440,7 +440,7 @@ sub fetch_islands {
 	$logger->trace("Only fetching islands for module(s): " . join(',', map { qq/'$_'/ } @$modules));
 	if(ref($modules) eq 'ARRAY') {
 	    $logger->trace("Module list for $self->{aid} is type ARRAY");
-	    $stmt .= " and prediction_method in (" . join(',', @$modules) . ')';
+	    $stmt .= " and prediction_method in (" . join(',', map { qq/'$_'/ } @$modules) . ')';
 	} else {
 	    $logger->trace("Module list for $self->{aid} is type SCALAR (we hope)");
 	    $stmt .= " and prediction_method = '$modules'";
