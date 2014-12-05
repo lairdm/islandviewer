@@ -437,7 +437,7 @@ sub fetch_islands {
     my $stmt = "SELECT gi, start, end, prediction_method FROM GenomicIsland WHERE aid_id = ?";
 
     if($modules) {
-	$logger->trace("Only fetching islands for module(s): " . join(',', @$modules));
+	$logger->trace("Only fetching islands for module(s): " . join(',', map { qq/'$_'/ } @$modules));
 	if(ref($modules) eq 'ARRAY') {
 	    $logger->trace("Module list for $self->{aid} is type ARRAY");
 	    $stmt .= " and prediction_method in (" . join(',', @$modules) . ')';
