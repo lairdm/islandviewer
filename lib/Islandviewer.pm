@@ -63,6 +63,7 @@ sub BUILD {
     $self->log_rotate();
 
     $logger->trace("Islandviewer initialized");
+    $logger->trace("Process umask is: " . umask);
 
 }
 
