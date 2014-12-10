@@ -44,6 +44,8 @@ MAIN: {
 	}
 
 	$logger->debug("Logging initialized, aid $aid, module $module");
+	$logger->trace("Process umask is: " . umask);
+
     }
 
     $Islandviewer->run($aid, $module);
