@@ -578,7 +578,7 @@ sub rerun {
 
     my $new_aid;
     eval {
-        $new_aid = $self->rerun_job($args->{aid}, $args->{args});
+        $new_aid = $self->rerun_module($args->{aid}, $args->{args});
     };
     if($@) {
 	$logger->error("Error rerunning analysis $args->{aid}: $@");
