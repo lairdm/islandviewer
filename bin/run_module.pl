@@ -24,6 +24,8 @@ MAIN: {
 			 "module=s"  => \$module,
     );
 
+    umask 0022;
+
     die "Error, no config file given"
       unless($cfname);
 
