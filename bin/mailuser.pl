@@ -26,9 +26,10 @@ use Islandviewer::Notification;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
 MAIN: {
-    my $cfname; my $logger; my $aid;
+    my $cfname; my $logger; my $aid; my $resend;
     my $res = GetOptions("config=s"    => \$cfname,
 			 "aid=s"       => \$aid,
+			 "resend"      => \$resend,
     );
 
     die "Error, no config file given"
@@ -77,7 +78,7 @@ MAIN: {
 
     eval {
 	my $notification = Islandviewer::Notification->new({aid => $aid});
-	$notification->notify($status);
+	$notification->notify($status, $resend);
     };
     if($@) {
 	$logger->error("Error doing notification for analysis $aid: $@");
