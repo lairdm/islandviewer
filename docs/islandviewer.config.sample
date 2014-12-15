@@ -48,6 +48,9 @@ zk_timer=360
 
 qsub_cmd = "/home/lairdm/metascheduler/bin/qsub.pl"
 
+base_url = "http://www.brinkman.mbb.sfu.ca/islandviewer/"
+email_sender = "islandpick-mail@sfu.ca"
+
 MAX_CUTOFF=0.42
 MIN_CUTOFF=0.1
 MIN_COMPARE_CUTOFF = 3

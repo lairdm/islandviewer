@@ -36,6 +36,7 @@ use File::Copy::Recursive qw(dircopy);
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
+use Islandviewer::Notification;
 
 use MicrobeDB::Versions;
 
@@ -159,6 +160,20 @@ sub submit {
     # the workdir....
     my $aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $self->{aid} = $aid;
+
+    if($args->{email}) {
+	$logger->trace("Adding email notification: " . $args->{email});
+
+	eval {
+	    my $notification = Islandviewer::Notification->new({aid => $self->{aid}});
+	    $notification->add_notification($args->{email});
+	};
+	if($@) {
+	    $self->set_status('ERROR');
+	    $logger->error("Error, failure to set email notification: $@");
+	    return 0;
+	}
+    }
 
     # We could do this with triggers but we won't, see below.
     # Make the workdir for our analysis

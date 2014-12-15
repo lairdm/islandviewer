@@ -108,6 +108,26 @@ sub check_status {
     return $modules;
 }
 
+sub check_analysis_status {
+    my $self = shift;
+    my $aid = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $analysis_status = $dbh->prepare("SELECT status from Analysis WHERE aid_id = ?")
+	or $logger->logdie("Error preparing fetch analysis status for $aid, $DBI::errstr");
+
+    $analysis_status->execute($aid)
+	or $logger->logdie("Error fetching analysis status for $aid, $DBI::errstr"); 
+
+    if(my($status) = 
+       $analysis_status->fetchrow_array()) {
+	return $status;
+    }
+
+    return 0;
+}
+
 # For checking for run-aways by a maitenance script,
 # find all the stuck running jobs
 # Returned in the format ["aid.module", "aid.module"...]

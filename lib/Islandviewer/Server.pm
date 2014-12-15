@@ -75,6 +75,7 @@ my $actions = {
     picker => 'picker',
     clone  => 'clone',
     rerun  => 'rerun',
+    add_notification => 'add_notification',
     logging => 'logging',
     rotate => 'rotate',
 };
@@ -179,7 +180,7 @@ sub pick_genomes {
     unless($args->{microbedb_version} && $versions->isvalid($args->{microbedb_version})) {
 	$args->{microbedb_version} = $versions->newest_version();
     }
-    print Dumper $args;
+#    print Dumper $args;
 
     $logger->trace("Running genome picker for $accnum");
 
@@ -227,6 +228,17 @@ sub rerun_module {
     my $new_aid = $islandviewer->rerun_job($aid, $args);
 
     return $new_aid;
+}
+
+sub notification {
+    my $self = shift;
+    my $aid = shift;
+    my $email = shift;
+
+    $logger->trace("Sending notification request to Islandviewer");
+    my $status = $islandviewer->add_notification($aid, $email);
+
+    return $status;
 }
 
 sub submit_job {
@@ -415,7 +427,7 @@ sub process_request {
 
     my $json;
 
-    $logger->trace("Received tcp request: $req");
+#    $logger->trace("Received tcp request: $req");
     eval {
 	$json = decode_json($req);
     };
@@ -593,6 +605,27 @@ sub rerun {
 	return (500, $self->makeResStr(500, "Error rerunning analysis $args->{aid}", '', 'An error occurred when submitting your analysis'));
 
     }
+}
+
+sub add_notification {
+    my $self = shift;
+    my $args = shift;
+
+    $logger->trace("Request to add analysis notification received");
+
+    my $status;
+    eval {
+	$status = $self->notification($args->{aid}, $args->{email});
+    };
+    if($@) {
+	$logger->error("Error submitting email notification for $args->{aid}, email $args->{email}: $@");
+	return (500, $self->makeResStr(500, "Error submitting notification for $args->{aid}", '', 'An error occurred when submitting your notification request'));
+
+    }
+
+    $logger->trace("Notification request submitted");
+
+    return (200, $self->makeResStr(200, "Submission successful, nofitication set", 1));
 }
 
 sub picker {

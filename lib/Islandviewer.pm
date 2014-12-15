@@ -35,6 +35,7 @@ use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
 use Islandviewer::Analysis;
+use Islandviewer::Notification;
 
 use Net::ZooKeeper::WatchdogQueue;
 
@@ -272,6 +273,24 @@ sub rerun_job {
 
     return $new_aid;
 
+}
+
+sub add_notification {
+    my $self = shift;
+    my $aid = shift;
+    my $email = shift;
+
+    $logger->trace("Adding email notification: " . $email);
+
+    eval {
+	my $notification = Islandviewer::Notification->new({aid => $aid});
+	$notification->add_notification($email);
+    };
+    if($@) {
+	$logger->logdie("Error, failure to set email notification: $@");
+    }
+
+    return 1;
 }
 
 sub run {
