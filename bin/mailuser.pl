@@ -64,17 +64,17 @@ MAIN: {
     # Make a status check object
     my $status;
     eval {
-	my $status = Islandviewer::Status->new();
+	my $status_obj = Islandviewer::Status->new();
 
 	# Ask islandviewer the status of this analysis
-	$status = $status->check_analysis_status($aid);
+	$status = $status_obj->check_analysis_status($aid);
     };
     if($@) {
 	$logger->error("Error with analysis module for analysis $aid: $@");
 	exit 4;
     }
 
-    $logger->info("Found analysis $aid in status " . $REV_STATUS_MAP->{$status});
+    $logger->info("Found analysis $aid in status " . $REV_STATUS_MAP->{$status} . " ($status)");
 
     eval {
 	my $notification = Islandviewer::Notification->new({aid => $aid});

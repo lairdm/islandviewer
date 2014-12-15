@@ -114,7 +114,9 @@ sub check_analysis_status {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $analysis_status = $dbh->prepare("SELECT status from Analysis WHERE aid_id = ?")
+    $logger->trace("Finding status for analysis $aid");
+
+    my $analysis_status = $dbh->prepare("SELECT status from Analysis WHERE aid = ?")
 	or $logger->logdie("Error preparing fetch analysis status for $aid, $DBI::errstr");
 
     $analysis_status->execute($aid)
@@ -122,6 +124,9 @@ sub check_analysis_status {
 
     if(my($status) = 
        $analysis_status->fetchrow_array()) {
+
+	$logger->trace("Found status: $status");
+
 	return $status;
     }
 
