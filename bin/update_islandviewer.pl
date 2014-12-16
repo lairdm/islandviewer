@@ -132,9 +132,11 @@ my $count = 0;
 	    next;
 	} else {
 	    # Else its new so add it to the name cache
-	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name) VALUES (?, ?)", undef,
+	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name, rep_size, cds_num) VALUES (?, ?, ?, ?)", undef,
 		     $accnum,
-		     $curr_rep->definition()
+		     $curr_rep->definition(),
+		     $curr_rep->rep_size(),
+		     $curr_rep->cds_num()
 		) or $logger->logdie("Error inserting in to NameCache for $accnum, " . $curr_rep->definition());
 	}
 	
