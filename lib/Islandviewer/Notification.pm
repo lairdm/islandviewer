@@ -146,7 +146,7 @@ sub send_email {
 
     my $mailer = Mail::Mailer->new();
 
-    my $url = $cfg->{base_url} . '/results/' . $self->{aid} . '/';
+    my $url = $cfg->{base_url} . 'results/' . $self->{aid} . '/';
 
     eval {
 	$mailer->open({ From    => $cfg->{email_sender},
@@ -157,7 +157,7 @@ sub send_email {
     
 	print $mailer "IslandViewer Notice\n\n";
 	if($status == $STATUS_MAP->{COMPLETE}) {
-	    print $mailer "Genomic islands have finished being predicted using IslandPick, SIGI-HMM, and IslandPath-DIMOB!\n";
+	    print $mailer "Genomic islands have finished being predicted using IslandPick, SIGI-HMM, and IslandPath-DIMOB!\n\n";
 	    print $mailer "Please use the following link to continue using IslandViewer:\n";
 	} elsif($status == $STATUS_MAP->{ERROR}) {
 	    print $mailer "We're sorry, there seems to be an issue running your Islandviewer job, for more information please see the url below or contact us for more assistance.\n\n";
