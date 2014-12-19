@@ -108,8 +108,9 @@ sub build_and_submit {
 
     # And submit the job file to metascheduler...
     if($cfg->{metascheduler_cmd}) {
-	$logger->debug("Issuing submit command: " . $cfg->{metascheduler_cmd} . " submit -i $workdir/metascheduler.job");
-	my $res = `$cfg->{metascheduler_cmd} submit -i $workdir/metascheduler.job`;
+	my $cmd = "`$cfg->{metascheduler_cmd} submit -i $workdir/metascheduler.job";
+	$logger->debug("Issuing submit command: $cmd");
+	my $res = `$cmd`;
 	$logger->trace("From submitting analysis $aid: $res");
 
 	my $response = from_json($res);
