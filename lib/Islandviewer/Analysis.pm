@@ -711,13 +711,13 @@ sub fetch_module_statuses {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $fetch_status = $dbh->prepare("SELECT status FROM GIAnalysisTask WHERE prediction_method = ?");
+    my $fetch_status = $dbh->prepare("SELECT status FROM GIAnalysisTask WHERE prediction_method = ? AND aid_id = ?");
 
     my $status_set;
 
     foreach my $mod (@modules) {
 	$logger->trace("Fetching status for $mod");
-	$fetch_status->execute($mod) or
+	$fetch_status->execute($mod, $self->{aid}) or
 	    $logger->logdie("Error running sql statement: $DBI::errstr");
 	if(my @row = $fetch_status->fetchrow_array) {
 	    my $status = $REV_STATUS_MAP->{$row[0]};
