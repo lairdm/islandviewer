@@ -366,9 +366,15 @@ sub regenerate_files {
 
 sub find_file_types {
     my $self = shift;
+    my $base_filename = shift;
 
-    unless($self->{base_filename}) {
-	$logger->error("Error, a genome must be read before you can testthe file types");
+    unless($base_filename) {
+	$logger->trace("No base filename given in args, trying to use object default: " . $self->{base_filename});
+	$base_filename = $self->{base_filename};
+    }
+
+    unless($base_filename) {
+	$logger->error("Error, you must specify a base filename or a genome must be read before you can test the file types");
 	return '';
     }
 
@@ -385,8 +391,8 @@ sub find_file_types {
     foreach my $ext (@expected) {
 	# For each format we expect to find, does the file exist?
 	# And is non-zero
-	if(-f "$self->{base_filename}.$ext" &&
-	   -s "$self->{base_filename}.$ext") {
+	if(-f "$base_filename.$ext" &&
+	   -s "$base_filename.$ext") {
 	    push @formats, ".$ext";
 	}
     }
@@ -531,7 +537,6 @@ sub lookup_genome {
 
 	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
 #));
-									  
 								      version_id => $self->{microbedb_ver} ));
 	
 	# We found a result in microbedb
@@ -551,7 +556,14 @@ sub lookup_genome {
 	    $self->{version} = $rep_results->version_id();
 	    $self->{genome_read} = 1;
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
+	    # Ensure we actually have the file types the database says
+	    my $file_types = $self->file_file_types( $gpo->gpv_directory() . $rep_results->file_name() );
+
+	    if($file_types ne $rep_results->file_types()) {
+		$logger->warn("The database said we have (" . $rep_results->file_types() . ") but on the file system we found ($file_types)");
+	    }
+
+	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$file_types);
 	}
     }
 
