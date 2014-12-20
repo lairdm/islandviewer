@@ -557,7 +557,7 @@ sub lookup_genome {
 	    $self->{genome_read} = 1;
 
 	    # Ensure we actually have the file types the database says
-	    my $file_types = $self->file_file_types( $gpo->gpv_directory() . $rep_results->file_name() );
+	    my $file_types = $self->find_file_types( $gpo->gpv_directory() . $rep_results->file_name() );
 
 	    if($file_types ne $rep_results->file_types()) {
 		$logger->warn("The database said we have (" . $rep_results->file_types() . ") but on the file system we found ($file_types)");
