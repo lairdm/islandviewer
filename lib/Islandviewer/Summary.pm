@@ -84,7 +84,7 @@ sub run {
 	    } elsif($status_set->{$mod}->{status} ne 'ERROR') {
 		# We're not required to be successful, but we're
 		# not in error either, didn't run? That's a problem.
-		$logger->trace("Module module in status " . $status_set->{$mod}->{status} . " this is unexpected");
+		$logger->trace("Module $mod in status " . $status_set->{$mod}->{status} . " this is unexpected");
 		$callback->set_status('ERROR');
 		return 0;
 	    }
