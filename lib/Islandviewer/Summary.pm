@@ -66,8 +66,8 @@ sub run {
     # modules anyways, but when doing a large update we don't seem
     # to get all the statuses written out to mysql in time for this
     # module to read them, so sleep for a few seconds...
-    $logger->trace("Sleeping for 9 seconds");
-    sleep 9;
+#    $logger->trace("Sleeping for 9 seconds");
+#    sleep 9;
 
     my $status_set = $callback->fetch_module_statuses();
 
