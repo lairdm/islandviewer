@@ -111,6 +111,8 @@ sub run_dimob {
 	return ();
     }    
 
+    $logger->trace("Grenome ($name, $filename), found formats: $format_str");
+
     # To make life easier, break out the formats available
     my $formats;
     foreach (split /\s+/, $format_str) { $_ =~ s/^\.//; $formats->{$_} = 1; }
