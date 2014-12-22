@@ -144,6 +144,11 @@ sub send_email {
     my $email = shift;
     my $status = shift;
 
+    unless($status == $STATUS_MAP->{COMPLETE} || $status == $STATUS_MAP->{ERROR}) {
+	$logger->warn("We don't send emails out for jobs not in complete or error states, this job was in: " . $REV_STATUS_MAP->{$status} . " ($status)");
+	return 0;
+    }
+
     my $mailer = Mail::Mailer->new();
 
     my $url = $cfg->{base_url} . 'results/' . $self->{aid} . '/';
