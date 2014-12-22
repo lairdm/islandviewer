@@ -156,6 +156,7 @@ sub send_email {
 	    or $logger->logdie("Error, can't open email: $!");
     
 	print $mailer "IslandViewer Notice\n\n";
+	$logger->trace("Sending notification for " . $self->{aid} . ", status: " . $status);
 	if($status == $STATUS_MAP->{COMPLETE}) {
 	    print $mailer "Genomic islands have finished being predicted using IslandPick, SIGI-HMM, and IslandPath-DIMOB!\n\n";
 	    print $mailer "Please use the following link to continue using IslandViewer:\n";
