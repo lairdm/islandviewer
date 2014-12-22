@@ -503,7 +503,6 @@ sub record_genes {
 			      ($gene->[5] ? $gene->[5] : undef), 
 			      ($gene->[6] ? $gene->[6] : undef), 
 			      ($gene->[7] ? $gene->[7] : undef))
->>>>>>> 5d2baaa0e5c3dad088bdd26b4ab9f1d3288c579d
 	    or $logger->logdie("Error loading gene ($self->{ext_id}, $gene->[0], $gene->[1], $gene->[4], $gene->[2], $gene->[5], $gene->[6], $gene->[7]): $DBI::errstr");
 	my $geneid = $dbh->last_insert_id(undef, undef, undef, undef);
 	foreach my $gi (@{$gene->[3]}) {
