@@ -295,6 +295,7 @@ sub submit_job {
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{owner_id} = 1;
+    $args->{default_analysis} = 1;
     $args->{email} = $email;
 
     my $aid;
