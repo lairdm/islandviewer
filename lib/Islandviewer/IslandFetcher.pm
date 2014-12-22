@@ -98,7 +98,7 @@ sub fetchGenes {
 		    # formated ids, so a basic filter in case there's
 		    # more than one
 		    my @protein_ids = $feature_obj->get_tag_values('protein_id');
-		    my $protein_id = undef;
+		    my $protein_id = ' ';
 		    for my $pid (@protein_ids) {
 			if($pid =~ /^[A-Z][A-Z]_[\d.]/) {
 			    $protein_id = $pid;
