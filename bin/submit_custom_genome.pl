@@ -93,9 +93,10 @@ MAIN: {
     $req_struct->{genome_name} = ($name ? $name : 'user genome');
 
     # Set the format
-    $format = 'Genbank' if($format eq 'gbk');
-    $format = 'Embl' if($format eq 'embl');
-    $req_struct->{format} = ($format ? $format : 'Genbank');
+    $format = 'gbk' if($format eq 'gbk');
+    $format = 'gbk' if($format eq 'gb');
+    $format = 'embl' if($format eq 'embl');
+    $req_struct->{genome_format} = ($format ? $format : 'gbk');
 
     $req_struct->{email} = $email if($email);
 
