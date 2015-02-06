@@ -241,6 +241,75 @@ sub notification {
     return $status;
 }
 
+sub prep_job {
+    my $self = shift;
+    my $args = shift;
+
+    my $cg;
+    my %params;
+    my $contigs;
+
+    if($args->{cid}) {
+	$params{load} = $args->cid;
+    }
+
+    eval {
+	$cg = Islandviewer::CustomeGenome->new(%params);
+
+	$contigs = $cg->validate($args);
+    };
+    if($@) {
+	# If we get an error, return the code for the
+	# frontend to deal with
+	my ($code) = $@ =~ /\[(\w+)\]/;
+	my $results = (cid => $cg->cid,
+		       code => $code,
+	    );
+
+	return $results;
+    }
+
+    # If we've made it this far we have one of two situations...
+    #
+    # We either have a valid genome that's complete (one contig)
+    # or a genome with more than one contig that we need to do 
+    # an alignment on. We know the difference based on if there
+    # is more than one contig.
+
+    # Remember the cid
+    $args->{cid} = $cg->cid;
+
+    if($contigs > 1) {
+	# The case of incomplete genomes
+	# We may or may not have to send it back to pick
+	# a genome to align against, we need to check $args
+	# to see if we have a genome given to us.
+
+    } else {
+	# The case of a complete genome we're ready to run
+	
+
+    }
+
+}
+
+sub submit_complete_job {
+    my $self = shift;
+    my $args = shift;
+
+    # Create a Versions object to look up the correct version
+    my $versions = new MicrobeDB::Versions();
+    my $microbedb_ver;
+
+    # If we've been given a microbedb version AND its valid... 
+    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+	$microbedb_ver = $microbedb_ver;
+    } else {
+	$microbedb_ver = $versions->newest_version();
+    }
+
+}
+
 sub submit_job {
     my $self = shift;
     my $genome_data = shift;

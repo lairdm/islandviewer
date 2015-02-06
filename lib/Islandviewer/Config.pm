@@ -57,4 +57,36 @@ sub evaluate_parameters {
     }
 }
 
+# Give a fille path and filename and try to
+# shorten it for the user
+
+sub shorten_directory {
+    my $self = shift;
+    my $path = shift;
+
+    # Get our local config
+    my $cfg = $self->config;
+
+    $path =~ s/\/\//\//g;
+
+    if($cfg->{tmp_genomes} && 
+       $path =~ /$cfg->{tmp_genomes}/) {
+	$path =~ s/$cfg->{tmp_genomes}/{{tmp_genomes}}/;
+    } elsif($cfg->{custom_genomes} && 
+       $path =~ /$cfg->{custom_genomes}/) {
+	$path =~ s/$cfg->{custom_genomes}/{{custom_genomes}}/;
+    } elsif($cfg->{workdir} && 
+       $path =~ /$cfg->{workdir}/) {
+	$path =~ s/$cfg->{workdir}/{{workdir}}/;
+    } elsif($cfg->{analysis_directory} && 
+       $path =~ /$cfg->{analysis_directory}/) {
+	$path =~ s/$cfg->{analysis_directory}/{{analysis_directory}}/;
+    } elsif($cfg->{rootdir} &&
+	    $path =~ /$cfg->{rootdir}/) {
+	$path =~ s/$cfg->{rootdir}/{{rootdir}}/;
+    }
+
+    return $path;
+}
+
 1;

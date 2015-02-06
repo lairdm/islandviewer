@@ -73,6 +73,130 @@ sub BUILD {
 
 }
 
+
+sub read_and_check {
+    my $self = shift;
+    my $filename = shift;
+
+    #seperate extension from filename
+    $filename =~ s/\/\//\//g;
+    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+
+    $logger->debug("From filename $filename got $file, $extension");
+
+    $self->{base_filename} = $file;
+   
+    my $in;
+
+    if ( $extension =~ /embl/ ) {
+	
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbf/) || ($extension =~ /gbff/) ) {
+	# Special case, our general purpose code likes .gbk...
+	if($extension !~ /gbk/) {
+	    move($filename, "$file.gbk");
+	    $filename = "$file.gbk";
+	}
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } else {
+	$logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl) [FILEFORMATERROR]");
+    }
+
+    # Count the contigs to see if this is
+    # an incomplete genome
+    my $contigs = 0;
+
+    # Did we find any CDS records?
+    my $found_cds = 0;
+
+    my $full_seq_recs;
+
+    while ( my $seq = $in->next_seq() ) {
+	$contigs += 1;
+	$logger->trace("Checking contig " . $seq->accession_number);
+
+	#Only keep those features coding for proteins
+	my @cds = grep { $_->primary_tag eq 'CDS' } $seq->get_SeqFeatures;
+
+	# We found a cds record in at least one contig
+	$found_cds = 1 if(@cds);
+
+	# See if we have a full sequence in the genbank/embl file
+	if($seq->seq()) {
+	    $logger->trace("Found sequence in the genbank/embl file");
+	    # All good, next.
+	    next;
+	} elsif($full_seq_recs || $self->load_fna($file, \$full_seq_recs)) {
+	    print Dumper($full_seq_recs);
+	    # Do we have sequence information loaded from
+	    # an fna file?
+
+	    # In case the primary accession is not the one used in the fna file...
+	    foreach my $acc ($seq->accession_number, $seq->get_secondary_accessions) {
+		$logger->trace("Looking up seq for $acc");
+		next if($full_seq_recs->{$acc});
+	    }
+
+	    $logger->logdie("Error, no sequence for contig [" . $seq->accession_number . '], fna file was found [NOSEQFNA]');
+	} else {
+	    $logger->logdie("Error, no sequence for contig [" . $seq->accession_number . '], fna file was not found [NOSEQNOFNA]');
+	}
+
+    }
+
+    unless($found_cds) {
+	$logger->logdie("Error, no cds records found for file $filename [NOCDSRECORDS]");
+    }
+
+    # Else return the number of contigs found
+    return $contigs;
+}
+
+# Try to find an fna file for the genome and load
+# the records in to a hash
+
+sub load_fna {
+    my $self = shift;
+    my $basefile = shift;
+    my $seq_recs_ref = shift;
+
+    my $fna_file = $basefile . '.fna';
+
+    $logger->debug("Seeing if fna file $fna_file exists, and loading");
+
+    unless(-r $fna_file && -s $fna_file) {
+	$logger->warn("fna file $fna_file not found!");
+	return 0;
+    }
+
+    my $in = Bio::SeqIO->new(
+	-file => $fna_file,
+	-format => 'FASTA'
+	) or $logger->logdie("Error, can't open fna $fna_file using bioperl: $!");
+
+    while(my $seq = $in->next_seq()) {
+	return 0 unless($seq->id && $seq->seq());
+
+	my $trimmed_id = $seq->id;
+	$trimmed_id =~ s/\.(\d+)$//;
+
+	$logger->trace("Saving sequence for $trimmed_id");
+
+	$$seq_recs_ref->{$trimmed_id} = $seq->seq();
+    }
+
+    return 1;
+}
+
 # Read in a genbank or Embl file and convert it to
 # the other needed formats
 #
