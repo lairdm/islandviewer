@@ -491,6 +491,7 @@ sub regenerate_files {
 sub find_file_types {
     my $self = shift;
     my $base_filename = shift;
+    my $return_array;
 
     unless($base_filename) {
 	$logger->trace("No base filename given in args, trying to use object default: " . $self->{base_filename});
@@ -519,6 +520,12 @@ sub find_file_types {
 	   -s "$base_filename.$ext") {
 	    push @formats, ".$ext";
 	}
+    }
+
+    # If we've been asked to return it as an array rather 
+    # than a string...
+    if($return_array) {
+	return @formats;
     }
 
     return join ' ', @formats;

@@ -42,8 +42,8 @@ use MicrobeDB::Versions;
 
 my $cfg; my $logger; my $cfg_file;
 
-my @modules = qw(Distance Islandpick Sigi Dimob Virulence Summary);
-my @required_success = qw(Distance Virulence);
+my @modules = qw(Prepare Distance Islandpick Sigi Dimob Virulence Summary);
+my @required_success = qw(Prepare Distance Virulence);
 
 sub BUILD {
     my $self = shift;

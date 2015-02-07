@@ -308,6 +308,10 @@ sub submit_complete_job {
 	$microbedb_ver = $versions->newest_version();
     }
 
+    # We're moving the file formats prep to the Prepare module
+    # rather than doing it on submitting the genome, this should
+    # speed up submissions on the web frontend
+
 }
 
 sub submit_job {
