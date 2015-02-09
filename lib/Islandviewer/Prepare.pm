@@ -50,6 +50,12 @@ sub BUILD {
 
     $logger = Log::Log4perl->get_logger;
 
+    $self->{microbedb_ver} = (defined($args->{microbedb_ver}) ?
+			      $args->{microbedb_ver} : undef );
+
+    $self->{ref_accnum} = (defined($args->{ref_accnum}) ?
+			      $args->{ref_accnum} : undef );
+    
     die "Error, work dir not specified:  $args->{workdir}"
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
@@ -69,7 +75,30 @@ sub run {
     my $accnum = shift;
     my $callback = shift;
 
+    unless($self->{microbedb_ver}) {
+	$logger->error("Error, microbedb version wasn't set on object initialization");
+	return 0;
+    }
 
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+    my $genome_obj = $genome_utils->fetch_genome($accnum);
+
+    # Check the file formats and rebuild them if needed, fail if we can't
+
+    # If we've been given a reference genome to run an alignment against...
+    if($self->{ref_accnum}) {
+
+	my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
+								 ref_accnum => $self->{ref_accnum} } );
+							       
+	my $res = $contig_aligner->run($accnum, $callback);
+
+	unless($res) {
+	    $logger->error("Contig aligner against reference genome " . $self->{ref_accnum} . " failed");
+	}
+    }
+
+    return 1;
 }
 
 1;

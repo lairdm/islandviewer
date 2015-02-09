@@ -262,9 +262,9 @@ sub prep_job {
 	# If we get an error, return the code for the
 	# frontend to deal with
 	my ($code) = $@ =~ /\[(\w+)\]/;
-	my $results = (cid => $cg->cid,
+	my $results = {cid => $cg->cid,
 		       code => $code,
-	    );
+	    };
 
 	return $results;
     }

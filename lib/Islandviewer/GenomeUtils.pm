@@ -459,6 +459,70 @@ sub read_and_convert {
     
 }    #end of gbk_or_embl_to_other_formats
 
+sub genome_stats {
+    my $self = shift;
+    my $base_filename = shift;
+
+    my $in;
+    # Check which file type exists
+    if(-r $base_filename . '.gbk' &&
+       -s $base_filename . '.gbk') {
+	$logger->info("Scanning genbank file $base_filename for genome stats");
+
+	$in = Bio::SeqIO->new(
+	    -file   => $base_filename . '.gbk',
+	    -format => 'Genbank'
+	    );
+    } elsif(-r $base_filename . '.embl' &&
+	    -s $base_filename . '.embl') {
+	$logger->info("Scanning embl file $base_filename for genome stats");
+
+
+	$in = Bio::SeqIO->new(
+	    -file   => $base_filename . '.embl',
+	    -format => 'EMBL'
+	    );
+    } else {
+	$logger->error("Error, no genbank or embl file for $base_filename exists to scan stats from");
+	return 0;
+    }
+
+    # If we find more than one contig this is a problem, this should never be called
+    # on an incomplete or non-assembled genome
+    my $contig_count = 1;
+
+    my $stats;
+
+    while ( my $seq = $in->next_seq() ) {
+	if($contig_count > 1) {
+	    $logger->error("Error, we found a second contig in the genome from $base_filename");
+	}
+
+	#Only keep those features coding for proteins
+	my @cds = grep { $_->primary_tag eq 'CDS' } $seq->get_SeqFeatures;
+
+	#Remove any pseudogenes
+	my @tmp_cds;
+	foreach (@cds) {
+	    unless ( $_->has_tag('pseudo') ) {
+		push( @tmp_cds, $_ );
+	    }
+	}
+	@cds = @tmp_cds;
+
+	my $num_proteins = scalar(@cds);
+	my $seq_length = $seq->length();
+
+	$stats = { cds_num => $num_proteins,
+		   rep_size => $seq_length
+	};
+
+	$contig_count += 1;
+    }
+
+    return $stats;
+}
+
 sub regenerate_files {
     my $self = shift;
 
@@ -606,6 +670,40 @@ sub move_and_update {
     $dbh->do("UPDATE CustomGenome SET filename=? WHERE cid = ?", undef, $shortened_filename, $cid);
 
     return 1;
+}
+
+# Determine which type of identifier it is and 
+# return that type of genome object
+#
+# Add error handling for if the lookup fails
+
+sub fetch_genome {
+    my $self = shift;
+    my $cid = shift;
+    my $type = (@_ ? shift : 'unknown');
+
+    my $genome;
+
+    my $params = { load => $cid };
+    if($self->{microbedb_ver}) {
+	$params->{microbedb_ver} = $self->{microbedb_ver};
+    }
+
+    unless($rep_accnum =~ /\D/ || $type eq 'microbedb') {
+    # If we know we're not hunting for a microbedb genome identifier...
+    # or if there are non-digits, we know custom genomes are only integers
+    # due to it being the autoinc field in the CustomGenome table
+    # Do this one first since it'll be faster
+	$genome = Islandviewer::CustomGenome->new( $params );
+    }
+
+    unless($type  eq 'custom') {
+    # If we know we're not hunting for a custom identifier    
+	$genome = Islandviewer::MicrobeDBGenome->new( $params );
+
+    }
+
+    return $genome;
 }
 
 # Lookup an identifier, determine if its from microbedb

@@ -37,14 +37,8 @@ use Islandviewer::DBISingleton;
 
 has cid => (
     is     => 'rw',
-    isa    => 'Str',
+    isa    => 'Int',
     default => 0
-);
-
-has genome_type => (
-    is     => 'rw',
-    isa    => enum([qw(microbedb custom)]),
-    default => 'microbedb'
 );
 
 has name => (
@@ -112,6 +106,11 @@ sub BUILD {
     } else {
 	$self->genome_status('NEW');
     }
+
+    if($args->{microbedb_ver}) {
+	$self->{microbedb_ver} = $args->{microbedb_ver};
+    }
+
 }
 
 sub loadGenome {
@@ -136,6 +135,33 @@ sub loadGenome {
     }
 
     $self->cid($cid);
+}
+
+sub loadMicrobeDBGenome {
+    my $self = shift;
+    my $rep_accnum = shift;
+
+    my $sobj = new MicrobeDB::Search();
+
+    my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
+#));
+								      version_id => $self->{microbedb_ver} ));
+	
+    # We found a result in microbedb
+    if( defined($rep_results) ) {
+	# One extra step, we need the path to the genome file
+	my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
+	my ($gpo) = $search_obj->object_search($rep_results);
+
+	$self->name( $rep_results->definition() );
+	$self->cds_num( $rep_results->cds_num() );
+	$self->rep_size( $rep_results->rep_size() );
+	$self->filename( $gpo->gpv_directory() . $rep_results->file_name() );
+	$self->contigs ( 1 );
+	$self->genome_status( 'READY' );
+	$self->formats( $rep_results->file_types() );
+    }
+
 }
 
 sub validate {
@@ -230,10 +256,15 @@ sub scan_genome {
     # Find the file types, set the second parameter to true
     # to return an array instead of a string.
     $self->formats( $genome_obj->find_file_types($self->filename, 1) );
-    $logger->trace("For " . $self->cid . " found file formats: " . $self->formats());
+    $logger->trace("For " . $self->cid . " found file formats: " . join(' ' , sort $self->formats()) );
 
     # Next we need to scan the file to find CDS numbers and total length
+    my $stats = $genome_obj->genome_stats($self->filename);
 
+    foreach my $key (keys $stats) {
+	$logger->trace("For file " . $self->filename . " found $key: " . $stats->{$key});
+	$self->$key($stats->{$key});
+    }
 
     # And save the updates...
     $self->update_genome();
@@ -289,7 +320,50 @@ sub save_genome {
 
     $self->cid($cid);
 
+    # Now we need to move things in to place, so we're nice
+    # and tidy with our file organization
+    $logger->trace("Moving genome " . $self->cid . ' in to place at ' . $cfg->{custom_genomes});
+
+    unless(mkdir($cfg->{custom_genomes} . "/" . $self->cid)) {
+	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/" . $self->cid . ": $!");
+	return 0;
+    }
+    unless($self->move_and_update($cfg->{custom_genomes} . "/" . $self->cid)) {
+	$logger->error("Error, can't move files to custom directory for cid "$self->cid);
+    }
+
     return $cid;
+}
+
+sub move_and_update {
+    my $self = shift;
+    my $new_path = shift;
+
+    $logger->info("Trying to move genome " . $self->cid . " to new location at $new_path");
+
+    # First let's ensure this is a directory
+    unless( -d $new_path ) {
+	$logger->error("Error, $new_path doesn't seem to be a directory");
+	return 0;
+    }
+
+    my($filename, $directory, $suffix) = 
+	fileparse($self->filename);
+
+    # Move the files over to the new location
+#    my @old_files = glob ($self->{base_filename} . '*');
+    foreach my $f (glob ($self->{base_filename} . '*')) {
+	move($f, $new_path);
+    }
+
+    # Now update the base name in the database
+    my $newfile = "$new_path/$filename";
+    $newfile =~ s/\/\//\//g;
+    $self->filename( $newfile );
+
+    $self->update_genome();
+    return 1;
+
 }
 
 sub update_genome {
