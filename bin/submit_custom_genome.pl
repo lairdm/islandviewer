@@ -40,6 +40,7 @@ my $port = 8211;
 my $handle;
 my $alarm_timeout = 60;
 my $protocol_version = '1.0';
+my $verbose = 0;
 
 MAIN: {
     my $cfname; my $filename; my $name; my $logger;
@@ -52,6 +53,7 @@ MAIN: {
 			 "email=s"    => \$email,
 			 "islandpick_genomes=s" => \$comparison_genomes,
 			 "microbedb_ver=s" => \$microbedb_ver,
+			 "verbose" => \$verbose
     );
 
     die "Error, no config file given"
@@ -111,6 +113,12 @@ MAIN: {
     my $req_str = to_json($req_struct, { pretty => 1});
     $req_str .= "\nEOF";
 
+    if($verbose) {
+	print "$req_struct->{genome_name}\n";
+	print "$req_struct->{genome_format}\n";
+	print "$req_struct->{email}\n";
+	print "$req_struct->{Islandpick}\n";
+    }
     my $recieved = send_req($req_str);
 
     print "$recieved\n";

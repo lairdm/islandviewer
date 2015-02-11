@@ -33,7 +33,10 @@ use Data::Dumper;
 use Moose;
 use Moose::Util::TypeConstraints;
 use Carp qw( confess );
+use JSON;
+
 use Islandviewer::DBISingleton;
+use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
 use MicrobeDB::Versions;
 use MicrobeDB::Replicon;
@@ -71,16 +74,18 @@ has filename => (
     isa    => 'Str'
 );
 
-subtype 'My::ArrayRef' => as 'ArrayRef';
-
-    coerce 'My::ArrayRef'
-        => from 'Str'
-        => via { [ split / / ] };
+coerce 'ArrayRefofStr'
+  => from 'Str'
+    => via { [ $_ ] }
+  => from 'ArrayRef[Str]'
+    => via { [ map { $_ } @$_ ] }
+;
 
 has formats => (
     traits  => ['Array'],
     is      => 'rw',
-    isa     => 'My::ArrayRef[Ref]',
+    isa     => 'ArrayRefofStr',
+    coerce  => 1,
     default => sub { [] },
 );
 
@@ -173,10 +178,112 @@ sub loadGenome {
     
 }
 
+# Do some basic checking, we'll probably never use this
+# but we need to handler here in case anyone calls it.
+
+sub validate {
+    my $self = shift;
+    my $args = shift;
+
+    # We should be ready to try to validate...
+    my $genome_obj = Islandviewer::GenomeUtils->new(
+	{ workdir => $cfg->{workdir} });
+
+    # What happens when we check the file...
+    my $contigs;
+    eval{ 
+	$logger->trace("Reading and checking genome " . $self->cid . ', file ' . $self->filename);
+	$contigs = $genome_obj->read_and_check($self->filename);
+    };
+    if($@) {
+	$logger->trace("Msg: $@");
+	if($@ =~ /FILEFORMATERROR/) {
+	    $self->genome_status('INVALID');
+	    $logger->logdie("Invalid file format for file " . $self->filename ." [FILEFORMATERROR]");
+	} elsif($@ =~ /NOSEQFNA/) {
+	    $self->genome_status('INVALID');
+	    $logger->logdie("Missing sequenceinformation for file " . $self->filename . ", FNA file was found [NOSEQFNA]");
+	} elsif($@ =~ /NOSEQNOFNA/) {
+	    $self->genome_status('MISSINGSEQ');
+	    $logger->logdie("Missing sequence information for file " . $self->filename . ", FNA file was not found [NOSEQNOFNA]");
+	} elsif($@ =~ /NOCDSRECORDS/) {
+	    $self->genome_status('INVALID');
+	    $logger->logdie("Missing cds records for file " . $self->filename . " [NOCDSRECORDS]");		
+	}
+    }
+
+    # Some sanity checking in case they upload
+    # a genome with zero contigs...
+    unless($contigs > 0) {
+	$self->genome_status('INVALID');
+	$logger->logdie("Invalid file format for file, no contigs " . $self->filename ." [FILEFORMATERROR]");
+    }
+
+    $self->contigs($contigs);
+
+    return $contigs;
+
+}
+
+sub scan_genome {
+    my $self = shift;
+
+    # We only allow scanning of the genome if we're in a state of READY
+    unless($self->genome_status eq 'READY') {
+	$logger->trace("Genome " . $self->cid . " not READY, bailing (this should never happen for a MicrobeDB type)");
+	return 0;
+    }
+
+    # Make a GenomeUtils objects to do the work
+    my $genome_obj = Islandviewer::GenomeUtils->new(
+	{ workdir => $cfg->{workdir} });
+
+    # Find the file types, set the second parameter to true
+    # to return an array instead of a string.
+    my @formats = $genome_obj->find_file_types($self->filename, 1);
+    $logger->trace("Found formats for " . $self->filename . ": [@formats]");
+    $self->formats( @formats );
+    $logger->trace("For " . $self->cid . " found file formats: " . join(' ' , sort $self->formats()) );
+
+    # Next we need to scan the file to find CDS numbers and total length
+    my $stats = $genome_obj->genome_stats($self->filename);
+
+    foreach my $key (keys $stats) {
+	$logger->trace("For file " . $self->filename . " found $key: " . $stats->{$key});
+	$self->$key($stats->{$key});
+    }
+
+    return 1;
+}
+
+sub write_genome {
+    my $self = shift;
+
+    $logger->warn("We don't write MicrobeDB records right now.");
+}
+
+sub save_genome {
+    my $self = shift;
+
+    $logger->warn("We don't save MicrobeDB records right now.");
+}
+
 sub update_genome {
     my $self = shift;
 
     $logger->warn("We don't update MicrobeDB records right now.");
+}
+
+sub move_and_update {
+    my $self = shift;
+
+    $logger->warn("We don't move MicrobeDB records right now.");
+}
+
+sub atype {
+    my $self = shift;
+
+    return $ATYPE_MAP->{microbedb};
 }
 
 sub dump {
@@ -194,7 +301,7 @@ sub dump {
     $json_data->{contigs} = $self->contigs;
     $json_data->{genome_status} = $self->genome_status;
 
-    my $json = encode_json($json_data);
+    my $json = to_json($json_data, { pretty => 1 });
 
     return $json;
 }

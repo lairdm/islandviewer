@@ -156,29 +156,47 @@ sub submit_analysis {
 	$microbedb_ver = $versions->newest_version();
     }
 
-    my $genome_obj = Islandviewer::GenomeUtils->new({microbedb_ver => $microbedb_ver });
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $microbedb_ver });
 
-    my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
+    my $genome_obj = $genome_utils->fetch_genome($cid);
 
-    $logger->trace("For cid $cid we found filenames $name, $base_filename, $types");
+#    my($name, $base_filename, $types) = $genome_obj->lookup_genome($cid);
+
+    my $name = $genome_obj->name();
+    my $base_filename = $genome_obj->filename();
+
+    $logger->trace("For cid $cid we found filenames $name, $base_filename, " . Dumper($genome_obj->formats()));
     unless($base_filename) {
 	$logger->error("Error, we couldn't find cid $cid ($base_filename)");
 	return 0;
     }
 
     # Sanity checking, did we get all the correct types?
-    unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
+    # Since we moved file generation to the Prepare module,
+    # we want at least a genbank of embl file
+
+    if('.gbk' ~~ $genome_obj->formats()) {
+	$logger->trace("We have a genbank file (prefered), we're ok to submit");
+    } elsif('.embl' ~~ $genome_obj->formats()) {
+	$logger->trace("We have a embl file, we're ok to submit");
+    } else {
+	$logger->error("We don't have all the file types we need, only have: " . Dumper($genome_obj->formats()) );
+	return 0;
+    }
+
+#    unless($cfg->{expected_exts} eq $genome_obj->find_file_types()) {
 	# We need to regenerate the files
-	$logger->trace("We don't have all the file types we need, only have: " . $genome_obj->find_file_types());
-	unless($genome_obj->regenerate_files()) {
+#	$logger->trace("We don't have all the file types we need, only have: " . $genome_obj->find_file_types());
+#	unless($genome_obj->regenerate_files()) {
 	    # Oops, we weren't able to regenerate for some reason, failed
-	    $logger->error("Error, we don't have the needed files, we can't do an alaysis ($base_filename)");
-	    return 0;
-	}
-    }    
+#	    $logger->error("Error, we don't have the needed files, we can't do an alaysis ($base_filename)");
+#	    return 0;
+#	}
+#    }    
 
     # Ensure we have our GC values calculated and ready to go
-    $genome_obj->insert_gc($cid);
+    # Moved to Prepare module
+#    $genome_obj->insert_gc($cid);
 
     # We should be ready to go, let's submit our analysis!
     my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}});

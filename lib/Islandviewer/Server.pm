@@ -53,6 +53,7 @@ use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
 use Islandviewer::Genome_Picker;
+use Islandviewer::CustomGenome;
 use Log::Log4perl::Level;
 
 use MicrobeDB::Versions;
@@ -254,11 +255,12 @@ sub prep_job {
     }
 
     eval {
-	$cg = Islandviewer::CustomeGenome->new(%params);
+	$cg = Islandviewer::CustomGenome->new(%params);
 
 	$contigs = $cg->validate($args);
     };
     if($@) {
+	$logger->info("Trouble validating: $@");
 	# If we get an error, return the code for the
 	# frontend to deal with
 	my ($code) = $@ =~ /\[(\w+)\]/;
@@ -279,6 +281,8 @@ sub prep_job {
     # Remember the cid
     $args->{cid} = $cg->cid;
 
+    $logger->trace("Almost ready to go, genome is in state: " . $cg->genome_status());
+
     if($contigs > 1) {
 	# The case of incomplete genomes
 	# We may or may not have to send it back to pick
@@ -287,14 +291,20 @@ sub prep_job {
 
     } else {
 	# The case of a complete genome we're ready to run
-	
+	$logger->info("Found one contig for cid " . $cg->cid . ", scanning then submitting");
+	$cg->scan_genome();
+	return $self->submit_complete_job($cg, $args);
 
     }
+
+    $logger->error("We shouldn't be here, we have no aid");
+    return 0;
 
 }
 
 sub submit_complete_job {
     my $self = shift;
+    my $genome_obj = shift;
     my $args = shift;
 
     # Create a Versions object to look up the correct version
@@ -308,9 +318,53 @@ sub submit_complete_job {
 	$microbedb_ver = $versions->newest_version();
     }
 
+    $logger->info("Submitting genome " . $args->{cid} . " for analysis");
+
     # We're moving the file formats prep to the Prepare module
     # rather than doing it on submitting the genome, this should
     # speed up submissions on the web frontend
+    # We're going to use the same arguments for all the runs
+    
+    # If we have a reference genome to align against, make sure
+    # the Prepare module knows about it.
+    if($args->{ref_accnum}) {
+	$args->{Prepare}->{ref_accnum} = $args->{ref_accnum};
+    }
+
+    # For future versions we could add checks here and not override
+    # these settings if we're given them.
+    # We'll definitely need to do that for things like owner_id if
+    # we implement users.
+    $args->{Islandpick} = {
+	MIN_GI_SIZE => 4000};
+    $args->{Sigi} = {
+	MIN_GI_SIZE => 4000};
+    $args->{Dimob} = {
+	MIN_GI_SIZE => 4000};
+    $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
+    $args->{microbedb_ver} = $microbedb_ver;
+    $args->{owner_id} = 1;
+    $args->{default_analysis} = 1;
+#    $args->{email} = $email;
+
+    my $aid;
+    eval {
+	# Submit the replicon for processing
+	$aid = $islandviewer->submit_analysis($args->{cid}, $args);
+    };
+    if($@) {
+	$logger->logdie("Error submitting analysis ($genome_obj->filename(), $args->{cid}): $@");
+    }
+    if($aid) {
+	$logger->info("Finished submitting $args->{cid}, has analysis id $aid");
+    } else {
+	$logger->logdie("Error, failed submitting, didn't get an analysis id");
+    }
+
+    $logger->info("Analysis $aid should now be submitted");
+   
+    # Spit out the analysis id back for the web service
+    return $aid;
 
 }
 
@@ -598,19 +652,22 @@ sub submit {
 #    $genome_data = decode_base64($genome_data);
     my $genome_data = urlsafe_b64decode($args->{genome_data});
 
-    my $aid;
+    my $aid; my $res;
     eval {
-	$aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
+	$res = $self->prep_job($args);
+	$aid = $res->{aid} ? $res->{aid} : 0;
+	$logger->trace("Returning: " . Dumper($res));
+#	$aid = $self->submit_job($genome_data, $args->{genome_format}, $args->{genome_name}, $args->{email}, $args->{microbedb_ver});
     };
     if($@) {
 	$logger->error("Error submitting analysis: $@");
-	return (500, $self->makeResStr(500, "Error submitting analysis: $@", '', "An error occurred when submitting the analysis, please try again later."));
+	return (500, $self->makeResStr(500, "Error submitting analysis: $@", $res, "An error occurred when submitting the analysis, please try again later."));
     }
 
     unless($aid) {
-	return (500, $self->makeResStr(500, "Unknown error, no aid returned", '', "No analysis id was returned when submitting, oops, something's wrong"));
+	return (500, $self->makeResStr(500, "Unknown error, no aid returned", $res, "No analysis id was returned when submitting, oops, something's wrong"));
     } else {
-	return (200, $self->makeResStr(200, "Job submitted, job id: [$aid]"));
+	return (200, $self->makeResStr(200, "Job submitted, job id: [$aid]", $res));
     }
 }
 
@@ -763,8 +820,8 @@ sub makeResStr {
 	$struct->{user_error_msg} = $error_str;
     }
 
-#    my $ret_json = to_json($struct, { pretty => 1 } );
-    my $ret_json = to_json($struct);
+    my $ret_json = to_json($struct, { pretty => 1 } );
+#    my $ret_json = to_json($struct);
 
 #    my $ret_json = "{\n \"code\": $code,\n \"msg\": \"$msg\"\n";
 #    if($error_str) {

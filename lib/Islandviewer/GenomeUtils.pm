@@ -43,6 +43,7 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Copy;
 use File::Basename;
+use Array::Utils qw(:all);
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
@@ -82,6 +83,27 @@ sub read_and_check {
     $filename =~ s/\/\//\//g;
     my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
 
+    unless($extension) {
+	$logger->info("Didn't receive file type for $filename");
+	
+	# Check if an embl or genbank file exists for this genome
+	if(-f $filename . '.gbk' &&
+	   -s $filename . '.gbk') {
+	    $logger->info("We seem to have a genbank file, preferred format");
+	    $extension = 'gbk';
+	    $file = $filename;
+	    $filename .= '.gbk';
+	} elsif(-f $filename . '.embl' &&
+		-s $filename . '.embl') {
+	    $logger->info("We seem to have a embl file");
+	    $extension = 'embl';
+	    $file = $filename;
+	    $filename .= '.embl';
+	} else {
+	    $logger->logdie("Can't find file format for $filename, this is very bad");
+	}
+    }
+
     $logger->debug("From filename $filename got $file, $extension");
 
     $self->{base_filename} = $file;
@@ -90,12 +112,15 @@ sub read_and_check {
 
     if ( $extension =~ /embl/ ) {
 	
+	$logger->trace("Reading embl format file");
 	$in = Bio::SeqIO->new(
 	    -file   => $filename,
 	    -format => 'EMBL'
 	    );
 	$logger->info("The genome sequence in $filename has been read.");
     } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbf/) || ($extension =~ /gbff/) ) {
+	$logger->trace("Reading genbank format file");
+
 	# Special case, our general purpose code likes .gbk...
 	if($extension !~ /gbk/) {
 	    move($filename, "$file.gbk");
@@ -552,6 +577,72 @@ sub regenerate_files {
 
 }
 
+# Validate we have all the needed types
+
+sub validate_types {
+    my $self = shift;
+    my $genome_obj = shift;
+
+    # First are the file types the genome object thinks we
+    # have correct
+    my @found_types = $self->find_file_types($genome_obj->filename(), 1);
+
+    my @formats = sort $genome_obj->formats();
+    if(array_diff(@formats, @found_types)) {
+	$logger->warn("Genome object and file system have different sets of formats [" . @formats . '] [' . @found_types . ']');
+	$genome_obj->formats(@found_types);
+	$genome_obj->update_genome();
+    }
+
+    # Next does the type of formats match what we need...
+    if(! $self->correct_formats($genome_obj->formats()) ) {
+	if('.gbk' ~~ $genome_obj->formats()) {
+	    $logger->info("Regenerating formats based off genbank format");
+	    $self->read_and_convert($genome_obj->filename() . '.gbk', $genome_obj->name());
+	} elsif('.embl' ~~ $genome_obj->formats()) {
+	    $logger->info("Regenerating formats based off embl format");
+	    $self->read_and_convert($genome_obj->filename() . '.embl', $genome_obj->name());
+
+	} else {
+	    $logger->error("Error, neither genbank or embl file found for " . $genome_obj->filename());
+	    return 0;
+	}
+
+	# We've updated formats, so we need to update the genome object with 
+	# the new formats
+	$genome_obj->formats( $self->find_file_types($genome_obj->filename(), 1) );
+	$genome_obj->update_genome();
+
+    } else{
+	# Nothing to do, we have the correct formats
+	return 1;
+    }
+
+    # Do we have the correct fromats now?
+    if(! $self->correct_formats($genome_obj->formats()) ) {
+	$logger->error("We still don't have all the formats we need, fail! [" . $genome_obj->formats() . ']');
+	return 0;
+    }
+
+    # All good, moving on...
+    return 1;
+
+}
+
+sub correct_formats {
+    my $self = shift;
+    my $formats = shift;
+
+    my @formats = sort $formats;
+    my @expected_formats = sort(split(' ', $cfg->{expected_exts}));
+    if(array_diff(@formats, @expected_formats ) ) {
+	$logger->warn("We don't have all the needed formats: [" . @formats . '] [' . $cfg->{expected_exts} . ']');
+	return 0;
+    }
+
+    return 1;
+}
+
 sub find_file_types {
     my $self = shift;
     my $base_filename = shift;
@@ -589,7 +680,7 @@ sub find_file_types {
     # If we've been asked to return it as an array rather 
     # than a string...
     if($return_array) {
-	return @formats;
+	return sort @formats;
     }
 
     return join ' ', @formats;
@@ -689,21 +780,22 @@ sub fetch_genome {
 	$params->{microbedb_ver} = $self->{microbedb_ver};
     }
 
-    unless($rep_accnum =~ /\D/ || $type eq 'microbedb') {
+    unless($cid =~ /\D/ || $type eq 'microbedb') {
     # If we know we're not hunting for a microbedb genome identifier...
     # or if there are non-digits, we know custom genomes are only integers
     # due to it being the autoinc field in the CustomGenome table
     # Do this one first since it'll be faster
 	$genome = Islandviewer::CustomGenome->new( $params );
+	return $genome;
     }
 
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 	$genome = Islandviewer::MicrobeDBGenome->new( $params );
-
+	return $genome;
     }
 
-    return $genome;
+    return undef;
 }
 
 # Lookup an identifier, determine if its from microbedb
@@ -821,7 +913,27 @@ sub tag {
 }
 
 # Store the GC values in the database for the front end
+sub create_gc {
+    my $self = shift;
+    my $genome_obj = shift;
 
+    unless(-f $genome_obj->filename() . '.fna' &&
+	   -s $genome_obj->filename() . '.fna') {
+	$logger->logdie("Error, can't find fna file " . $genome_obj->filename() . ".fna");
+    }
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my($seq_size, $min, $max, $mean, @gc_values)
+	= $self->calculate_gc($genome_obj->filename() . '.fna');
+
+    my $update_gc = $dbh->prepare("INSERT IGNORE INTO GC (ext_id, min, max, mean, gc) VALUES (?, ?, ?, ?, ?)");
+    $update_gc->execute($genome_obj->cid(), $min, $max, $mean, join(',', @gc_values));
+
+}
+
+# This is the old method for when the GenomeUtils object
+# scanned the genome and know it's name, etc
 sub insert_gc {
     my $self = shift;
     my $cid = shift;

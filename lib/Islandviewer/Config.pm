@@ -57,7 +57,25 @@ sub evaluate_parameters {
     }
 }
 
-# Give a fille path and filename and try to
+# Given a path, expand out and shortened
+# paths
+
+sub expand_directory {
+    my $self = shift;
+    my $filename = shift;
+
+    # Get our local config
+    my $cfg = $self->config;
+
+    # Expand filename
+    if($filename =~ /{{.+}}/) {
+	$filename =~ s/{{([\w_]+)}}/$cfg->{$1}/eg;
+    }
+
+    return $filename
+}
+
+# Give a file path and filename and try to
 # shorten it for the user
 
 sub shorten_directory {

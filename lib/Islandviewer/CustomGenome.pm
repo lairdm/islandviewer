@@ -33,7 +33,14 @@ use Data::Dumper;
 use Moose;
 use Moose::Util::TypeConstraints;
 use Carp qw( confess );
+use MIME::Base64::URLSafe;
+use File::Temp qw/ :mktemp /;
+use File::Basename;
+use File::Copy;
+use JSON;
+
 use Islandviewer::DBISingleton;
+use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
 has cid => (
     is     => 'rw',
@@ -48,7 +55,8 @@ has name => (
 
 has owner_id => (
     is     => 'rw',
-    isa    => 'Int'
+    isa    => 'Int',
+    default => 0
 );
 
 has cds_num => (
@@ -61,21 +69,50 @@ has rep_size => (
     isa    => 'Int'
 );
 
+subtype 'pathStr'
+  => as 'Str'
+;
+
+coerce 'pathStr'
+  => from 'Str'
+    => via { return Islandviewer::Config->expand_directory( $_ ) }
+;
+
 has filename => (
     is     => 'rw',
-    isa    => 'Str'
+    isa    => 'pathStr',
+    coerce => 1
 );
 
-subtype 'My::ArrayRef' => as 'ArrayRef';
+subtype 'ArrayRefofStr'
+  => as 'ArrayRef[Str]'
+;
 
-    coerce 'My::ArrayRef'
-        => from 'Str'
-        => via { [ split / / ] };
+coerce 'ArrayRefofStr'
+  => from 'Str'
+    => via { [ split / / ] }
+#    => via { split(' ', $_) }
+  => from 'ArrayRef[Str]'
+    => via { $_ }
+#    => via { [ map { $_ } @$_ ] }
+;
+
+#subtype 'My::ArrayRef' => as 'ArrayRef';
+
+#    coerce 'My::ArrayRef'
+#        => from 'Str'
+#        => via { [ split / / ] };
+
+#    coerce 'My::ArrayRef'
+#        => from 'ArrayRef[Str]'
+#        => via { print Dumper $_; return [ $_ ] };
 
 has formats => (
     traits  => ['Array'],
     is      => 'rw',
-    isa     => 'My::ArrayRef[Ref]',
+    isa     => 'ArrayRefofStr',
+#    isa     => 'My::ArrayRef[Ref]',
+    coerce  => 1,
     default => sub { [] },
 );
 
@@ -123,45 +160,25 @@ sub loadGenome {
     my $fetch_cg = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $logger->debug("Fetching custom genome [$cid]");
-    $fetch_cg = execute($cid);
+    $fetch_cg->execute($cid);
 
-    if(my $row = $fetch_job->fetchrow_hashref) {
+    if(my $row = $fetch_cg->fetchrow_hashref) {
 	# Load the pieces
 	for my $k (keys %$row) {
 	    if($row->{$k}) {
+		if($k eq 'filename') {
+		    # Stupid hack because the coerce in the definiton won't fucking work
+		    $self->$k( Islandviewer::Config->expand_directory( $row->{$k} ) );
+		    next;
+		}
 		$self->$k($row->{$k});
 	    }
 	}
     }
 
+    print $self->dump() . "\n";
+
     $self->cid($cid);
-}
-
-sub loadMicrobeDBGenome {
-    my $self = shift;
-    my $rep_accnum = shift;
-
-    my $sobj = new MicrobeDB::Search();
-
-    my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-#));
-								      version_id => $self->{microbedb_ver} ));
-	
-    # We found a result in microbedb
-    if( defined($rep_results) ) {
-	# One extra step, we need the path to the genome file
-	my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	my ($gpo) = $search_obj->object_search($rep_results);
-
-	$self->name( $rep_results->definition() );
-	$self->cds_num( $rep_results->cds_num() );
-	$self->rep_size( $rep_results->rep_size() );
-	$self->filename( $gpo->gpv_directory() . $rep_results->file_name() );
-	$self->contigs ( 1 );
-	$self->genome_status( 'READY' );
-	$self->formats( $rep_results->file_types() );
-    }
-
 }
 
 sub validate {
@@ -177,15 +194,19 @@ sub validate {
 	}
 
 	$self->filename( $self->write_genome($args->{genome_data}, $args->{genome_format}) );
+	$self->name( $args->{genome_name} ? $args->{genome_name} : 'User Genome' );
 	$self->genome_status('UNCONFIRMED');
 	$self->save_genome();
+	$logger->trace("NEW genome set to UNCONFIRMED: " . $self->filename . ', ' . $args->{genome_format});
     }
 
     # Alright, this will catch both a new genome that's transitioned
     # in to an unconfirmed, and a returning call with updated fna
     # file info
-    if($self->genome_status eq 'UNCONFIRMED' || $self->genome_status eq 'MISSINGSEQ') {
+    if($self->genome_status eq 'UNCONFIRMED' || $self->genome_status eq 'MISSINGSEQ' || $self->genome_status eq 'VALID') {
+	$logger->trace("Processing " . $self->genome_status . ' cid: ' . $self->cid . ' type genome: ' . $self->filename);
 	if($args->{fna_data}) {
+	    $logger->trace("Found fna_data for " . $self->cid);
 	    $self->write_genome($args->{fna_data}, 'fna');
 	} elsif($self->genome_status eq 'MISSINGSEQ') {
 	    # We were in MISSINGSEQ and didn't find an fna_data?
@@ -202,9 +223,11 @@ sub validate {
 	# What happens when we check the file...
 	my $contigs;
 	eval{ 
+	    $logger->trace("Reading and checking genome " . $self->cid . ', file ' . $self->filename);
 	    $contigs = $genome_obj->read_and_check($self->filename);
 	};
 	if($@) {
+	    $logger->trace("Msg: $@");
 	    if($@ =~ /FILEFORMATERROR/) {
 		$self->genome_status('INVALID');
 #		$self->update_genome();
@@ -229,12 +252,23 @@ sub validate {
 	unless($contigs > 0) {
 	    $self->genome_status('INVALID');
 #	    $self->update_genome();
-	    $logger->logdie("Invalid file format for file " . $self->filename ." [FILEFORMATERROR]");
+	    $logger->logdie("Invalid file format for file, no contigs " . $self->filename ." [FILEFORMATERROR]");
 	}
 
 	$self->contigs($contigs);
 	$self->genome_status('VALID');
 #	$self->update_genome();
+
+	# We're valid, but are we ready to go, do we have an reference
+	# genome if there's more than one contig?
+	if($contigs > 1 && ! $args->{ref_accnum}) {
+	    $logger->logdie("No reference sequence for " . $self->filename . ", please supply one or try automated selection [NOREFSEQUENCE]");
+	}
+
+	# We should be ready now!
+	$self->genome_status('READY');
+
+	return $contigs;
 
     }
 
@@ -255,7 +289,9 @@ sub scan_genome {
 
     # Find the file types, set the second parameter to true
     # to return an array instead of a string.
-    $self->formats( $genome_obj->find_file_types($self->filename, 1) );
+    my @formats = $genome_obj->find_file_types($self->filename, 1);
+    $logger->trace("Found formats for " . $self->filename . ": [@formats]");
+    $self->formats( @formats );
     $logger->trace("For " . $self->cid . " found file formats: " . join(' ' , sort $self->formats()) );
 
     # Next we need to scan the file to find CDS numbers and total length
@@ -286,12 +322,12 @@ sub write_genome {
 	$logger->trace("Found an existing filename: " . $self->filename);
 	$base_tmp_file = $self->filename;
     } else {
-	$base_tmp_filename = mktemp($cfg->{tmp_genomes} . "/custom_XXXXXXXXX");
+	$base_tmp_file = mktemp($cfg->{tmp_genomes} . "/custom_XXXXXXXXX");
 #    push @tmpfiles, $tmp_file;
     }
 
+    my $tmp_file = $base_tmp_file . ".$genome_format";
     $logger->trace("Using filename: $tmp_file");
-    $tmp_file = $base_tmp_file . ".$genome_format";
 
     open(TMP_GENOME, ">$tmp_file") or 
 	$logger->logdie("Error, can't create tmpfile $tmp_file: $@");
@@ -310,7 +346,7 @@ sub save_genome {
 
     my ($params, $values) = $self->build_params();
 
-    my $sqlstmt = qq{INSERT INTO CustomeGenome (} . join(',', @$params) . ") VALUES (" . join( ',', ('?') x @values ) . ')';
+    my $sqlstmt = qq{INSERT INTO CustomGenome (} . join(',', @$params) . ") VALUES (" . join( ',', ('?') x @$values ) . ')';
 
     my $insert_cg = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
     
@@ -322,14 +358,14 @@ sub save_genome {
 
     # Now we need to move things in to place, so we're nice
     # and tidy with our file organization
-    $logger->trace("Moving genome " . $self->cid . ' in to place at ' . $cfg->{custom_genomes});
+    $logger->trace("Moving genome " . $self->cid . ' in to place at ' . $cfg->{custom_genomes} . "/" . $self->cid);
 
     unless(mkdir($cfg->{custom_genomes} . "/" . $self->cid)) {
 	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/" . $self->cid . ": $!");
 	return 0;
     }
     unless($self->move_and_update($cfg->{custom_genomes} . "/" . $self->cid)) {
-	$logger->error("Error, can't move files to custom directory for cid "$self->cid);
+	$logger->error("Error, can't move files to custom directory for cid " . $self->cid);
     }
 
     return $cid;
@@ -352,7 +388,8 @@ sub move_and_update {
 
     # Move the files over to the new location
 #    my @old_files = glob ($self->{base_filename} . '*');
-    foreach my $f (glob ($self->{base_filename} . '*')) {
+    foreach my $f (glob ($self->filename . '*')) {
+	$logger->trace("Moving: " . $f . ' to ' . $new_path);
 	move($f, $new_path);
     }
 
@@ -369,6 +406,8 @@ sub move_and_update {
 sub update_genome {
     my $self = shift;
 
+    print $self->dump() . "\n";
+
     # If we haven't saved the genome already we can't do an update
     return unless($self->cid);
 
@@ -376,7 +415,7 @@ sub update_genome {
 
     my ($params, $values) = $self->build_params();
 
-    my $sqlstmt = qq{REPLACE INTO CustomeGenome (cid, } . join(',', @$params) . ") VALUES (?," . join( ',', ('?') x @values ) . ')';
+    my $sqlstmt = qq{REPLACE INTO CustomGenome (cid, } . join(',', @$params) . ") VALUES (?," . join( ',', ('?') x @$values ) . ')';
 
     my $insert_cg = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
@@ -422,7 +461,11 @@ sub build_params {
 
     if($self->formats) {
 	push @params, 'formats';
-	push @values, join( ' ', sort $self->formats);
+	my $formats = $self->formats();
+#	print Dumper $formats;
+#	print join(' ', @$formats);
+	push @values, join( ' ', sort @$formats);
+#	push @values, join( ' ', sort $self->formats());
     }
 
     if($self->contigs) {
@@ -435,7 +478,14 @@ sub build_params {
 	push @values, $self->genome_status;
     }
 
+    print Dumper @values;
     return (\@params, \@values);
+}
+
+sub atype {
+    my $self = shift;
+
+    return $ATYPE_MAP->{custom};
 }
 
 sub dump {
@@ -453,7 +503,9 @@ sub dump {
     $json_data->{contigs} = $self->contigs;
     $json_data->{genome_status} = $self->genome_status;
 
-    my $json = encode_json($json_data);
+    my $json = to_json($json_data, { pretty => 1 });
 
     return $json;
 }
+
+1;

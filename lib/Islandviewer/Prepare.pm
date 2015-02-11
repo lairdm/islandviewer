@@ -37,6 +37,7 @@ use File::Temp qw/ :mktemp /;
 use Data::Dumper;
 
 use Islandviewer::DBISingleton;
+use Islandviewer::GenomeUtils;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -84,6 +85,24 @@ sub run {
     my $genome_obj = $genome_utils->fetch_genome($accnum);
 
     # Check the file formats and rebuild them if needed, fail if we can't
+    $logger->trace("Validating file types for genome");
+    if(! $genome_obj->validate_types($genome_obj) ) {
+	$logger->error("We weren't able to validate and generate the needed file types, we can't proceed");
+	$genome_obj->genome_status('INVALID');
+	return 0;
+    }
+
+    # We're going to do the GC calculation here now instead of on submission
+    eval {
+	$genome_obj->insert_gc( $genome_obj );
+    };
+    if($@) {
+	$logger->error("Unable to calculate gc");
+	return 0;
+    }
+
+    return 1;
+    # We'll deal with the alignment stuff later
 
     # If we've been given a reference genome to run an alignment against...
     if($self->{ref_accnum}) {
