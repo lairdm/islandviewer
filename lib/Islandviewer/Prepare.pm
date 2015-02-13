@@ -84,9 +84,63 @@ sub run {
     my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
     my $genome_obj = $genome_utils->fetch_genome($accnum);
 
+    # First we need to validate and see if we need to merge in
+    # the fna file's sequences
+    my $contigs;
+    eval {
+	$contigs = $genome_utils->read_and_check( $genome_obj->filename() );
+
+    };
+    if($@) {
+	$logger->warn("Received an exception when checking genome " . $genome_obj->cid() . ", " . $genome_obj->filename() . ": $@");
+
+	# The only allowed error being thrown is MISSINGSEQ, as in
+	# the sequence isn't in the genbank/embl file but we have
+	# it in an fna file. If that's the case, build a new
+	# genbank/embl file with the sequence information, otherwise
+	# die to our parent.
+
+	if($@ =~ /MISSINGSEQ/) {
+	    $res = $genome_utils->integrate_sequence($genome_obj);
+
+	    unless($res) {
+		$logger->error("Merging the sequnce from the fna file failed for some reason");
+		$genome_obj->update_status('INVALID');
+		return 0;
+	    }
+	} else {
+	    $logger->error("Error checking the sequence, this shouldn't have happened! $@");
+	    $genome_obj->update_status('INVALID');
+	    return 0;
+	}
+    }
+
+    # Then we need to do the alignment against a reference genome if needed/requested
+    # and build the single input genome to send to the pipeline
+    if($contigs > 1) {
+	$logger->trace("$contigs contigs found, we better have an alignment genome!");
+
+	unless($self->{ref_accnum}) {
+	    $logger->error("We have multiple contigs but no genome to align against, error! " . $genome_obj->cid());
+	    return 0;
+	}
+
+	# Align the contigs against the reference genome
+	$logger->trace("Trying to align " . $genome_obj->cid() . " against " . $self->{ref_accnum});
+	my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
+								 ref_accnum => $self->{ref_accnum} } );
+							       
+	my $res = $contig_aligner->run($accnum, $callback);
+
+	unless($res) {
+	    $logger->error("Contig aligner against reference genome " . $self->{ref_accnum} . " failed");
+	}
+    }
+
+    # Finally...
     # Check the file formats and rebuild them if needed, fail if we can't
     $logger->trace("Validating file types for genome");
-    if(! $genome_obj->validate_types($genome_obj) ) {
+    if(! $genome_utils->validate_types($genome_obj) ) {
 	$logger->error("We weren't able to validate and generate the needed file types, we can't proceed");
 	$genome_obj->genome_status('INVALID');
 	return 0;
@@ -102,22 +156,7 @@ sub run {
     }
 
     return 1;
-    # We'll deal with the alignment stuff later
 
-    # If we've been given a reference genome to run an alignment against...
-    if($self->{ref_accnum}) {
-
-	my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
-								 ref_accnum => $self->{ref_accnum} } );
-							       
-	my $res = $contig_aligner->run($accnum, $callback);
-
-	unless($res) {
-	    $logger->error("Contig aligner against reference genome " . $self->{ref_accnum} . " failed");
-	}
-    }
-
-    return 1;
 }
 
 1;

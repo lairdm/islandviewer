@@ -161,7 +161,7 @@ sub read_and_check {
 	    # All good, next.
 	    next;
 	} elsif($full_seq_recs || $self->load_fna($file, \$full_seq_recs)) {
-	    print Dumper($full_seq_recs);
+#	    print Dumper($full_seq_recs);
 	    # Do we have sequence information loaded from
 	    # an fna file?
 
@@ -184,6 +184,73 @@ sub read_and_check {
 
     # Else return the number of contigs found
     return $contigs;
+}
+
+# Add the fna file in to the genbank or embl file
+
+sub integrate_sequence {
+    my $self = shift;
+    my $genome_obj = shift;
+
+    my $basename = $genome_obj->filename();
+    my $filename;
+    my $extension;
+    
+    # Check if an embl or genbank file exists for this genome
+    if(-f $basename . '.gbk' &&
+       -s $basename . '.gbk') {
+	$logger->info("We seem to have a genbank file, preferred format");
+	$extension = 'gbk';
+#	$file = $filename;
+	$filename =  "$basename.gbk";
+    } elsif(-f $basename . '.embl' &&
+	    -s $basename . '.embl') {
+	$logger->info("We seem to have a embl file");
+	$extension = 'embl';
+#	$file = $filename;
+	$filename = "$basename.embl";
+    } else {
+	$logger->logdie("Can't find file format for $basename, this is very bad");
+    }
+
+    # We know we're going to need the fna file loaded, since that's
+    # the point of this routine.
+    my $full_seq_recs;
+    unless($self->load_fna($basename, \$full_seq_recs)) {
+	$logger->error("We don't seem to have an fna file for $basename");
+	return 0;
+    }
+
+    # Move the original file out of the way, we're going to write the new
+    # file in to what is now $filename
+    my $orig_filename = $basename . '_orig.' . $extension;
+    $logger->trace("Moving $filename to $orig_filename");
+    move($filename, $orig_filename);
+
+    # Open the original file for reading and go through the contigs
+    # one by one substituting in $seq->seq();
+    my $in;
+
+    if ( $extension =~ /embl/ ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $orig_filename,
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } elsif ( $extension =~ /gbk/ ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $orig_filename,
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    }
+
+    while(my $seq = $in->next_seq()) {
+
+    }
+
 }
 
 # Try to find an fna file for the genome and load
