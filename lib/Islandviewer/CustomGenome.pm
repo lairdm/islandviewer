@@ -91,6 +91,7 @@ subtype 'ArrayRefofStr'
 coerce 'ArrayRefofStr'
   => from 'Str'
     => via { [ split / / ] }
+#    => via { my @arr = split / /, $_; print Dumper \@arr; return \@arr }
 #    => via { split(' ', $_) }
   => from 'ArrayRef[Str]'
     => via { $_ }

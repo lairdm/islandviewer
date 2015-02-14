@@ -12,7 +12,7 @@
 
     use Islandviewer::Prepare;
 
-    $vir_obj = Islandviewer::Prepare->new({workdir => '/tmp/workdir',
+    $prepare_obj = Islandviewer::Prepare->new({workdir => '/tmp/workdir',
                                          microbedb_version => 80});
 
 =head1 AUTHOR
@@ -101,7 +101,7 @@ sub run {
 	# die to our parent.
 
 	if($@ =~ /MISSINGSEQ/) {
-	    $res = $genome_utils->integrate_sequence($genome_obj);
+	    my $res = $genome_utils->integrate_sequence($genome_obj);
 
 	    unless($res) {
 		$logger->error("Merging the sequnce from the fna file failed for some reason");
@@ -148,10 +148,11 @@ sub run {
 
     # We're going to do the GC calculation here now instead of on submission
     eval {
-	$genome_obj->insert_gc( $genome_obj );
+	$logger->trace("Calculating gc for genome " . $genome_obj->cid);
+	$genome_utils->insert_gc( $genome_obj );
     };
     if($@) {
-	$logger->error("Unable to calculate gc");
+	$logger->error("Unable to calculate gc: $@");
 	return 0;
     }
 

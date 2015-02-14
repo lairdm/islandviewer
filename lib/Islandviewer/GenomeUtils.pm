@@ -47,6 +47,8 @@ use Array::Utils qw(:all);
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
+use Islandviewer::CustomGenome;
+use Islandviewer::MicrobeDBGenome;
 
 use MicrobeDB::Replicon;
 use MicrobeDB::Search;
@@ -247,9 +249,46 @@ sub integrate_sequence {
 	$logger->info("The genome sequence in $filename has been read.");
     }
 
-    while(my $seq = $in->next_seq()) {
+    $logger->trace("Creating new combined file: $filename");
+    # Yes this is just duplicating the if/else above, but I want this
+    # code to look explicitly clear on what's happening.
+    my $out;
+    if ( $extension =~ /embl/ ) {
 
+	$out = Bio::SeqIO->new(
+	    -file   => ">$filename",
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been opened for writing.");
+    } elsif ( $extension =~ /gbk/ ) {
+
+	$out = Bio::SeqIO->new(
+	    -file   => ">$filename",
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been opened for writing.");
     }
+
+    while(my $seq = $in->next_seq()) {
+	# In case the primary accession is not the one used in the fna file...
+	foreach my $acc ($seq->accession_number, $seq->get_secondary_accessions) {
+	    $logger->trace("Looking up seq for $acc");
+	    if($full_seq_recs->{$acc}) {
+		$logger->info("We found the sequence for contig $acc");
+		$seq->$seq( $full_seq_recs->{$acc} );
+
+		$out->write_seq( $seq );
+	    }
+	}
+
+	$logger->error("Couldn't find sequence for contig $seq->accession_number, failing!");
+	$genome_obj->update_status('INVALID');
+	return 0;
+    }
+
+    $logger->info("File combined, new sequence file should be: $filename");
+
+    return 1;
 
 }
 
@@ -281,7 +320,7 @@ sub load_fna {
 	my $trimmed_id = $seq->id;
 	$trimmed_id =~ s/\.(\d+)$//;
 
-	$logger->trace("Saving sequence for $trimmed_id");
+	$logger->trace("Saving sequence for $trimmed_id (removed version numnber $1)");
 
 	$$seq_recs_ref->{$trimmed_id} = $seq->seq();
     }
@@ -656,7 +695,7 @@ sub validate_types {
 
     my @formats = sort $genome_obj->formats();
     if(array_diff(@formats, @found_types)) {
-	$logger->warn("Genome object and file system have different sets of formats [" . @formats . '] [' . @found_types . ']');
+	$logger->warn("Genome object and file system have different sets of formats [" . join(',', @formats) . '] [' . join(',', @found_types) . ']');
 	$genome_obj->formats(@found_types);
 	$genome_obj->update_genome();
     }
@@ -686,8 +725,8 @@ sub validate_types {
     }
 
     # Do we have the correct fromats now?
-    if(! $self->correct_formats($genome_obj->formats()) ) {
-	$logger->error("We still don't have all the formats we need, fail! [" . $genome_obj->formats() . ']');
+    if(! $self->correct_formats($genome_obj->formats) ) {
+	$logger->error("We still don't have all the formats we need, fail! Have: [" . join(',', @{$genome_obj->formats}) . '] Want: [' . $cfg->{expected_exts} . ']');
 	return 0;
     }
 
@@ -700,10 +739,11 @@ sub correct_formats {
     my $self = shift;
     my $formats = shift;
 
-    my @formats = sort $formats;
+    my @formats = sort @{$formats};
     my @expected_formats = sort(split(' ', $cfg->{expected_exts}));
+    $logger->trace("Checking formats: [" . join(',', @formats) . '] [' . join(',', @expected_formats) . ']');
     if(array_diff(@formats, @expected_formats ) ) {
-	$logger->warn("We don't have all the needed formats: [" . @formats . '] [' . $cfg->{expected_exts} . ']');
+	$logger->warn("We don't have all the needed formats: [" . join(',', @formats) . '] [' . $cfg->{expected_exts} . ']');
 	return 0;
     }
 

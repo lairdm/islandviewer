@@ -74,17 +74,21 @@ has filename => (
     isa    => 'Str'
 );
 
-coerce 'ArrayRefofStr'
+subtype 'MDBArrayRefofStr'
+  => as 'ArrayRef[Str]'
+;
+
+coerce 'MDBArrayRefofStr'
   => from 'Str'
-    => via { [ $_ ] }
+    => via { [ split / / ] }
   => from 'ArrayRef[Str]'
-    => via { [ map { $_ } @$_ ] }
+    => via { $_ }
 ;
 
 has formats => (
     traits  => ['Array'],
     is      => 'rw',
-    isa     => 'ArrayRefofStr',
+    isa     => 'MDBArrayRefofStr',
     coerce  => 1,
     default => sub { [] },
 );
@@ -140,7 +144,7 @@ sub loadGenome {
     # to find it.
     my $sobj = new MicrobeDB::Search();
 
-    my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
+    my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $accnum,
 #));
 								      version_id => $self->{microbedb_ver} ));
 	
@@ -305,3 +309,5 @@ sub dump {
 
     return $json;
 }
+
+1;
