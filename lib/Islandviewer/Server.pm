@@ -298,7 +298,7 @@ sub prep_job {
     }
 
     $logger->error("We shouldn't be here, we have no aid");
-    return 0;
+    return { aid => 0 };
 
 }
 
@@ -364,7 +364,7 @@ sub submit_complete_job {
     $logger->info("Analysis $aid should now be submitted");
    
     # Spit out the analysis id back for the web service
-    return $aid;
+    return { aid => $aid };
 
 }
 
