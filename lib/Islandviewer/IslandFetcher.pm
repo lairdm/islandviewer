@@ -73,7 +73,7 @@ sub fetchGenes {
 	$logger->trace("Scanning contig for genes");
 	for my $feature_obj ($seq_obj->get_SeqFeatures) {
 	    if($feature_obj->primary_tag eq 'CDS') {
-		if($feature_obj->has_tag('protein_id')) {
+#		if($feature_obj->has_tag('protein_id')) {
 		    my $gene = undef; my @product = (); my @locus = ();
 		    if($feature_obj->has_tag('gene')) {
 			$gene = join '; ', $feature_obj->get_tag_values('gene');
@@ -94,13 +94,11 @@ sub fetchGenes {
 		    my $gis = $self->rangeinislands($feature_obj->location->start,
 						    $feature_obj->location->end);
 
-		    $logger->trace("For " . join(',', $feature_obj->get_tag_values('protein_id')) . " found gis  " . join(',',@{$gis}));
-
 		    # A bit of a hack, but we only care about the YP_######
 		    # formated ids, so a basic filter in case there's
 		    # more than one
 		    my $protein_id = undef;
-#		    if($feature_obj->has_tag('protein_id')) {
+		    if($feature_obj->has_tag('protein_id')) {
 			my @protein_ids = $feature_obj->get_tag_values('protein_id');
 			for my $pid (@protein_ids) {
 			    if($pid =~ /^[A-Z][A-Z]_[\d.]/) {
@@ -110,6 +108,21 @@ sub fetchGenes {
 			    }
 			}
 		    }
+
+		    # This hackery is for logging purposes so we can more easily debug...
+		    my $label = '';
+		    if($protein_id) {
+			$label = $protein_id;
+		    } elsif($gene) {
+			$label = $gene;
+		    } elsif(@locus) {
+			$label = join(',', @locus);
+		    }
+		
+		    # We're getting desperate now...
+		    $label .= '[' . $feature_obj->location->start . ',' . $feature_obj->location->end . ']';
+
+		    $logger->trace("For $label found gis  " . join(',',@{$gis}));
 
 		    push @genes, [$feature_obj->location->start, 
 				  $feature_obj->location->end,
@@ -142,7 +155,7 @@ sub fetchGenes {
 	}
     }
 
-    $logger->trace("Found @genes genes in the genome");
+    $logger->trace("Found " . scalar(@genes) . " genes in the genome");
 
     return \@genes;
 }
