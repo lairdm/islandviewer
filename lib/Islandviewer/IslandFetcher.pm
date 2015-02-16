@@ -99,13 +99,15 @@ sub fetchGenes {
 		    # A bit of a hack, but we only care about the YP_######
 		    # formated ids, so a basic filter in case there's
 		    # more than one
-		    my @protein_ids = $feature_obj->get_tag_values('protein_id');
 		    my $protein_id = undef;
-		    for my $pid (@protein_ids) {
-			if($pid =~ /^[A-Z][A-Z]_[\d.]/) {
-			    $protein_id = $pid;
-			    $logger->trace("Found protein_id feature $pid");
-			    last;
+#		    if($feature_obj->has_tag('protein_id')) {
+			my @protein_ids = $feature_obj->get_tag_values('protein_id');
+			for my $pid (@protein_ids) {
+			    if($pid =~ /^[A-Z][A-Z]_[\d.]/) {
+				$protein_id = $pid;
+				$logger->trace("Found protein_id feature $pid");
+				last;
+			    }
 			}
 		    }
 
@@ -135,7 +137,7 @@ sub fetchGenes {
 #		    }
 		    my @ary = $genes[-1];
 #		print Dumper @ary;
-		}
+#		} # if($feature_obj->has_tag('protein_id')) {
 	    }
 	}
     }
