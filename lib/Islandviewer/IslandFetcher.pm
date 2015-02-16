@@ -62,6 +62,7 @@ sub fetchGenes {
     }
 
     # Let's open the file and parse it
+    $logger->trace("Reading genbank file $genbank_file");
     my $seqio_obj = Bio::SeqIO->new(-file => $genbank_file);
 
     my @genes;
@@ -69,6 +70,7 @@ sub fetchGenes {
     # We have to iterate because draft genomes could have multiple
     # sequences in them
     while(my $seq_obj = $seqio_obj->next_seq) {
+	$logger->trace("Scanning contig for genes");
 	for my $feature_obj ($seq_obj->get_SeqFeatures) {
 	    if($feature_obj->primary_tag eq 'CDS') {
 		if($feature_obj->has_tag('protein_id')) {
@@ -137,6 +139,8 @@ sub fetchGenes {
 	    }
 	}
     }
+
+    $logger->trace("Found @genes genes in the genome");
 
     return \@genes;
 }
