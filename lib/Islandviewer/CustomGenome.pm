@@ -295,7 +295,7 @@ sub scan_genome {
     my @formats = $genome_obj->find_file_types($self->filename, 1);
     $logger->trace("Found formats for " . $self->filename . ": [@formats]");
     $self->formats( @formats );
-    $logger->trace("For " . $self->cid . " found file formats: " . join(' ' , sort $self->formats()) );
+    $logger->trace("For " . $self->cid . " found file formats: " . join(' ' , sort @{$self->formats()}) );
 
     # Next we need to scan the file to find CDS numbers and total length
     my $stats = $genome_obj->genome_stats($self->filename);
