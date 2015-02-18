@@ -80,7 +80,10 @@ sub BUILD {
 
 sub read_and_check {
     my $self = shift;
-    my $filename = shift;
+    my $genome_obj = shift;
+#    my $filename = shift;
+
+    my $filename = $genome_obj->filename();
 
     #seperate extension from filename
     $filename =~ s/\/\//\//g;

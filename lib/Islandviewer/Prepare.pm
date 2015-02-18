@@ -88,7 +88,8 @@ sub run {
     # the fna file's sequences
     my $contigs;
     eval {
-	$contigs = $genome_utils->read_and_check( $genome_obj->filename() );
+	$contigs = $genome_utils->read_and_check( $genome_obj );
+#	$contigs = $genome_utils->read_and_check( $genome_obj->filename() );
 
     };
     if($@) {

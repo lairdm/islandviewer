@@ -227,7 +227,8 @@ sub validate {
 	my $contigs;
 	eval{ 
 	    $logger->trace("Reading and checking genome " . $self->cid . ', file ' . $self->filename);
-	    $contigs = $genome_obj->read_and_check($self->filename);
+	    $contigs = $genome_obj->read_and_check($self);
+#	    $contigs = $genome_obj->read_and_check($self->filename);
 	};
 	if($@) {
 	    $logger->trace("Msg: $@");
