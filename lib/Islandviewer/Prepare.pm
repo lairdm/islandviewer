@@ -100,16 +100,22 @@ sub run {
 	# genbank/embl file with the sequence information, otherwise
 	# die to our parent.
 
-	if($@ =~ /MISSINGSEQ/) {
-	    my $res = $genome_utils->integrate_sequence($genome_obj);
+	$logger->error("Error checking the sequence, this shouldn't have happened! $@");
+	$genome_obj->update_status('INVALID');
+	return 0;
+    }
 
-	    unless($res) {
-		$logger->error("Merging the sequnce from the fna file failed for some reason");
-		$genome_obj->update_status('INVALID');
-		return 0;
-	    }
+    # If our checking detected we're missing the sequence and we
+    # need to integrate it from the fna, try to do so.
+    if($genome_obj->genome_status() eq 'MISSINGSEQ') {
+	$logger->info("We noticed the genome is missing sequence information, trying to integrate...");
+	my $res = $genome_utils->integrate_sequence($genome_obj);
+	
+	if($res) {
+	    $logger->trace("Looks good, sequence information was integrated");
+	    $genome_obj->("READY");
 	} else {
-	    $logger->error("Error checking the sequence, this shouldn't have happened! $@");
+	    $logger->error("Merging the sequnce from the fna file failed for some reason");
 	    $genome_obj->update_status('INVALID');
 	    return 0;
 	}

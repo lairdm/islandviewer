@@ -164,7 +164,8 @@ sub read_and_check {
 	    # All good, next.
 	    next;
 	} elsif($full_seq_recs || $self->load_fna($file, \$full_seq_recs)) {
-	    $logger->trace("Sequence keys available: " . join(',', keys %{$full_seq_recs}));
+	    $logger->trace("Sequence missing, keys available: " . join(',', keys %{$full_seq_recs}));
+	    $genome_obj->genome_status('MISSINGSEQ');
 #	    print Dumper $full_seq_recs;
 	    # Do we have sequence information loaded from
 	    # an fna file?
@@ -903,6 +904,7 @@ sub move_and_update {
 # Determine which type of identifier it is and 
 # return that type of genome object
 #
+# TODO
 # Add error handling for if the lookup fails
 
 sub fetch_genome {
