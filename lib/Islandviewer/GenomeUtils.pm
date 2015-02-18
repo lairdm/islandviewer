@@ -297,7 +297,9 @@ sub integrate_sequence {
 		if($ids =~ /$acc/) {
 		    $logger->info("We found the sequence for contig $acc in $ids");
 
-		    $seq->$seq( $full_seq_recs->{$ids} );
+#		    $seq->$seq( $full_seq_recs->{$ids} );
+		    $seq->{primary_seq}->{seq} = $full_seq_recs->{$ids}->{primary_seq}->{seq};
+		    $seq->{primary_seq}->{length} = $full_seq_recs->{$ids}->{primary_seq}->{length};
 
 		    $out->write_seq( $seq );
 		
@@ -354,7 +356,8 @@ sub load_fna {
 
 	$logger->trace("Saving sequence for $trimmed_id (removed version numnber $1)");
 
-	$$seq_recs_ref->{$trimmed_id} = $seq->seq();
+	$$seq_recs_ref->{$trimmed_id} = $seq;
+#	$$seq_recs_ref->{$trimmed_id} = $seq->seq();
     }
 
     $logger->trace("Sequence keys available: " . join(',', keys %{$$seq_recs_ref}));

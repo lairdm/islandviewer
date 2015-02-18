@@ -114,10 +114,10 @@ sub run {
 	
 	if($res) {
 	    $logger->trace("Looks good, sequence information was integrated");
-	    $genome_obj->("READY");
+	    $genome_obj->genome_status("READY");
 	} else {
 	    $logger->error("Merging the sequnce from the fna file failed for some reason");
-	    $genome_obj->update_status('INVALID');
+	    $genome_obj->genome_status('INVALID');
 	    return 0;
 	}
     }
