@@ -177,7 +177,7 @@ sub loadGenome {
 	}
     }
 
-    print $self->dump() . "\n";
+#    print $self->dump() . "\n";
 
     $self->cid($cid);
 }
@@ -419,7 +419,7 @@ sub move_and_update {
 sub update_genome {
     my $self = shift;
 
-    print $self->dump() . "\n";
+#    print $self->dump() . "\n";
 
     # If we haven't saved the genome already we can't do an update
     return unless($self->cid);
@@ -491,7 +491,7 @@ sub build_params {
 	push @values, $self->genome_status;
     }
 
-    print Dumper @values;
+#    print Dumper @values;
     return (\@params, \@values);
 }
 
