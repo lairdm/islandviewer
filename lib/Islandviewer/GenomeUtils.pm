@@ -281,16 +281,32 @@ sub integrate_sequence {
 	$logger->info("The genome sequence in $filename has been opened for writing.");
     }
 
-    while(my $seq = $in->next_seq()) {
+    SEQ: while(my $seq = $in->next_seq()) {
 	# In case the primary accession is not the one used in the fna file...
 	foreach my $acc ($seq->accession_number, $seq->get_secondary_accessions) {
 	    $logger->trace("Looking up seq for $acc");
-	    if($full_seq_recs->{$acc}) {
-		$logger->info("We found the sequence for contig $acc");
-		$seq->$seq( $full_seq_recs->{$acc} );
 
-		$out->write_seq( $seq );
+	    # Because the FASTA header could have multiple
+	    # identifiers, we have to loop through all keys and try
+	    # to find one with one of our accessions in it... ugh.
+	    for my $ids (keys %{$full_seq_recs}) {
+		if($ids =~ /$acc/) {
+		    $logger->info("We found the sequence for contig $acc in $ids");
+
+		    $seq->$seq( $full_seq_recs->{$ids} );
+
+		    $out->write_seq( $seq );
+		
+		    next SEQ;
+		}
 	    }
+
+#	    if($full_seq_recs->{$acc}) {
+#		$logger->info("We found the sequence for contig $acc");
+#		$seq->$seq( $full_seq_recs->{$acc} );
+
+#		$out->write_seq( $seq );
+#	    }
 	}
 
 	$logger->error("Couldn't find sequence for contig $seq->accession_number, failing!");
