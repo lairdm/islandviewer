@@ -345,7 +345,10 @@ sub submit_complete_job {
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{owner_id} = 1;
     $args->{default_analysis} = 1;
-#    $args->{email} = $email;
+    if($args->{email}) {
+	$logger->trace("We've been asked to notify: " . $args->{email});
+#	$args->{email} = $email;
+    }
 
     my $aid;
     eval {

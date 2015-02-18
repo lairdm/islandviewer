@@ -204,6 +204,10 @@ sub submit_analysis {
 
     eval {
 	$aid = $analysis_obj->submit($genome_obj, $args);
+
+	if($aid && $args->{email}) {
+	    $self->add_notification($aid, $args->{email});
+	}
     };
     if($@) { 
 	$logger->error("Error, we couldn't submit the analysis: $@");

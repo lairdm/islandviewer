@@ -199,7 +199,7 @@ sub validate {
 	$self->filename( $self->write_genome($args->{genome_data}, $args->{genome_format}) );
 	$self->name( $args->{genome_name} ? $args->{genome_name} : 'User Genome' );
 	$self->genome_status('UNCONFIRMED');
-	$self->save_genome();
+	$self->save_genome($args);
 	$logger->trace("NEW genome set to UNCONFIRMED: " . $self->filename . ', ' . $args->{genome_format});
     }
 
@@ -344,6 +344,7 @@ sub write_genome {
 
 sub save_genome {
     my $self = shift;
+    my $args = shift;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -358,6 +359,15 @@ sub save_genome {
     my $cid = $dbh->last_insert_id( undef, undef, undef, undef );
 
     $self->cid($cid);
+
+    # Let's blindly try to insert, if we fail, we really don't care
+    # since we're not sure if we'll ever use this table.
+    eval {
+	$dbh->do('INSERT INTO UploadGenome (filename, ip_addr, genome_name, email, cid) VALUES (?, ?, ?, ?, ?)', {}, $self->filename(), ($args->{ip_addr} ? $args->{ip_addr} : '0.0.0.0'), $self->name, ($args->{email} ? $args->{email} : ''), $self->cid());
+    };
+    if($@) {
+	$logger->error("Error inserting in to UploadGenome: $@");
+    }
 
     # Now we need to move things in to place, so we're nice
     # and tidy with our file organization
