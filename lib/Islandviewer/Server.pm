@@ -251,7 +251,7 @@ sub prep_job {
     my $contigs;
 
     if($args->{cid}) {
-	$params{load} = $args->cid;
+	$params{load} = $args->{cid};
     }
 
     eval {

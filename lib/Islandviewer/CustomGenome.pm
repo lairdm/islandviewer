@@ -186,6 +186,8 @@ sub validate {
     my $self = shift;
     my $args = shift;
 
+    $logger->trace("Args given: " . join(',', keys %{$args}));
+
     # If we're brand new, there better be a genome file (genbank or embl)
     # for us to use. Save it to disk, save ourselves to the db,
     # and we become unconfirmed

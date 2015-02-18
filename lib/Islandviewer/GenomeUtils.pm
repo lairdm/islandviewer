@@ -44,6 +44,7 @@ use Log::Log4perl qw(get_logger :nowarn);
 use File::Copy;
 use File::Basename;
 use Array::Utils qw(:all);
+use Data::Dumper;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
@@ -147,7 +148,7 @@ sub read_and_check {
 
     my $full_seq_recs;
 
-    while ( my $seq = $in->next_seq() ) {
+    SEQ: while ( my $seq = $in->next_seq() ) {
 	$contigs += 1;
 	$logger->trace("Checking contig " . $seq->accession_number);
 
@@ -163,14 +164,15 @@ sub read_and_check {
 	    # All good, next.
 	    next;
 	} elsif($full_seq_recs || $self->load_fna($file, \$full_seq_recs)) {
-#	    print Dumper($full_seq_recs);
+	    $logger->trace("Sequence keys available: " . join(',', keys %{$full_seq_recs}));
+#	    print Dumper $full_seq_recs;
 	    # Do we have sequence information loaded from
 	    # an fna file?
 
 	    # In case the primary accession is not the one used in the fna file...
 	    foreach my $acc ($seq->accession_number, $seq->get_secondary_accessions) {
 		$logger->trace("Looking up seq for $acc");
-		next if($full_seq_recs->{$acc});
+		next SEQ if($full_seq_recs->{$acc});
 	    }
 
 	    $logger->logdie("Error, no sequence for contig [" . $seq->accession_number . '], fna file was found [NOSEQFNA]');
@@ -324,6 +326,8 @@ sub load_fna {
 
 	$$seq_recs_ref->{$trimmed_id} = $seq->seq();
     }
+
+    $logger->trace("Sequence keys available: " . join(',', keys %{$$seq_recs_ref}));
 
     return 1;
 }
