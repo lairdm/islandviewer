@@ -393,6 +393,8 @@ sub read_and_convert {
     $self->{base_filename} = $file;
     my $formats = $self->parse_formats($self->find_file_types());
 
+    $logger->trace("Found formats: " . join(',', keys %{$formats}));
+
     my $in;
 
     if ( $extension =~ /embl/ ) {
@@ -778,9 +780,9 @@ sub correct_formats {
 
     my @formats = sort @{$formats};
     my @expected_formats = sort(split(' ', $cfg->{expected_exts}));
-    $logger->trace("Checking formats: [" . join(',', @formats) . '] [' . join(',', @expected_formats) . ']');
+    $logger->trace("Checking formats, have [" . join(',', @formats) . '] need [' . join(',', @expected_formats) . ']');
     if(array_diff(@formats, @expected_formats ) ) {
-	$logger->warn("We don't have all the needed formats: [" . join(',', @formats) . '] [' . $cfg->{expected_exts} . ']');
+	$logger->warn("We don't have all the needed formats, have [" . join(',', @formats) . '] need [' . $cfg->{expected_exts} . ']');
 	return 0;
     }
 
