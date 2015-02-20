@@ -756,7 +756,9 @@ sub validate_types {
 
 	# We've updated formats, so we need to update the genome object with 
 	# the new formats
-	$genome_obj->formats( $self->find_file_types($genome_obj->filename(), 1) );
+	@formats = $self->find_file_types($genome_obj->filename(), 1);
+	$logger->trace("Rechecking, now we have: " . join(',', @formats);
+	$genome_obj->formats( @formats );
 	$genome_obj->update_genome();
 
     } else{
