@@ -163,15 +163,16 @@ sub runContigMover {
     }
 
     # Build the contig mover command
-    my $cmd = $cfg->{java_bin} . ' ' . sprintf($cfg->{contig_mover_cmd}, $alignment_dir, 
+    my $cmd = "cd " . $cfg->{mauve_dir} . ';';
+    $cmd .= $cfg->{java_bin} . ' ' . sprintf($cfg->{contig_mover_cmd}, $alignment_dir, 
 		      $reference_genome, $draft_genome);
 
     $logger->trace("Using contig mover command: $cmd");
 
     my $ret = system($cmd);
 
-    unless($ret) {
-	$logger->error("We received a non-zero exit code, something went wrong");
+    if($ret) {
+	$logger->error("We received a non-zero exit code, something went wrong [$ret]");
 	return 0;
     }
 
@@ -181,6 +182,7 @@ sub runContigMover {
 	return 1;
     }
 
+    $logger->error("Failed to find alignment dir in $alignment_dir?");
     return 0;    
 
 }
@@ -265,6 +267,8 @@ sub write_genome {
     my $contigs = shift;
     my $seqs = shift;
 
+    $logger->info("Creating new combined genbank file");
+
     # We make this empty first one so the
     # process is non-destructive on any of
     # the sequences
@@ -284,13 +288,14 @@ sub write_genome {
 	# are int eh new genome and the current contig,
 	# build and insert a gap sequence
 	if($gap) {
+	    $logger->trace("Adding gap between contigs of $gap");
 	    push @seqs, Bio::Seq->new(-seq => ('N' x $gap),
 				     -alphabet => 'dna');
 
 	    # Track the gap, this will be an "island"
 	    # in the display
-	    push @gaps, ($curr_bp,
-			 ($curr_bp + $gap));
+	    push @gaps, [$curr_bp,
+			 ($curr_bp + $gap)];
 
 	}
 
@@ -365,22 +370,24 @@ sub read_order_file {
 	    $start_reading = 1;
 	    # Read an extra line because of the table header
 	    <ORDER>;
+	    next;
 	}
 	if($start_reading) {
 
 	    # If we're reading then hit a blank line, we're done
-	    if(//) {
+	    if(/^$/) {
 		last;
 	    }
 
 	    # Now the meat of reading out lines
+	    $logger->trace("Found contig ordering: $_");
 	    my @pieces = split /\s+/;
 
 	    push @contigs, { id => $pieces[1], 
 			     start => $pieces[4],
 			     end => $pieces[5],
 			     strand => ($pieces[3] eq 'complement' ? -1 : 1)
-	    }
+	    };
 	}
 	
     }
@@ -399,12 +406,17 @@ sub space_contigs {
     my $contigs = shift;
     my $gap_size = shift;
 
+    $logger->trace("Spacing contigs back to back");
+
     my $loop_counter = 0;
 
     for my $contig (@{$contigs}) {
-	$contigs->{start} += ($gap_size * $loop_counter);
-	$contigs->{end} += ($gap_size * $loop_counter);
+	my $gap = $gap_size * $loop_counter;
+	$logger->trace("Adding contig: " . $contig->{start} . ',' . $contig->{end} . " (gap: $gap)");
+	$contig->{start} += $gap;
+	$contig->{end} += $gap;
 
+	$logger->trace("New coordinates: " . $contig->{start} . ',' . $contig->{end});
 	$loop_counter += 1;
     }
 
@@ -455,6 +467,8 @@ sub find_alignment_dir {
     my $self = shift;
     my $alignmentdir = shift;
 
+    $logger->trace("Looking for alignment dir in $alignmentdir");
+
     # We're going to find the directory with the larger number at the
     # end, this is where the final alignment should be found
 
@@ -465,16 +479,19 @@ sub find_alignment_dir {
     my $highest = 0;
     foreach my $item (@files) {
 	my $full_file = $alignmentdir . '/' . $item;
+	$logger->trace("Found dir $item in $full_file");
 	# If it doesn't start with "alignment", next
-	next unless($full_file =~ /^alignment/ && -d $full_file);
+	next unless($item =~ /^alignment/ && -d $full_file);
 
 	my ($i) = $item =~ /alignment(\d+)/;
 
+	$logger->trace("Is $i higher than $highest?");
 	$highest = $i if($i > $highest);
 
     }
 
     if($highest) {
+	$logger->trace("Found alignment dir: " . $alignmentdir . "/alignment$highest");
 	return $alignmentdir . "/alignment$highest";
     } else {
 	return undef;
@@ -487,11 +504,12 @@ sub find_by_extension {
     my $ext = shift;
 
     opendir(ADIR, $directory) || $logger->logdie("Can't open directory $directory: $!");
-    my @files = map {$_ =~ /$ext$/} readdir(ADIR);
+    my @files = grep {$_ =~ /$ext$/} readdir(ADIR);
     closedir(ADIR);
 
     # We're going to be a little lazy and just return the first
     return "$directory/" . shift @files;
+#    return "$directory/" .  $files[0];
 }
 
 1;

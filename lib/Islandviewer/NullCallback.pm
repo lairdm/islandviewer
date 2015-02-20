@@ -31,6 +31,7 @@ package Islandviewer::NullCallback;
 
 use strict;
 use Moose;
+use Data::Dumper;
 use Log::Log4perl qw(get_logger :nowarn);
 
 my $logger;
