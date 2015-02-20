@@ -183,7 +183,7 @@ sub run {
     # We're going to do the GC calculation here now instead of on submission
     eval {
 	$logger->trace("Calculating gc for genome " . $genome_obj->cid);
-	$genome_utils->insert_gc( $genome_obj );
+	$genome_utils->create_gc( $genome_obj );
     };
     if($@) {
 	$logger->error("Unable to calculate gc: $@");
