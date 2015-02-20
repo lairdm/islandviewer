@@ -38,6 +38,7 @@ use Data::Dumper;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
+use Islandviewer::ContigAligner;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -138,7 +139,8 @@ sub run {
 	my $res;
 	eval {
 	    my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
-								     ref_accnum => $self->{ref_accnum} } );
+								     ref_accnum => $self->{ref_accnum},
+								     workdir => $self->{workdir} } );
 							       
 	    $res = $contig_aligner->run($accnum, $callback);
 	};

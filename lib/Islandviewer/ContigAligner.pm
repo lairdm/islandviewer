@@ -35,7 +35,8 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use File::Copy;
-use Set::IntervalTree;
+# Not actually used right now
+#use Set::IntervalTree;
 use Data::Dumper;
 
 use Islandviewer::DBISingleton;
