@@ -155,7 +155,7 @@ sub run {
 	    }
 
 	    # And save the updates...
-	    $self->update_genome();
+	    $genome_obj->update_genome();
 	};
 	if($@) {
 	    $logger->error("Error running ContigAligner sub-module: $@");
