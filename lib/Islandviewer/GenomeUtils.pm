@@ -768,7 +768,7 @@ sub validate_types {
 
     # Do we have the correct fromats now?
     @formats = @{$genome_obj->formats()};
-    if(! $self->correct_formats(\@formats ) {
+    if(! $self->correct_formats(\@formats )) {
 	$logger->error("We still don't have all the formats we need, fail! Have: [" . join(',', @{$genome_obj->formats}) . '] Want: [' . $cfg->{expected_exts} . ']');
 	return 0;
     }
