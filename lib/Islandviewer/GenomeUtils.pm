@@ -790,7 +790,7 @@ sub correct_formats {
 sub find_file_types {
     my $self = shift;
     my $base_filename = shift;
-    my $return_array;
+    my $return_array = shift;
 
     unless($base_filename) {
 	$logger->trace("No base filename given in args, trying to use object default: " . $self->{base_filename});

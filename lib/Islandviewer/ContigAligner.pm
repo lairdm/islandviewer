@@ -34,6 +34,7 @@ use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
+use File::Copy;
 use Set::IntervalTree;
 use Data::Dumper;
 

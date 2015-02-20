@@ -142,6 +142,7 @@ sub loadGenome {
     # We keep using the microbedb one (for now) because the file location
     # might change with new microbedb versions, so we need to always be able
     # to find it.
+    $logger->trace("Searching for microbedb genome $accnum in version " .  $self->{microbedb_ver});
     my $sobj = new MicrobeDB::Search();
 
     my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $accnum,
@@ -154,30 +155,30 @@ sub loadGenome {
 	my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
 	my ($gpo) = $search_obj->object_search($rep_results);
 
-	$self->name( $rep_results->name() );
+	$self->name( $rep_results->definition() );
 	$self->cid( $accnum );
 	$self->filename( $gpo->gpv_directory() . $rep_results->file_name() );
 	$self->cds_num( $rep_results->cds_num() );
-	$self->rep_size( $rep_results->length() );
+	$self->rep_size( $rep_results->rep_size() );
 	$self->formats( $rep_results->file_types() );
 	$self->contigs ( 1 );
 	$self->genome_status( 'READY' );
     }
 
     # Make a GenomeUtils objects to do the work
-    my $genome_obj = Islandviewer::GenomeUtils->new(
+    my $genome_utils = Islandviewer::GenomeUtils->new(
 	{ workdir => $cfg->{workdir} });
 
     # Find the file types, set the second parameter to true
     # to return an array instead of a string.
-    my $found_formats = $genome_obj->find_file_types($self->filename, 1);
+    my $found_formats = $genome_utils->find_file_types($self->filename, 1);
 
-    if( join(' ', sort $self->formats()) ne join(' ', sort $found_formats) ) {
-	$logger->warn("Warning, database says we have [" . join(' ', sort $self->formats()) . "] doesn't match file system [" .  join(' ', sort $found_formats) . ']' );
+    if( join(' ', sort @{$self->formats()}) ne join(' ', sort $found_formats) ) {
+	$logger->warn("Warning, database says we have [" . join(' ', sort @{$self->formats()}) . "] doesn't match file system [" .  join(' ', sort $found_formats) . ']' );
 	$self->formats( @$found_formats );
     }
 
-    $logger->trace("For " . $self->cid . " found file formats: " . join(',' , sort $self->formats()) );
+    $logger->trace("For " . $self->cid . " found file formats: " . join(',' , sort @{$self->formats()}) );
 
     
 }
