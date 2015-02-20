@@ -740,6 +740,7 @@ sub validate_types {
     }
 
     # Next does the type of formats match what we need...
+    $logger->trace("Checking formats we have: " . @formats);
     if(! $self->correct_formats(\@formats) ) {
 	if('.gbk' ~~ $genome_obj->formats()) {
 	    $logger->info("Regenerating formats based off genbank format");
