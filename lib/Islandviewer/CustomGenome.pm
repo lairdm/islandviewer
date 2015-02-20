@@ -93,8 +93,8 @@ coerce 'ArrayRefofStr'
     => via { [ split / / ] }
 #    => via { my @arr = split / /, $_; print Dumper \@arr; return \@arr }
 #    => via { split(' ', $_) }
-  => from 'ArrayRef[Str]'
-    => via { $_ }
+#  => from 'ArrayRef[Str]'
+#    => via { $_ }
 #    => via { [ map { $_ } @$_ ] }
 ;
 

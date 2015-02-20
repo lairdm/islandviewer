@@ -735,7 +735,7 @@ sub validate_types {
     my @formats = sort @{$genome_obj->formats()};
     if(array_diff(@formats, @found_types)) {
 	$logger->warn("Genome object and file system have different sets of formats, object has [" . join(',', @formats) . '] on disk, [' . join(',', @found_types) . ']');
-	$genome_obj->formats(\@found_types);
+	$genome_obj->formats(@found_types);
 	$genome_obj->update_genome();
     }
 
