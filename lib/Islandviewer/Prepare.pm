@@ -147,7 +147,7 @@ sub run {
 	    # We need to recalculate the stats now that we've combined
 	    # the contigs
 	    $logger->trace("Fetching genome stats");
-	    my $stats = $genome_obj->genome_stats( $genome_obj->filename() );
+	    my $stats = $genome_utils->genome_stats( $genome_obj->filename() );
 
 	    foreach my $key (keys $stats) {
 		$logger->trace("For file " . $genome_obj->filename . " found $key: " . $stats->{$key});
