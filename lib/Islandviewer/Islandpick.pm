@@ -199,7 +199,7 @@ sub run_islandpick {
 	    push @comparison_genomes, $tmp_rep;
 	}
 
-	$logger->debug("We have " . scalar(@comparison_genomes) . " replicons to compare against.");
+	$logger->debug("We have " . scalar(@comparison_genomes) . " replicons to compare against. [" . join(',', @comparison_genomes) . ']');
 
 	# What if, the unthinkable situation, we received
 	# results but nothing was picked... fail.
