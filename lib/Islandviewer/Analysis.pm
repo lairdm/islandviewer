@@ -314,6 +314,33 @@ sub submit_module {
 
 }
 
+sub fetch_taskid {
+    my $self = shift;
+    my $module = shift;
+
+    # Load the module information
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    $logger->trace("Fetching taskid for module $module in analysis $self->{aid}");
+
+    my $fetch_task = $dbh->prepare("SELECT taskid FROM GIAnalysisTask WHERE aid_id = ? AND prediction_method = ?");
+
+    $fetch_task->execute($self->{aid}, $module) 
+	or $logger->logdie("Error, can't fetch analysis $module");
+
+    # There should only be one (highlander style)
+    my($taskid);
+    if(($taskid) =
+       $fetch_task->fetchrow_array) {
+	$logger->trace("Found taskid $taskid for module $module");
+	return $taskid;
+
+    } else {
+	$logger->logdie("Error, can't find analysis task $module");
+    }
+    
+}
+
 sub fetch_module {
     my $self = shift;
     my $module = shift;
@@ -719,6 +746,13 @@ sub set_module_status {
     my $status = shift;
     my $module = (@_ ? shift : $self->{module});
 
+    my $taskid;
+    if($module eq $self->{module}) {
+	$taskid = $self->{taskid};
+    } else {
+	$taskid = $self->fetch_taskid($module);
+    }
+
     $status = uc $status;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
@@ -730,7 +764,7 @@ sub set_module_status {
 	$datestr = ', complete_date = NOW() ' if($status eq 'COMPLETE');
 
 	$logger->trace("Updating analysis " .  $self->{aid} . ", module " . $module . " to status $status");
-	$dbh->do("UPDATE GIAnalysisTask SET status = ? $datestr WHERE taskid = ?", undef, $STATUS_MAP->{$status}, $self->{taskid});
+	$dbh->do("UPDATE GIAnalysisTask SET status = ? $datestr WHERE taskid = ?", undef, $STATUS_MAP->{$status}, $taskid);
     } else {
 	$logger->error("Error, status $status doesn't seem to be valid (module $module)");
     }
