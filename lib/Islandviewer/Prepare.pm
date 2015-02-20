@@ -143,6 +143,19 @@ sub run {
 								     workdir => $self->{workdir} } );
 							       
 	    $res = $contig_aligner->run($accnum, $callback);
+
+	    # We need to recalculate the stats now that we've combined
+	    # the contigs
+	    $logger->trace("Fetching genome stats");
+	    my $stats = $genome_obj->genome_stats( $genome_obj->filename() );
+
+	    foreach my $key (keys $stats) {
+		$logger->trace("For file " . $genome_obj->filename . " found $key: " . $stats->{$key});
+		$genome_obj->$key($stats->{$key});
+	    }
+
+	    # And save the updates...
+	    $self->update_genome();
 	};
 	if($@) {
 	    $logger->error("Error running ContigAligner sub-module: $@");
