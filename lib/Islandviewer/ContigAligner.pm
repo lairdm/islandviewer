@@ -281,7 +281,7 @@ sub write_genome {
     my @gaps;
 
     for my $contig (@{$contigs}) {
-	$logger->trace("Adding contig " . $contig->{id});
+	$logger->trace("Processing contig " . $contig->{id});
 	my $gap = $contig->{start} - $curr_bp;
 
 	# If there's a gap between where we currently
@@ -302,7 +302,13 @@ sub write_genome {
 	# And push the sequence in, we know this should
 	# work because we made both the input fna and the
 	# seqs data structure using the same identifiers
-	push @seqs, $seqs->{ $contig->{id} };
+	if($contig->{strand} == -1) {
+	    $logger->trace("Adding revcom for contig " . $contig->{id});
+	    push @seqs, Bio::SeqUtils->revcom_with_features( $seqs->{ $contig->{id} } );
+	} else {
+	    $logger->trace("Adding forward contig " . $contig->{id});
+	    push @seqs, $seqs->{ $contig->{id} };
+	}
 
 	# And move the current bp to just beyond the
 	# end of the current contig
