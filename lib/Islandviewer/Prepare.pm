@@ -134,14 +134,26 @@ sub run {
 
 	# Align the contigs against the reference genome
 	$logger->trace("Trying to align " . $genome_obj->cid() . " against " . $self->{ref_accnum});
-	my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
-								 ref_accnum => $self->{ref_accnum} } );
+	$callback->set_module_status("RUNNING", 'ContigAligner');
+	my $res;
+	eval {
+	    my $contig_aligner = Islandviewer::ContigAligner->new( { microbedb_ver => $self->{microbedb_ver},
+								     ref_accnum => $self->{ref_accnum} } );
 							       
-	my $res = $contig_aligner->run($accnum, $callback);
-
+	    $res = $contig_aligner->run($accnum, $callback);
+	};
+	if($@) {
+	    $logger->error("Error running ContigAligner sub-module: $@");
+	    $callback->set_module_status("ERROR", 'ContigAligner');
+	    return 0;
+	}
 	unless($res) {
 	    $logger->error("Contig aligner against reference genome " . $self->{ref_accnum} . " failed");
+	    $callback->set_module_status("ERROR", 'ContigAligner');
+	    return 0;
 	}
+
+	$callback->set_module_status("COMPLETE", 'ContigAligner');
     }
 
     # Finally...

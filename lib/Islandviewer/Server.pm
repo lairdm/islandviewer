@@ -288,6 +288,18 @@ sub prep_job {
 	# We may or may not have to send it back to pick
 	# a genome to align against, we need to check $args
 	# to see if we have a genome given to us.
+	unless($args->{ref_accnum}) {
+	    $logger->warn("We have multiple contigs but no reference genome to align against, bad!");
+	    my $results = {cid => $cg->cid,
+			   code => 'NOREFSEQUENCE'
+	    };
+
+	    return $results;
+	}
+
+	$logger->info("Found $contigs contigs for cid " . $cg->cid . ", scanning then submitting");
+	$cg->scan_genome();
+	return $self->submit_complete_job($cg, $args);
 
     } else {
 	# The case of a complete genome we're ready to run
@@ -329,6 +341,11 @@ sub submit_complete_job {
     # the Prepare module knows about it.
     if($args->{ref_accnum}) {
 	$args->{Prepare}->{ref_accnum} = $args->{ref_accnum};
+
+	# This is a bit of a hack, by having this entry in
+	# the args data structure it tells the Analysis module
+	# to submit this secondary module
+	$args->{ContigAligner}->{ref_accnum} = $args->{ref_accnum};
     }
 
     # For future versions we could add checks here and not override

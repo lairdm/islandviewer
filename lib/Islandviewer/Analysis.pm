@@ -43,6 +43,7 @@ use MicrobeDB::Versions;
 my $cfg; my $logger; my $cfg_file;
 
 my @modules = qw(Prepare Distance Islandpick Sigi Dimob Virulence Summary);
+my @secondary_modules = qw(ContigAligner);
 my @required_success = qw(Prepare Distance Virulence);
 
 sub BUILD {
@@ -192,6 +193,9 @@ sub submit {
 
     # See if we can shorten the directory to allow moving
     # of install base in the future
+    #
+    # TODO: Move these calls to the Config module's universal
+    #       path shortener
     my $shortened_workdir = $self->{workdir};
     if($cfg->{analysis_directory} && 
        $shortened_workdir =~ /$cfg->{analysis_directory}/) {
@@ -217,6 +221,23 @@ sub submit {
 	};
 	if($@) {
 	    $logger->error("Error adding $mod, $@");
+	    return 0;
+	}
+    }
+
+    # We probably need a better way to do this in the future
+    #
+    # TODO: Find a way to add secondary modules more efficiently
+    foreach my $mod (@secondary_modules) {
+	$logger->trace("Checking if we need to add secondary module $mod");
+	eval {
+	    if($args->{$mod}) {
+		$logger->info("We have an entry in our config structure for $mod, adding module");
+		$self->submit_module($mod, $genome_obj, $args->{$mod});
+	    }
+	};
+	if($@) {
+	    $logger->error("Error adding secondary module $mod, $@");
 	    return 0;
 	}
     }
@@ -696,6 +717,7 @@ sub set_status {
 sub set_module_status {
     my $self = shift;
     my $status = shift;
+    my $module = (@_ ? shift : $self->{module});
 
     $status = uc $status;
 
@@ -707,10 +729,10 @@ sub set_module_status {
 	$datestr = ', start_date = NOW() ' if($status eq 'RUNNING');
 	$datestr = ', complete_date = NOW() ' if($status eq 'COMPLETE');
 
-	$logger->trace("Updating analysis " .  $self->{aid} . ", module " . $self->{module} . " to status $status");
+	$logger->trace("Updating analysis " .  $self->{aid} . ", module " . $module . " to status $status");
 	$dbh->do("UPDATE GIAnalysisTask SET status = ? $datestr WHERE taskid = ?", undef, $STATUS_MAP->{$status}, $self->{taskid});
     } else {
-	$logger->error("Error, status $status doesn't seem to be valid (module $self->{module})");
+	$logger->error("Error, status $status doesn't seem to be valid (module $module)");
     }
 }
 
@@ -726,7 +748,8 @@ sub fetch_module_statuses {
 
     my $status_set;
 
-    foreach my $mod (@modules) {
+    # I don't know if checking for @secondary_modules will break this...
+    foreach my $mod (@modules, @secondary_modules) {
 	$logger->trace("Fetching status for $mod");
 	$fetch_status->execute($mod, $self->{aid}) or
 	    $logger->logdie("Error running sql statement: $DBI::errstr");
