@@ -920,6 +920,8 @@ sub fetch_genome {
 
     my $genome;
 
+    $logger->trace("Looking up genome: $cid, type: $type");
+
     my $params = { load => $cid };
     if($self->{microbedb_ver}) {
 	$params->{microbedb_ver} = $self->{microbedb_ver};

@@ -435,8 +435,10 @@ sub record_islands {
     my $insert_island = $dbh->prepare("INSERT INTO GenomicIsland (aid_id, start, end, prediction_method) VALUES (?, ?, ?, ?)");
 
     foreach my $island (@islands) {
-	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
-	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $self->{module}): $DBI::errstr");
+	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $module_name)
+	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $module_name): $DBI::errstr");
+#	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
+#	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $self->{module}): $DBI::errstr");
     }
 }
 
