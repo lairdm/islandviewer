@@ -732,7 +732,7 @@ sub validate_types {
     # have correct
     my @found_types = $self->find_file_types($genome_obj->filename(), 1);
 
-    my @formats = sort $genome_obj->formats();
+    my @formats = sort @{$genome_obj->formats()};
     if(array_diff(@formats, @found_types)) {
 	$logger->warn("Genome object and file system have different sets of formats [" . join(',', @formats) . '] [' . join(',', @found_types) . ']');
 	$genome_obj->formats(@found_types);
