@@ -305,6 +305,11 @@ sub submit_module {
 
     $logger->trace("Adding module $module, json: $JSON_args");
 
+    if($args->{skip}) {
+	$logger->warn("We found a signal to skip module $module, returning...");
+	return;
+    }
+
     $dbh->do("INSERT INTO GIAnalysisTask (aid_id, prediction_method, status, parameters) VALUES (?, ?, ?, ?)", undef, 
 	     $self->{aid},
 	     $module,

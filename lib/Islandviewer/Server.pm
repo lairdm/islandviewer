@@ -297,6 +297,9 @@ sub prep_job {
 	    return $results;
 	}
 
+	# Tell Islandpick not to run
+	$args->{Islandpick}->{skip} = 1;
+
 	$logger->info("Found $contigs contigs for cid " . $cg->cid . ", scanning then submitting");
 	$cg->scan_genome();
 	return $self->submit_complete_job($cg, $args);
@@ -352,12 +355,9 @@ sub submit_complete_job {
     # these settings if we're given them.
     # We'll definitely need to do that for things like owner_id if
     # we implement users.
-    $args->{Islandpick} = {
-	MIN_GI_SIZE => 4000};
-    $args->{Sigi} = {
-	MIN_GI_SIZE => 4000};
-    $args->{Dimob} = {
-	MIN_GI_SIZE => 4000};
+    $args->{Islandpick}->{MIN_GI_SIZE} = 4000;
+    $args->{Sigi} = {MIN_GI_SIZE} = 4000;
+    $args->{Dimob} = {MIN_GI_SIZE} = 4000;
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{owner_id} = 1;
