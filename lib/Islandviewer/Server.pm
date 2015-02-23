@@ -356,8 +356,8 @@ sub submit_complete_job {
     # We'll definitely need to do that for things like owner_id if
     # we implement users.
     $args->{Islandpick}->{MIN_GI_SIZE} = 4000;
-    $args->{Sigi} = {MIN_GI_SIZE} = 4000;
-    $args->{Dimob} = {MIN_GI_SIZE} = 4000;
+    $args->{Sigi}->{MIN_GI_SIZE} = 4000;
+    $args->{Dimob}->{MIN_GI_SIZE} = 4000;
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{owner_id} = 1;
