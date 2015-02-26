@@ -48,6 +48,11 @@ sub BUILD {
 
     $logger = Log::Log4perl->get_logger;
 
+    if($args->{extended_ids}) {
+	$logger->trace("Using extended ids");
+	$self->{extended_ids} = 1;
+    }
+
 }
 
 #given a hmmer output file, parse it and return a list of mobility genes
@@ -62,6 +67,10 @@ sub parse_hmmer {
 	my %mobgenes;
 #	open( HMMINPUT, $hmmer_file );
 
+    my $search_pattern = 'gi\|(\d+)\|';
+    if($self->{extended_ids}) {
+	$search_pattern = 'gi\|(\d+)\|\:c?(\d+-\d+)';
+    }
 	#making sure that the file is present and not empty
 	if ( -s "$hmmer_file" ) {
 		#print "parse_hmmer: parsing HMMER results...\n";
@@ -76,8 +85,14 @@ sub parse_hmmer {
 			}
 			if ( ( scalar( keys %domains_evalues ) ) > 0 ) {
 				my $id;
-				if ($res->query_name=~/gi\|(\d+)\|/){
+#				if ($res->query_name=~/gi\|(\d+)\|/){
+				if ($res->query_name=~/$search_pattern/){
 					$id = $1;
+					if($2) {
+					    my $coords = $2;
+					    $coords =~ s/-/../;
+					    $id .= "_$coords";
+					}
 				}
 				else{
 					$id = $res->query_name;
@@ -95,10 +110,15 @@ sub parse_ptt {
     #are annotated as mobility genes
     my $ptt_file    = shift;
     my $header_line = 3;       #currently the 3rd line of ptt file is the header
+
+    my @cols = qw(4);
+    if($self->{extended_ids}) {
+	push @cols, 1;
+    }
     my %mobgenes;
     my ( $header_arrayref, $pttfh ) =
 	extract_headerandbodyfh( $ptt_file, $header_line );
-    my $ptt_table_hashref = table2hash_rowfirst( $header_arrayref, 4, $pttfh );
+    my $ptt_table_hashref = table2hash_rowfirst( $header_arrayref, $pttfh, @cols );
     #print "here's the dumping\n";
     #print Dumper $ptt_table_hashref;
     foreach my $pid (keys %{$ptt_table_hashref} ) {

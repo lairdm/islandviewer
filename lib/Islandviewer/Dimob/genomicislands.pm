@@ -450,6 +450,7 @@ sub dimob_islands {
 
 	my $dinuc_island_orfs = shift;
 	my $mobgenes          = shift;
+#	print Dumper $dinuc_island_orfs;
 	my @dimob_island_orfs;
 	
 	foreach my $island (@$dinuc_island_orfs){
@@ -474,11 +475,12 @@ sub defline2gi {
    #req input: a ptt file for annotation and output from dinuc_islands
 	my $dinucislands = shift @_;
 	my $pttfilename  = shift @_;
+	my $extended_ids = @_ ? shift : 0;
 	my $header_line  = 3;
 	my @result_islands;
 	my ( $header_arrayref, $pttfh ) =
 	  extract_headerandbodyfh( $pttfilename, $header_line );
-	my $ptt_table_hashref = table2hash_rowfirst( $header_arrayref, 1, $pttfh );
+	my $ptt_table_hashref = table2hash_rowfirst( $header_arrayref, $pttfh, 1 );
 	foreach my $island (@$dinucislands) {
 		my @result_orfs;
 		ORF: foreach my $orf_index (@$island) {
@@ -488,11 +490,16 @@ sub defline2gi {
 			my $orf_start;
 			my $orf_end;
 			my $pid;
+#			print "$orf1\n";
 			if ( $orf1 =~ /\|:(\d+)-(\d+)\)/ ) {
 				$orf_start = $1;
 				$orf_end   = $2;
 					my $coordinate = "$orf_start..$orf_end";
 			 $pid        = $ptt_table_hashref->{$coordinate}->{'PID'};
+				if($extended_ids) {
+#				    print "Using extended\n";
+				    $pid .= "_$orf_start" . '..' . $orf_end;
+				}
 				unless(defined($pid)){
 				    #warn "Could not find pid";
 				}
@@ -501,6 +508,10 @@ sub defline2gi {
 				$orf_end   = $1;
 				my $coordinate = "$orf_start..$orf_end";
 				$pid = $ptt_table_hashref->{$coordinate}->{'PID'};
+				if($extended_ids) {
+#				    print "Using extended (comp)\n";
+				    $pid .= "_$orf_start" . '..' . $orf_end;
+				}
 				unless(defined($pid)){
 				    #warn "Could not find pid";
 				}

@@ -358,6 +358,7 @@ sub submit_complete_job {
     $args->{Islandpick}->{MIN_GI_SIZE} = 4000;
     $args->{Sigi}->{MIN_GI_SIZE} = 4000;
     $args->{Dimob}->{MIN_GI_SIZE} = 4000;
+    $args->{Dimob}->{extended_ids} = 1;
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{owner_id} = 1;

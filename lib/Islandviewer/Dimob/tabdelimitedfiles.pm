@@ -159,16 +159,15 @@ sub table2hash_rowfirst {
 #inputs: reference to an array of headers; column number starts at 1; input filehandle name
 	my @headers        = @{ shift @_ };
 	#print "@headers\n";
-	my $key_column_num = shift;
-	if ( $key_column_num < 1 ) {
-		croak "the column number to use as the hash keys starts at 1";
-	}
-	if ( $key_column_num > scalar(@headers) ) {
-		croak "the column number used does not exist";
-	}
-	my $key_index = $key_column_num - 1;
 	my $fd_name   = shift;
+	my @key_column_nums = @_;
+	for my $key (@key_column_nums) {
 
+	    unless ( $key >= 1 && $key <= scalar(@headers) ) {
+		croak "the column number used [$key] does not exist";
+	    }
+	}
+	my @key_indexes = map { $_ - 1 } @key_column_nums;
 	my %table_content;
 	while (<$fd_name>) {
 
@@ -181,7 +180,9 @@ sub table2hash_rowfirst {
 "the number of header elements do not match the number of content elements"
 		  if ( scalar(@headers) != scalar(@content) );
 		my $i = 0;
-		my $key = $content[$key_index];
+#		my $key = $content[$key_index];
+		my $key = join('_', map { $content[$_] } @key_indexes);
+#		$key =~ s/\.\./-/g;
 		foreach my $field (@content) {
 			if ( exists $table_content{ $key }{ $headers[$i] } )
 			{

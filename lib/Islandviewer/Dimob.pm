@@ -68,6 +68,16 @@ sub BUILD {
     $self->{microbedb_ver} = $args->{microbedb_ver};
 
     $self->{MIN_GI_SIZE} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
+
+    # Do we need to use extended ids because
+    # there could be duplicate gis. We DON'T want
+    # to do this with NCBI automated updates since
+    # those don't have the coorindates in the faa header,
+    # but the ones we generate do.
+    if($args->{extended_ids}) {
+	$logger->trace("Using extended ids");
+	$self->{extended_ids} = 1;
+    }
     
 }
 
@@ -81,6 +91,7 @@ sub run {
 
     my @islands = $self->run_dimob($accnum);
 
+    print Dumper \@islands;
     if(@islands) {
 	# If we get a undef set it doesn't mean failure, just
 	# nothing found.  Write the results to the callback
@@ -154,10 +165,14 @@ sub run_dimob {
     my $mob_list;
 
     $logger->debug("Parsing hmmer results with Mobgene");
-    my $mobgene_obj = Islandviewer::Dimob::Mobgene->new();
+    my $mod_args = {};
+    if($self->{extended_ids}) {
+	$mod_args->{extended_ids} = $self->{extended_ids};
+    }
+
+    my $mobgene_obj = Islandviewer::Dimob::Mobgene->new($mod_args);
 #    my $mobgenes = $mobgene_obj->parse_hmmer('/home/lairdm/islandviewer/workdir/dimob//blasttmpoHyYLgBj5w', $cfg->{hmmer_evalue} );
     my $mobgenes = $mobgene_obj->parse_hmmer( $hmmer_outfile, $cfg->{hmmer_evalue} );
-
     foreach(keys %$mobgenes){
 	$mob_list->{$_}=1;   
     }
@@ -185,7 +200,8 @@ sub run_dimob {
     my $gi_orfs = dinuc_islands( $dinuc_results, $mean, $sd, 8 );
 
     #convert the def line to gi numbers (the data structure is maintained)
-    my $dinuc_islands = defline2gi( $gi_orfs, "$filename.ptt" );
+    my $extended = $self->{extended_ids} ? 1 : undef;
+    my $dinuc_islands = defline2gi( $gi_orfs, "$filename.ptt", $extended );
 
     #check the dinuc islands against the mobility gene list
     #any dinuc islands containing >=1 mobility gene are classified as
