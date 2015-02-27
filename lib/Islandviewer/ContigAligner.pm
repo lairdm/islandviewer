@@ -425,9 +425,10 @@ sub annotate_alignment {
     my $self = shift;
     my $contigs = shift;
 
+    my $max = 100000000;
     my $start_aligned = 1;
-    my $end_aligned = 1;
-    my $start_unaligned = 100000000;
+    my $end_aligned = $max;
+    my $start_unaligned = $max;
     my $end_unaligned = 1;
     for my $contig (@{$contigs}) {
 	if($contig->{aligned}) {
@@ -443,11 +444,11 @@ sub annotate_alignment {
 
     # If we actually found a region, because the coordinates would be
     # different, push it on to this "island"
-    if($start_aligned != $end_aligned) {
+    if($start_aligned == 1 && $end_aligned == $max) {
 	push @alignments, [$start_aligned, $end_aligned, 'aligned'];
     }
 
-    if($start_unaligned != $end_unaligned) {
+    if($start_unaligned == 1 && $end_unaligned == $max) {
 	push @alignments, [$start_unaligned, $end_unaligned, 'unaligned'];
     }
 
