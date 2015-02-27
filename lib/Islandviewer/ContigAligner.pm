@@ -35,8 +35,7 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use File::Copy;
-# Not actually used right now
-#use Set::IntervalTree;
+use Set::IntervalTree;
 use Data::Dumper;
 
 use Islandviewer::DBISingleton;
@@ -114,11 +113,24 @@ sub run {
 	return 0;
     }
 
+    # Read the backbone file and store the tree of range mappings
+    my $tree = $self->read_backbone_file( $self->find_by_extension($self->{alignment_dir},
+								   'backbone') );
+
+    $self->{tree} = $tree;
+
     my $contigs = $self->read_order_file( $self->find_by_extension($self->{alignment_dir},
 								   'tab') );
     
     # Space the contigs out with 1000 bp between each
     $contigs = $self->space_contigs($contigs, 1000);
+
+    # Find the regions that are aligned against the reference
+    # and those which aren't
+    my $alignments = $self->annotate_alignment($contigs);
+
+    # Record these aligned and unaligned regions
+    $callback->record_islands("Alignments", @$alignments);
 
     # We should be ready to write out the realigned genbank
     # file for the genome, yes we're going to pick
@@ -390,10 +402,15 @@ sub read_order_file {
 	    $logger->trace("Found contig ordering: $_");
 	    my @pieces = split /\s+/;
 
+	    # Check the alignment tree from the backbone file and see
+	    # if our contig maps to the genome
+	    my $aligned = scalar(@{$self->{tree}->fetch($pieces[4], $pieces[5])}) ? 1 : 0;
+
 	    push @contigs, { id => $pieces[1], 
 			     start => $pieces[4],
 			     end => $pieces[5],
-			     strand => ($pieces[3] eq 'complement' ? -1 : 1)
+			     strand => ($pieces[3] eq 'complement' ? -1 : 1),
+			     aligned => $aligned
 	    };
 	}
 	
@@ -404,9 +421,42 @@ sub read_order_file {
     return \@contigs;
 }
 
+sub annotate_alignment {
+    my $self = shift;
+    my $contigs = shift;
+
+    my $start_aligned = 1;
+    my $end_aligned = 1;
+    my $start_unaligned = 100000000;
+    my $end_unaligned = 1;
+    for my $contig (@{$contigs}) {
+	if($contig->{aligned}) {
+	    $start_aligned = $contig->{start} if($contig->{start} < $start_aligned);
+	    $end_aligned = $contig->{end} if($contig->{end} > $end_aligned);
+	} else {
+	    $start_unaligned = $contig->{start} if($contig->{start} < $start_unaligned);
+	    $end_unaligned = $contig->{end} if($contig->{end} > $end_unaligned);
+	}
+    }
+
+    my @alignments;
+
+    # If we actually found a region, because the coordinates would be
+    # different, push it on to this "island"
+    if($start_aligned != $end_aligned) {
+	push @alignments, [$start_aligned, $end_aligned, 'aligned'];
+    }
+
+    if($start_unaligned != $end_unaligned) {
+	push @alignments, [$start_unaligned, $end_unaligned, 'unaligned'];
+    }
+
+    return \@alignments;
+}
+
 # Take a contig set, as returned by read_order_file, and
 # add a gap of $gap_size between each contig.  This function
-# is destructive on the input $config pointer
+# is destructive on the input $contigs pointer
 
 sub space_contigs {
     my $self = shift;
@@ -457,7 +507,7 @@ sub read_backbone_file {
 
 	# If we have a zero in the first coordinate
 	# of either mapping, we're done
-	last unless($pieces[0] || $pieces[2]);
+	last unless($pieces[0] && $pieces[2]);
 
 	# Make all the numbers positive
 	@pieces = map { abs($_) } @pieces;

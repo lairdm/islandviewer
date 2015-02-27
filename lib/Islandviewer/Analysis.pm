@@ -485,11 +485,12 @@ sub record_islands {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $insert_island = $dbh->prepare("INSERT INTO GenomicIsland (aid_id, start, end, prediction_method) VALUES (?, ?, ?, ?)");
+    my $insert_island = $dbh->prepare("INSERT INTO GenomicIsland (aid_id, start, end, prediction_method, details) VALUES (?, ?, ?, ?, ?)");
 
     foreach my $island (@islands) {
-	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $module_name)
-	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $module_name): $DBI::errstr");
+	my $extra = scalar @{ $island } > 2 ? $island->[2] : undef;
+	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $module_name, $extra)
+	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $module_name, $extra): $DBI::errstr");
 #	$insert_island->execute($self->{aid}, $island->[0], $island->[1], $self->{module})
 #	    or $logger->logdie("Error loading island ($self->{aid}, $island->[0], $island->[1], $self->{module}): $DBI::errstr");
     }
