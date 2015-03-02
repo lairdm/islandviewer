@@ -103,7 +103,7 @@ sub run {
 	# die to our parent.
 
 	$logger->error("Error checking the sequence, this shouldn't have happened! $@");
-	$genome_obj->update_status('INVALID');
+	$genome_obj->update_genome('INVALID');
 	return 0;
     }
 
