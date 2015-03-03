@@ -495,8 +495,7 @@ sub read_backbone_file {
     my $self = shift;
     my $backbone_file = shift;
 
-    unless(-f $backbone_file &&
-	   -s $backbone_file) {
+    unless(-f $backbone_file) {
 	$logger->logdie("Error, can't find backbone file $backbone_file");
     }
 
