@@ -229,18 +229,28 @@ sub read_seq_file {
 	);
 
     my $seqs;
+    my $contig_count = 1;
 
     while( my $seq = $in->next_seq() ) {
+	my $name = sprintf("Contig%03d", $contig_count);
+
+	# We can't trust the user's Accession and Locus, we need
+	# to just make out own for the integrating, not as nice.
+	$seqs->{ $name } = $seq;
+	$logger->info("We're mapping " . $seq->accession_number . "," . $seq->display_id() . "to contig name $name");
+
 	# We're going to check what identifiers we
 	# have any pick the best available...
 
-	if($seq->accession_number) {
-	    $seqs->{ $seq->accession_number } = $seq;
-	} elsif($seq->display_id()) {
-	    $seqs->{ $seq->display_id() } = $seq;
-	} else {
-	    $logger->logdie("We can't find a valid identifier for this sequence, fail!");
-	}
+#	if($seq->accession_number) {
+#	    $seqs->{ $seq->accession_number } = $seq;
+#	} elsif($seq->display_id()) {
+#	    $seqs->{ $seq->display_id() } = $seq;
+#	} else {
+#	    $logger->logdie("We can't find a valid identifier for this sequence, fail!");
+#	}
+
+	$contig_count += 1;
     }
 
     return $seqs;
