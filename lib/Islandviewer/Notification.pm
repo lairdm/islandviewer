@@ -95,7 +95,7 @@ sub add_notification {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $add_notification = $dbh->prepare("INSERT INTO Notification (analysis_id, email, status) VALUES (?, ?, ?)") or  $logger->logdie("Error, can't prepare set notifications: $DBI::errstr");
+    my $add_notification = $dbh->prepare("INSERT IGNORE INTO Notification (analysis_id, email, status) VALUES (?, ?, ?)") or  $logger->logdie("Error, can't prepare set notifications: $DBI::errstr");
 
     $add_notification->execute($self->{aid}, $email, 0);
 
