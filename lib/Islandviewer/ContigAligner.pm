@@ -436,15 +436,17 @@ sub annotate_alignment {
     my $contigs = shift;
 
     my $max = 100000000;
-    my $start_aligned = 1;
-    my $end_aligned = $max;
+    my $start_aligned = $max;
+    my $end_aligned = -1;
     my $start_unaligned = $max;
-    my $end_unaligned = 1;
+    my $end_unaligned = -1;
     for my $contig (@{$contigs}) {
 	if($contig->{aligned}) {
+	    $logger->trace("Aligned contig: " . $contig->{start} . ', ' . $contig->{end});
 	    $start_aligned = $contig->{start} if($contig->{start} < $start_aligned);
 	    $end_aligned = $contig->{end} if($contig->{end} > $end_aligned);
 	} else {
+	    $logger->trace("Unaligned contig: " . $contig->{start} . ', ' . $contig->{end});
 	    $start_unaligned = $contig->{start} if($contig->{start} < $start_unaligned);
 	    $end_unaligned = $contig->{end} if($contig->{end} > $end_unaligned);
 	}
@@ -452,13 +454,17 @@ sub annotate_alignment {
 
     my @alignments;
 
+    $logger->trace("Aligned: $start_aligned, $end_aligned; Unaligned: $start_unaligned, $end_unaligned");
+
     # If we actually found a region, because the coordinates would be
     # different, push it on to this "island"
-    if($start_aligned == 1 && $end_aligned == $max) {
+    unless($start_aligned == $max && $end_aligned == -1) {
+	$logger->debug("Found aligned region: $start_aligned, $end_aligned");
 	push @alignments, [$start_aligned, $end_aligned, 'aligned'];
     }
 
-    if($start_unaligned == 1 && $end_unaligned == $max) {
+    unless($start_unaligned == $max && $end_unaligned == -1) {
+	$logger->debug("Found unaligned region: $start_unaligned, $end_unaligned");
 	push @alignments, [$start_unaligned, $end_unaligned, 'unaligned'];
     }
 
