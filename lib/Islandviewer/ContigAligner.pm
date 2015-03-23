@@ -178,7 +178,7 @@ sub runContigMover {
     # Build the contig mover command
     my $cmd = "cd " . $cfg->{mauve_dir} . ';';
     $cmd .= $cfg->{java_bin} . ' ' . sprintf($cfg->{contig_mover_cmd}, $alignment_dir, 
-		      $reference_genome, $draft_genome);
+		      $reference_genome, $draft_genome) . " &>$alignment_dir/alignment.log";
 
     $logger->trace("Using contig mover command: $cmd");
 
