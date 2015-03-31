@@ -303,7 +303,11 @@ sub scan_genome {
 
     foreach my $key (keys $stats) {
 	$logger->trace("For file " . $self->filename . " found $key: " . $stats->{$key});
-	$self->$key($stats->{$key});
+        if($key eq 'name') {
+            $self->$key($stats->{$key}) if( $self->$key eq 'Custom Genome');
+        } else {
+            $self->$key($stats->{$key});
+        }
     }
 
     # And save the updates...

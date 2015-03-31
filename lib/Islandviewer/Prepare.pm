@@ -150,8 +150,9 @@ sub run {
 	    my $stats = $genome_utils->genome_stats( $genome_obj->filename() );
 
 	    foreach my $key (keys $stats) {
-		$logger->trace("For file " . $genome_obj->filename . " found $key: " . $stats->{$key});
-		$genome_obj->$key($stats->{$key});
+		$logger->trace("For file " . $genome_obj->filename . " found $key: " . $stats->{$key} . " existing value: " . $genome_obj->$key());
+                next if($key eq 'name');
+                $genome_obj->$key($stats->{$key});
 	    }
 
 	    # And save the updates...
