@@ -89,7 +89,7 @@ MAIN: {
     my $genome_data = urlsafe_b64encode($file_contents);
     $req_struct->{genome_data} = $genome_data;
 
-    $req_struct->{genome_name} = ($name ? $name : 'user genome');
+    $req_struct->{genome_name} = ($name ? $name : 'Custom Genome');
 
     # Set the format
     $format = 'gbk' if($format eq 'gbk');
