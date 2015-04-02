@@ -47,12 +47,13 @@ my $verbose = 0;
 MAIN: {
     my $cfname; my $filename; my $name; my $logger;
     my $format; my $email; my $comparison_genomes;
-    my $microbedb_ver;
+    my $microbedb_ver; my $ref_accnum;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "filename=s" => \$filename,
 			 "name=s"     => \$name,
 			 "type=s"   => \$format,
 			 "email=s"    => \$email,
+                         "refgenome=s" => \$ref_accnum,
 			 "islandpick_genomes=s" => \$comparison_genomes,
 			 "microbedb_ver=s" => \$microbedb_ver,
 			 "verbose" => \$verbose
@@ -98,6 +99,8 @@ MAIN: {
     $req_struct->{genome_format} = ($format ? $format : 'gbk');
 
     $req_struct->{email} = $email if($email);
+
+    $req_struct->{ref_accnum} = $ref_accnum if($ref_accnum);
 
     # Add islandpick comparison genomes if given
     if($comparison_genomes) {
