@@ -67,9 +67,7 @@ MAIN: {
     $cfg = Islandviewer::Config->config;
 
     unless( -f $filename && -r $filename ) {
-	$logger->error("Custom genome $filename is not readable, failing");
-	print "0\n";
-	exit;
+	die "Custom genome $filename is not readable, failing";
     }
 
     $host = $cfg->{daemon_host}
