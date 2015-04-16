@@ -174,7 +174,8 @@ sub table2hash_rowfirst {
 		#ignore any blank lines
 		next if ( is_blank($_) );
 		chomp;
-		my @content = split /\t/, $_;
+                # Set limit to -1 so we get rows where the last column (product) is empty
+		my @content = split /\t/, $_, -1;
 		#make sure that @content and @headers have the same number of elements
 		croak "the number of header elements do not match the number of content elements, row: '$_'"
 		  if ( scalar(@headers) != scalar(@content) );
