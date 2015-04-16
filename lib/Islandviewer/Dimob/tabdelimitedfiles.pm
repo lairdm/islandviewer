@@ -176,8 +176,7 @@ sub table2hash_rowfirst {
 		chomp;
 		my @content = split /\t/, $_;
 		#make sure that @content and @headers have the same number of elements
-		croak
-"the number of header elements do not match the number of content elements"
+		croak "the number of header elements do not match the number of content elements, row: $_"
 		  if ( scalar(@headers) != scalar(@content) );
 		my $i = 0;
 #		my $key = $content[$key_index];
