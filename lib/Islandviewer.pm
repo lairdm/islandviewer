@@ -297,6 +297,18 @@ sub rerun_job {
 
 }
 
+sub generate_token {
+    my $self = shift;
+    my $aid = shift;
+
+    $logger->trace("Generating security token for aid $aid");
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
+
+    my $token = $analysis_obj->generate_token();
+
+    return $token;
+}
+
 sub add_notification {
     my $self = shift;
     my $aid = shift;

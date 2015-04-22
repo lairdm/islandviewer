@@ -368,7 +368,7 @@ sub submit_complete_job {
 #	$args->{email} = $email;
     }
 
-    my $aid;
+    my $aid; my $token;
     eval {
 	# Submit the replicon for processing
 	$aid = $islandviewer->submit_analysis($args->{cid}, $args);
@@ -378,6 +378,9 @@ sub submit_complete_job {
     }
     if($aid) {
 	$logger->info("Finished submitting $args->{cid}, has analysis id $aid");
+
+        # Now let's make a security token...
+        $token = $islandviewer->generate_token($aid);
     } else {
 	$logger->logdie("Error, failed submitting, didn't get an analysis id");
     }
@@ -385,7 +388,7 @@ sub submit_complete_job {
     $logger->info("Analysis $aid should now be submitted");
    
     # Spit out the analysis id back for the web service
-    return { aid => $aid };
+    return { aid => $aid, token => $token };
 
 }
 
