@@ -153,6 +153,9 @@ sub send_email {
 
     my $url = $cfg->{base_url} . 'results/' . $self->{aid} . '/';
 
+    my $token = $self->fetch_token();
+    $url .= "?token=$token" if $token;
+
     eval {
 	$mailer->open({ From    => $cfg->{email_sender},
 			To      => $email,
@@ -179,6 +182,21 @@ sub send_email {
     }
 
     return 1;
+}
+
+sub fetch_token {
+    my $self = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $fetch_analysis = $dbh->prepare("SELECT token from Analysis WHERE aid = ?");
+    $fetch_analysis->execute($self->{aid});
+
+    if(my @row = $fetch_analysis->fetchrow_array) {
+        return $row[0];
+    }
+
+    return undef;
 }
 
 1;
