@@ -576,6 +576,7 @@ sub find_alignment_dir {
         for my $dir (@alignmentdirs) {
             # We don't want to remove the directory we're returning
             next if($dir eq $highestalignmentdir);
+	    $logger->trace("Removing alignment  directory $dir");
             remove_tree($dir);
         }
 
