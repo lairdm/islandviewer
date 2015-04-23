@@ -37,6 +37,7 @@ use File::Temp qw/ :mktemp /;
 use File::Copy;
 use Set::IntervalTree;
 use Data::Dumper;
+use File::Path qw(remove_tree);
 
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
@@ -550,6 +551,7 @@ sub find_alignment_dir {
     closedir(ADIR);
 
     my $highest = 0;
+    my @alignmentdirs;
     foreach my $item (@files) {
 	my $full_file = $alignmentdir . '/' . $item;
 	$logger->trace("Found dir $item in $full_file");
@@ -558,6 +560,8 @@ sub find_alignment_dir {
 
 	my ($i) = $item =~ /alignment(\d+)/;
 
+        push @alignmentdirs, $full_file;
+
 	$logger->trace("Is $i higher than $highest?");
 	$highest = $i if($i > $highest);
 
@@ -565,7 +569,17 @@ sub find_alignment_dir {
 
     if($highest) {
 	$logger->trace("Found alignment dir: " . $alignmentdir . "/alignment$highest");
-	return $alignmentdir . "/alignment$highest";
+        my $highestalignmentdir = $alignmentdir . "/alignment$highest";
+
+        # We're going to cycle through all the alignment directories we found and
+        # clean them up
+        for my $dir (@alignmentdirs) {
+            # We don't want to remove the directory we're returning
+            next if($dir eq $highestalignmentdir);
+            remove_tree($dir);
+        }
+
+	return $highestalignmentdir;
     } else {
 	return undef;
     }
