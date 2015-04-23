@@ -83,15 +83,15 @@ sub purge_old_custom_analysis {
 
         if(-d $full_path) {
             $logger->info("Removing analysis path $full_path");
-#        remove_path($full_path);
+	    remove_tree($full_path);
         }
 
         # Remove all the db references
-#        $dbh->do("DELETE FROM IslandGenes WHERE gi IN (SELECT gi FROM GenomicIsland WHERE aid_id = ?", undef, $aid);
-#        $dbh->do("DELETE FROM GenomicIsland WHERE aid_id = ?", undef, $aid);
-#        $dbh->do("DELETE FROM GIAnalysisTask WHERE aid_id = ?", undef, $aid);
-#        $dbh->do("DELETE FROM Notification WHERE analysis_id = ?", undef, $aid);
-#        $dbh->do("DELETE FROM Analysis WHERE aid = ?", undef, $aid);
+        $dbh->do("DELETE FROM IslandGenes WHERE gi IN (SELECT gi FROM GenomicIsland WHERE aid_id = ?)", undef, $aid);
+        $dbh->do("DELETE FROM GenomicIsland WHERE aid_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM GIAnalysisTask WHERE aid_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM Notification WHERE analysis_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM Analysis WHERE aid = ?", undef, $aid);
     }
 
 }
@@ -108,10 +108,10 @@ sub purge_old_uploadgenome {
 
         if(-f $row[1]) {
             $logger->info("Removing uploaded file " . $row[1]);
-#            remove_path($row[1]);
+            remove_tree($row[1]);
         }
 
-#        $dbh->do("DELETE FROM UploadGenome WHERE id = ?", undef, $row[0]);
+        $dbh->do("DELETE FROM UploadGenome WHERE id = ?", undef, $row[0]);
     }
 }
 
@@ -129,13 +129,13 @@ sub purge_old_customgenome {
 
         if(-d $custom_path) {
             $logger->info("Removing custom genome directory $custom_path");
-#            remove_path($custom_path);
+            remove_tree($custom_path);
         }
 
-#        $dbh->do("DELETE FROM Distance WHERE rep_accnum1 = ? OR rep_accnum2 = ?", undef, $row[0], $row[0]);
-#        $dbh->do("DELETE FROM DistanceAttempts WHERE rep_accnum1 = ? OR rep_accnum2 = ?", undef, $row[0], $row[0]);
-#        $dbh->do("DELETE FROM GC WHERE ext_id = ?", undef, $row[0]);
-#        $dbh->do("DELETE FROM Genes WHERE ext_id = ?", undef, $row[0]);
-#        $dbh->do("DELETE FROM CustomGenome WHERE cid = ?", undef, $row[0]);
+        $dbh->do("DELETE FROM Distance WHERE rep_accnum1 = ? OR rep_accnum2 = ?", undef, $row[0], $row[0]);
+        $dbh->do("DELETE FROM DistanceAttempts WHERE rep_accnum1 = ? OR rep_accnum2 = ?", undef, $row[0], $row[0]);
+        $dbh->do("DELETE FROM GC WHERE ext_id = ?", undef, $row[0]);
+        $dbh->do("DELETE FROM Genes WHERE ext_id = ?", undef, $row[0]);
+        $dbh->do("DELETE FROM CustomGenome WHERE cid = ?", undef, $row[0]);
     }
 }
