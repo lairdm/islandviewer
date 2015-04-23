@@ -1,5 +1,11 @@
 #!/usr/bin/env perl
 
+# Clean older analysis from the database and scrub associated
+# files
+#
+# Yes, it works.
+
+
 use warnings;
 use strict;
 use Cwd qw(abs_path getcwd);
@@ -58,6 +64,7 @@ MAIN: {
     purge_old_custom_analysis();
     purge_old_uploadgenome();
     purge_old_customgenome();
+    purge_old_rerun_analysis();
 
     $logger->info("Done purge");
 
@@ -78,6 +85,38 @@ sub purge_old_custom_analysis {
 
         my $aid = $row[0];
         $logger->info("Purging analysis $aid, ext_id " . $row[1]);
+
+        my $full_path = Islandviewer::Config->expand_directory($row[2]);
+
+        if(-d $full_path) {
+            $logger->info("Removing analysis path $full_path");
+	    remove_tree($full_path);
+        }
+
+        # Remove all the db references
+        $dbh->do("DELETE FROM IslandGenes WHERE gi IN (SELECT gi FROM GenomicIsland WHERE aid_id = ?)", undef, $aid);
+        $dbh->do("DELETE FROM GenomicIsland WHERE aid_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM GIAnalysisTask WHERE aid_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM Notification WHERE analysis_id = ?", undef, $aid);
+        $dbh->do("DELETE FROM Analysis WHERE aid = ?", undef, $aid);
+    }
+
+}
+
+sub purge_old_rerun_analysis {
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $find_old_custom = $dbh->prepare("SELECT aid, ext_id, workdir FROM Analysis WHERE default_analysis = 0 AND DATE_SUB(CURDATE(), INTERVAL $maxage DAY) >= start_date");
+
+    $find_old_custom->execute();
+
+    while(my @row = $find_old_custom->fetchrow_array) {
+        # We want to:
+        # - purge the Analysis directory
+        # - Remove the DB entries
+
+        my $aid = $row[0];
+        $logger->info("Purging non-default analysis $aid, ext_id " . $row[1]);
 
         my $full_path = Islandviewer::Config->expand_directory($row[2]);
 
