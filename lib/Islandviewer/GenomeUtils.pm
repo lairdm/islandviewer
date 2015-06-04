@@ -687,6 +687,8 @@ sub genome_stats {
 		   rep_size => $seq_length
 	};
 
+        $stats->{name} = $seq->desc if($seq->desc);
+
 	$contig_count += 1;
     }
 

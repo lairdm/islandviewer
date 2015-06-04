@@ -33,6 +33,7 @@ use Log::Log4perl qw(get_logger :nowarn);
 use JSON;
 use Data::Dumper;
 use File::Copy::Recursive qw(dircopy);
+use Session::Token;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
@@ -93,13 +94,13 @@ sub load_analysis {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 	
-    my $fetch_analysis = $dbh->prepare("SELECT atype, ext_id, default_analysis, status, workdir, microbedb_ver FROM Analysis WHERE aid = ?");
+    my $fetch_analysis = $dbh->prepare("SELECT atype, ext_id, default_analysis, status, workdir, microbedb_ver, token FROM Analysis WHERE aid = ?");
 
     $fetch_analysis->execute($aid) 
 	or $logger->logdie("Error, can't fetch analysis $aid");
     
     # There should only be one
-    if(my($atype, $ext_id, $default_analysis, $status, $workdir, $microbedb_ver) =
+    if(my($atype, $ext_id, $default_analysis, $status, $workdir, $microbedb_ver, $token) =
        $fetch_analysis->fetchrow_array) {
 	$self->{atype} = $atype;
 	$self->{ext_id} = $ext_id;
@@ -110,6 +111,7 @@ sub load_analysis {
 	}
 	$self->{base_workdir} = $workdir;
 	$self->{microbedb_ver} = $microbedb_ver;
+        $self->{token} = $token if $token;
     } else {
 	$logger->logdie("Error, can't find analysis $aid");
     }
@@ -478,6 +480,32 @@ sub run {
     }
 }
 
+sub generate_token {
+    my $self = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $fetch_analysis = $dbh->prepare("SELECT aid, token FROM Analysis WHERE aid = ?");
+
+    $fetch_analysis->execute($self->{aid});
+
+    if(my @row = $fetch_analysis->fetchrow_array) {
+        if($row[1]) {
+            # Do we have an existing token? Yes, return it
+            return $row[1];
+        } else {
+            # Nope? Generate one and save it
+            my $token = Session::Token->new->get;
+
+            $dbh->do("UPDATE Analysis set token = ? WHERE aid = ?", undef, $token, $self->{aid});
+            return $token;
+        }
+    } else {
+        # We can't find our own record?  Very, very bad.
+        die "Error, can't find analysis id " . $self->{aid} . " when generating security token this is very bad.";
+    }
+}
+
 sub record_islands {
     my $self = shift;
     my $module_name = shift;
@@ -618,7 +646,7 @@ sub clone {
 
     # First let's clone the analysis table record
     $logger->trace("Cloning analysis record in database: " . $self->{aid});
-    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, default_analysis) SELECT atype, ext_id, owner_id, status, workdir, microbedb_ver, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
+    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, owner_id, status, workdir, microbedb_ver, token, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
 

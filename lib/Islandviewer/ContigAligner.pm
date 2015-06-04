@@ -37,6 +37,7 @@ use File::Temp qw/ :mktemp /;
 use File::Copy;
 use Set::IntervalTree;
 use Data::Dumper;
+use File::Path qw(remove_tree);
 
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
@@ -178,7 +179,7 @@ sub runContigMover {
     # Build the contig mover command
     my $cmd = "cd " . $cfg->{mauve_dir} . ';';
     $cmd .= $cfg->{java_bin} . ' ' . sprintf($cfg->{contig_mover_cmd}, $alignment_dir, 
-		      $reference_genome, $draft_genome);
+		      $reference_genome, $draft_genome) . " &>$alignment_dir/alignment.log";
 
     $logger->trace("Using contig mover command: $cmd");
 
@@ -436,15 +437,17 @@ sub annotate_alignment {
     my $contigs = shift;
 
     my $max = 100000000;
-    my $start_aligned = 1;
-    my $end_aligned = $max;
+    my $start_aligned = $max;
+    my $end_aligned = -1;
     my $start_unaligned = $max;
-    my $end_unaligned = 1;
+    my $end_unaligned = -1;
     for my $contig (@{$contigs}) {
 	if($contig->{aligned}) {
+	    $logger->trace("Aligned contig: " . $contig->{start} . ', ' . $contig->{end});
 	    $start_aligned = $contig->{start} if($contig->{start} < $start_aligned);
 	    $end_aligned = $contig->{end} if($contig->{end} > $end_aligned);
 	} else {
+	    $logger->trace("Unaligned contig: " . $contig->{start} . ', ' . $contig->{end});
 	    $start_unaligned = $contig->{start} if($contig->{start} < $start_unaligned);
 	    $end_unaligned = $contig->{end} if($contig->{end} > $end_unaligned);
 	}
@@ -452,13 +455,17 @@ sub annotate_alignment {
 
     my @alignments;
 
+    $logger->trace("Aligned: $start_aligned, $end_aligned; Unaligned: $start_unaligned, $end_unaligned");
+
     # If we actually found a region, because the coordinates would be
     # different, push it on to this "island"
-    if($start_aligned == 1 && $end_aligned == $max) {
+    unless($start_aligned == $max && $end_aligned == -1) {
+	$logger->debug("Found aligned region: $start_aligned, $end_aligned");
 	push @alignments, [$start_aligned, $end_aligned, 'aligned'];
     }
 
-    if($start_unaligned == 1 && $end_unaligned == $max) {
+    unless($start_unaligned == $max && $end_unaligned == -1) {
+	$logger->debug("Found unaligned region: $start_unaligned, $end_unaligned");
 	push @alignments, [$start_unaligned, $end_unaligned, 'unaligned'];
     }
 
@@ -544,6 +551,7 @@ sub find_alignment_dir {
     closedir(ADIR);
 
     my $highest = 0;
+    my @alignmentdirs;
     foreach my $item (@files) {
 	my $full_file = $alignmentdir . '/' . $item;
 	$logger->trace("Found dir $item in $full_file");
@@ -552,6 +560,8 @@ sub find_alignment_dir {
 
 	my ($i) = $item =~ /alignment(\d+)/;
 
+        push @alignmentdirs, $full_file;
+
 	$logger->trace("Is $i higher than $highest?");
 	$highest = $i if($i > $highest);
 
@@ -559,7 +569,18 @@ sub find_alignment_dir {
 
     if($highest) {
 	$logger->trace("Found alignment dir: " . $alignmentdir . "/alignment$highest");
-	return $alignmentdir . "/alignment$highest";
+        my $highestalignmentdir = $alignmentdir . "/alignment$highest";
+
+        # We're going to cycle through all the alignment directories we found and
+        # clean them up
+        for my $dir (@alignmentdirs) {
+            # We don't want to remove the directory we're returning
+            next if($dir eq $highestalignmentdir);
+	    $logger->trace("Removing alignment  directory $dir");
+            remove_tree($dir);
+        }
+
+	return $highestalignmentdir;
     } else {
 	return undef;
     }
