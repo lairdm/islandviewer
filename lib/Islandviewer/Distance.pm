@@ -40,6 +40,7 @@ use File::Basename;
 use File::Spec;
 use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
+use Data::UUID;
 
 use MicrobeDB::Version;
 use MicrobeDB::Versions;
@@ -400,8 +401,10 @@ sub submit_sets {
     # If we're running in blocking mode, we need the watchdog module
     my $zkroot;
     if($block) {
-	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . time);
-	$zkroot = $cfg->{zk_root} . time;
+	my $ug = Data::UUID->new;
+	my $suffix = $ug->create_str();
+	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . $suffix);
+	$zkroot = $cfg->{zk_root} . $suffix;
 	$logger->debug("Making zookeeper root $zkroot");
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $zkroot);
