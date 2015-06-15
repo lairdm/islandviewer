@@ -67,6 +67,9 @@ sub submit {
 
     print QSUB "# Build by Islandviewer::Torque\n\n";
     print QSUB "echo \"Running cvtree for set $name\"\n";
+    print QSUB "\n";
+    print QSUB "#PBS -l walltime=10:00:00\n";
+    print QSUB "\n";
     print QSUB "$cmd\n";
 
     close QSUB;
