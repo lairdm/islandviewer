@@ -470,6 +470,8 @@ sub run_and_load {
     # We also need to record the attempt so we know
     # later what has been tried
 
+    $logger->debug("running and loading cvtree, set $set, watchdog: $watchdog");
+
     die "Error, can't access set file $set/set.txt"
 	unless( -f "$set/set.txt" && -r "$set/set.txt" );
 
@@ -484,6 +486,7 @@ sub run_and_load {
 	die "Error, can't prepare statement:  $DBI::errstr";
     $self->{cvtree_distance_sth} = $cvtree_distance;
 
+    $logger->debug("Opening set $set/set.txt");
     open(SET, "<$set/set.txt") or die "Error, can't open $set: $!";
 
     # We're going bulk load the results after the fact
@@ -499,7 +502,9 @@ sub run_and_load {
 	my ($first, $second, $first_file, $second_file) =
 	    split "\t";
 
+        $logger->debug("Running cvtree for: $first, $second, $first_file, $second_file");
 	my $dist = $self->run_cvtree($first, $second, $first_file, $second_file);
+        $logger->debug("Dist was: $dist");
 	
 	if($dist > 0) {
 	    # Success! Insert it to the Distance table and mark it
@@ -526,17 +531,20 @@ sub run_and_load {
     close RESULTLOG;
 
     # Bulk load the results
-    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP");
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP") or
+        $logger->logdie("Error loading $set/bulklog.txt: " . $DBI::errstr);
     
     # Reset the timer just in case the load takes a while
     $watchdog->kick_dog()
 	if($watchdog);
 
 
-    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)");
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)") or
+        $logger->logdie("Error loading $set/bulkload.txt:" . $DBI::errstr);
 
     # And we're done.
 
+    $logger->info("Finished run and load for set $set");
 }
 
 sub run_cvtree {

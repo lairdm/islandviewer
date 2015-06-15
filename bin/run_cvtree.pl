@@ -36,7 +36,7 @@ MAIN: {
     if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
-	$logger->debug("Logging initialize for set $set");
+	$logger->debug("Logging initialize for set $set, workdir $workdir, blocking: $root");
     }
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
@@ -70,9 +70,10 @@ MAIN: {
     # Now we have to actually run the set through cvtree
     eval {
 	my $dist_obj = Islandviewer::Distance->new({workdir => "$workdir/$set" });
-	$logger->debug("Starting cvtree run");
+	$logger->debug("Starting cvtree run, set $set, watchdog $watchdog");
 
 	$dist_obj->run_and_load("$workdir/$set", $watchdog);
+        $logger->info("Finished cvtree run normally, I hope.")
     };
 
     if($@) {
@@ -83,4 +84,6 @@ MAIN: {
 	close ERRORLOG;
 	die "Error running cvtree task: $@"
     }
+
+    $logger->info("Exiting run_cvtree.pl");
 };
