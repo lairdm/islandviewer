@@ -45,14 +45,14 @@ use File::Copy;
 use File::Basename;
 use Array::Utils qw(:all);
 use Data::Dumper;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 use Islandviewer::CustomGenome;
 use Islandviewer::MicrobeDBGenome;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 use Bio::SeqIO;
 use Bio::Seq;
@@ -1009,37 +1009,36 @@ sub lookup_genome {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-#));
-								      version_id => $self->{microbedb_ver} ));
+        my $rep_results = $schema->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    # One extra step, we need the path to the genome file
-	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	    my ($gpo) = $search_obj->object_search($rep_results);
 
-	    $self->{name} = $rep_results->definition();
+	    $self->{name} = $rep_results->definition;
 	    $self->{accnum} = $rep_accnum;
-	    $self->{base_filename} = $gpo->gpv_directory() . $rep_results->file_name();
-	    $self->{num_proteins} = $rep_results->protein_num();
-	    $self->{total_length} = $rep_results->cds_num();
-	    $self->{formats} = $self->parse_formats($rep_results->file_types());
+	    $self->{base_filename} = File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name);
+	    $self->{num_proteins} = $rep_results->cds_num;
+	    $self->{total_length} = $rep_results->cds_num;
+	    $self->{formats} = $self->parse_formats($rep_results->file_types);
 	    $self->{type} = 'microbedb';
 	    $self->{atype} = $ATYPE_MAP->{microbedb};
-	    $self->{version} = $rep_results->version_id();
+	    $self->{version} = $rep_results->version_id;
 	    $self->{genome_read} = 1;
 
 	    # Ensure we actually have the file types the database says
-	    my $file_types = $self->find_file_types( $gpo->gpv_directory() . $rep_results->file_name() );
+	    my $file_types = $self->find_file_types( File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory(), $rep_results->file_name()) );
 
-	    if($file_types ne $rep_results->file_types()) {
-		$logger->warn("The database said we have (" . $rep_results->file_types() . ") but on the file system we found ($file_types)");
+	    if($file_types ne $rep_results->file_types) {
+		$logger->warn("The database said we have (" . $rep_results->file_types . ") but on the file system we found ($file_types)");
 	    }
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$file_types);
+	    return ($rep_results->definition,$rep_results->genomeproject->gpv_directory . $rep_results->file_name,$file_types);
 	}
     }
 

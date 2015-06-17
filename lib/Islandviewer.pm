@@ -30,6 +30,7 @@ use strict;
 use Moose;
 use Data::Dumper;
 use Date::Manip;
+use File::Spec;
 
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
@@ -39,7 +40,7 @@ use Islandviewer::Notification;
 
 use Net::ZooKeeper::WatchdogQueue;
 
-use MicrobeDB::Versions;
+use MicrobedbV2::Singleton;
 
 use Log::Log4perl qw(get_logger :nowarn);
 
@@ -99,12 +100,13 @@ sub submit_and_prep {
 
     # Now we need to move things in to place, so we're nice
     # and tidy with our file organization
-    unless(mkdir($cfg->{custom_genomes} . "/$cid")) {
-	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/$cid: $!");
+    my $cid_dir = File::Spec->catpath(undef, $cfg->{custom_genomes}, "$cid");
+    unless(mkdir($cid_dir)) {
+	$logger->error("Error, can't make custom genome directory $cid_dir: $!");
 	return 0;
     }
-    unless($genome_obj->move_and_update($cid, $cfg->{custom_genomes} . "/$cid")) {
-	$logger->error("Error, can't move files to custom directory for cid $cid");
+    unless($genome_obj->move_and_update($cid, $cid_dir)) {
+	$logger->error("Error, can't move files to custom directory $cid_dir for cid $cid");
     }
 
     # We're ready to go... return our new cid
@@ -116,7 +118,7 @@ sub log_rotate {
 
     # Build the logfile name we want to use
     my $datestr = UnixDate("now", "%Y%m%d");
-    my $logfile = $cfg->{logdir} . "/islandviewer.$datestr.log";
+    my $logfile = File::Spec->catpath(undef, $cfg->{logdir}, "islandviewer.$datestr.log");
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
 
@@ -147,13 +149,13 @@ sub submit_analysis {
     # Yes we do this in Analysis too, but I didn't think through we need
     # the version when looking up microbedb genomes in a GenomeUtil object
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     my $microbedb_ver;
-    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+    if($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
 	$microbedb_ver = $args->{microbedb_ver}
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $microbedb_ver });

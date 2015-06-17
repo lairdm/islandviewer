@@ -38,6 +38,7 @@ use File::Copy;
 use Set::IntervalTree;
 use Data::Dumper;
 use File::Path qw(remove_tree);
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::GenomeUtils;
@@ -149,7 +150,7 @@ sub runContigMover {
     my $self = shift;
 
     # We need an output directory for the output alignments
-    my $alignment_dir = $self->{workdir} . '/alignments';
+    my $alignment_dir = File::Spec->catpath(undef, $self->{workdir}, 'alignments');
     $logger->info("Making contig mover workdir: $alignment_dir");
     mkdir $alignment_dir;
     unless(-d $alignment_dir) {
@@ -179,7 +180,7 @@ sub runContigMover {
     # Build the contig mover command
     my $cmd = "cd " . $cfg->{mauve_dir} . ';';
     $cmd .= $cfg->{java_bin} . ' ' . sprintf($cfg->{contig_mover_cmd}, $alignment_dir, 
-		      $reference_genome, $draft_genome) . " &>$alignment_dir/alignment.log";
+		      $reference_genome, $draft_genome) . " &>". File::Spec->catpath(undef, $alignment_dir, 'alignment.log');
 
     $logger->trace("Using contig mover command: $cmd");
 
@@ -553,7 +554,7 @@ sub find_alignment_dir {
     my $highest = 0;
     my @alignmentdirs;
     foreach my $item (@files) {
-	my $full_file = $alignmentdir . '/' . $item;
+	my $full_file = File::Spec->catpath(undef, $alignmentdir, $item);
 	$logger->trace("Found dir $item in $full_file");
 	# If it doesn't start with "alignment", next
 	next unless($item =~ /^alignment/ && -d $full_file);
@@ -569,7 +570,7 @@ sub find_alignment_dir {
 
     if($highest) {
 	$logger->trace("Found alignment dir: " . $alignmentdir . "/alignment$highest");
-        my $highestalignmentdir = $alignmentdir . "/alignment$highest";
+        my $highestalignmentdir = File::Spec->catpath(undef, $alignmentdir, "alignment$highest");
 
         # We're going to cycle through all the alignment directories we found and
         # clean them up
@@ -596,7 +597,8 @@ sub find_by_extension {
     closedir(ADIR);
 
     # We're going to be a little lazy and just return the first
-    return "$directory/" . shift @files;
+    my $file = shift @files;
+    return File::Spec->catpath(undef, "$directory", $file);
 #    return "$directory/" .  $files[0];
 }
 

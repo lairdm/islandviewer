@@ -13,6 +13,7 @@ use Getopt::Long;
 use Date::Manip;
 use File::Spec::Functions;
 use File::Path qw(remove_tree);
+use File::Spec;
 
 BEGIN{
 # Find absolute path of script
@@ -56,7 +57,7 @@ MAIN: {
     my $datestr = UnixDate("now", "%Y%m%d");
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($cfg->{logdir}) {
-        $app->file_switch($cfg->{logdir} . "/ivpurge.$datestr.log");
+        $app->file_switch(File::Spec->catpath(undef, $cfg->{logdir}, "ivpurge.$datestr.log"));
     }
 
     $logger->info("Purging analysis older than $maxage days");

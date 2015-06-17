@@ -37,13 +37,13 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use Data::Dumper;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 
 use Islandviewer::GenomeUtils;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -298,18 +298,18 @@ sub lookup_genome {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version_id => $self->{microbedb_ver} ));
+        my $rep_results = $schema->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    # One extra step, we need the path to the genome file
-	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	    my ($gpo) = $search_obj->object_search($rep_results);
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
+	    return ($rep_results->definition, File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name),$rep_results->file_types);
 	}
     }
 

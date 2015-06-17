@@ -36,8 +36,7 @@ use Data::Dumper;
 
 #use Islandviewer::Schema;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -442,14 +441,17 @@ sub find_name {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version_id => $self->{microbedb_ver} ));
+        my $rep_results = $schema->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    return $rep_results->definition();
+	    return $rep_results->definition;
 	}
     }
 

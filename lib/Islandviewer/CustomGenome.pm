@@ -38,6 +38,7 @@ use File::Temp qw/ :mktemp /;
 use File::Basename;
 use File::Copy;
 use JSON;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
@@ -378,11 +379,11 @@ sub save_genome {
     # and tidy with our file organization
     $logger->trace("Moving genome " . $self->cid . ' in to place at ' . $cfg->{custom_genomes} . "/" . $self->cid);
 
-    unless(mkdir($cfg->{custom_genomes} . "/" . $self->cid)) {
+    unless(mkdir(File::Spec->catpath(undef, $cfg->{custom_genomes}, $self->cid))) {
 	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/" . $self->cid . ": $!");
 	return 0;
     }
-    unless($self->move_and_update($cfg->{custom_genomes} . "/" . $self->cid)) {
+    unless($self->move_and_update(File::Spec->catpath(undef, $cfg->{custom_genomes}, $self->cid))) {
 	$logger->error("Error, can't move files to custom directory for cid " . $self->cid);
     }
 

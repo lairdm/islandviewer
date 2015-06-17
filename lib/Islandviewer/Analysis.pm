@@ -34,12 +34,13 @@ use JSON;
 use Data::Dumper;
 use File::Copy::Recursive qw(dircopy);
 use Session::Token;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 use Islandviewer::Notification;
 
-use MicrobeDB::Versions;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -138,13 +139,13 @@ sub submit {
     
     my $microbedb_ver;
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we've been given a microbedb version AND its valid...
-    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+    if($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
 	$microbedb_ver = $args->{microbedb_ver}
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     # Submit the analysis!
@@ -652,7 +653,7 @@ sub clone {
 
     # We could do this with triggers but we won't, see below.
     # Make the workdir for our analysis
-    my $new_workdir = $cfg->{analysis_directory} . "/$new_aid";
+    my $new_workdir = File::Spec->catpath(undef, $cfg->{analysis_directory}, "$new_aid");
     unless(mkdir $new_workdir) {
 	# Oops, we weren't able to make the workdir...
 	$logger->logdie("Oops, we weren't able to make the workdir $new_workdir for cloned analysis $new_aid");

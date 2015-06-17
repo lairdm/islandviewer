@@ -56,7 +56,7 @@ use Islandviewer::Genome_Picker;
 use Islandviewer::CustomGenome;
 use Log::Log4perl::Level;
 
-use MicrobeDB::Versions;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $dbi;
 my $islandviewer;
@@ -173,13 +173,13 @@ sub pick_genomes {
 
     # Create a Versions object to look up the correct version
     my $microbedb_ver;
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     $logger->trace("Picking genomes for $accnum, arguments: " . Dumper($args));
 
     # If we've been given a microbedb version AND its valid... 
-    unless($args->{microbedb_version} && $versions->isvalid($args->{microbedb_version})) {
-	$args->{microbedb_version} = $versions->newest_version();
+    unless($args->{microbedb_version} && $microbedb->fetch_version($args->{microbedb_version})) {
+	$args->{microbedb_version} = $microbedb->latest();
     }
 #    print Dumper $args;
 
@@ -323,14 +323,14 @@ sub submit_complete_job {
     my $args = shift;
 
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
     my $microbedb_ver;
 
     # If we've been given a microbedb version AND its valid... 
-    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+    if($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
 	$microbedb_ver = $microbedb_ver;
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     $logger->info("Submitting genome " . $args->{cid} . " for analysis");
@@ -403,13 +403,13 @@ sub submit_job {
     my @tmpfiles;
 
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we've been given a microbedb version AND its valid... 
-    if($microbedb_ver && $versions->isvalid($microbedb_ver)) {
+    if($microbedb_ver && $microbedb->fetch_version($microbedb_ver)) {
 	$microbedb_ver = $microbedb_ver;
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     # Write out the genome file

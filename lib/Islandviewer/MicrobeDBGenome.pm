@@ -34,13 +34,12 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Carp qw( confess );
 use JSON;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
-use MicrobeDB::Versions;
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 has cid => (
     is     => 'rw',
@@ -117,11 +116,11 @@ sub BUILD {
     $cfg = Islandviewer::Config->config;
 
     # Finding microbedb version
-    my $versions = new MicrobeDB::Versions();
 
     # If we've been given a microbedb version AND its valid... 
-    unless($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
-	$args->{microbedb_ver} = $versions->newest_version();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+    unless($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
+	$args->{microbedb_ver} = $microbedb->latest();
     }
 
     $self->{microbedb_ver} = $args->{microbedb_ver};
@@ -143,24 +142,23 @@ sub loadGenome {
     # might change with new microbedb versions, so we need to always be able
     # to find it.
     $logger->trace("Searching for microbedb genome $accnum in version " .  $self->{microbedb_ver});
-    my $sobj = new MicrobeDB::Search();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-    my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $accnum,
-#));
-								      version_id => $self->{microbedb_ver} ));
+    my $rep_results = $schema->resultset('Replicon')->search( {
+        rep_accnum => $accnum,
+        version_id => $self->{microbedb_ver}
+                                                              }
+    )->first;
 	
     # We found a result in microbedb
     if( defined($rep_results) ) {
-	# One extra step, we need the path to the genome file
-	my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	my ($gpo) = $search_obj->object_search($rep_results);
 
-	$self->name( $rep_results->definition() );
+	$self->name( $rep_results->definition );
 	$self->cid( $accnum );
-	$self->filename( $gpo->gpv_directory() . $rep_results->file_name() );
-	$self->cds_num( $rep_results->cds_num() );
-	$self->rep_size( $rep_results->rep_size() );
-	$self->formats( $rep_results->file_types() );
+	$self->filename(File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name) );
+	$self->cds_num( $rep_results->cds_num );
+	$self->rep_size( $rep_results->rep_size );
+	$self->formats( $rep_results->file_types );
 	$self->contigs ( 1 );
 	$self->genome_status( 'READY' );
     }

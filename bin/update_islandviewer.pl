@@ -21,8 +21,7 @@ use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
 
-use MicrobeDB::Search;
-use MicrobeDB::Replicon;
+use MicrobedbV2::Singleton;
 
 MAIN: {
     my $cfname; my $logger;
@@ -100,10 +99,14 @@ MAIN: {
     }
 
     # We should have all the distances done now, let's do the IV
-    my $so = new MicrobeDB::Search();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # Find all the replicons in this version
-    my @reps = $so->object_search(new MicrobeDB::Replicon(version_id => $microbedb_ver, rep_type=>'chromosome'));
+    my $rep_results = $schema->resultset('Replicon')->search( {
+        rep_type => 'chromosome',
+        version_id => $microbedb_ver
+                                                              }
+    );
 
     my $dbh = Islandviewer::DBISingleton->dbh;
     my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1");
@@ -122,8 +125,8 @@ MAIN: {
 
 my $count = 0;
 
-    foreach my $curr_rep (@reps) {
-	my $accnum = $curr_rep->rep_accnum();
+    foreach my $curr_rep ($rep_results->next()) {
+	my $accnum = $curr_rep->rep_accnum;
 
 	# Has this replicon already been run before?
 	$check_analysis->execute($accnum);
@@ -134,10 +137,10 @@ my $count = 0;
 	    # Else its new so add it to the name cache
 	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name, rep_size, cds_num) VALUES (?, ?, ?, ?)", undef,
 		     $accnum,
-		     $curr_rep->definition(),
-		     $curr_rep->rep_size(),
-		     $curr_rep->cds_num()
-		) or $logger->logdie("Error inserting in to NameCache for $accnum, " . $curr_rep->definition());
+		     $curr_rep->definition,
+		     $curr_rep->rep_size,
+		     $curr_rep->cds_num
+		) or $logger->logdie("Error inserting in to NameCache for $accnum, " . $curr_rep->definition);
 	}
 	
 	# Submit the replicon for processing
