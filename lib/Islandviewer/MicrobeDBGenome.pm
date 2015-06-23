@@ -144,7 +144,7 @@ sub loadGenome {
     $logger->trace("Searching for microbedb genome $accnum in version " .  $self->{microbedb_ver});
     my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-    my $rep_results = $schema->resultset('Replicon')->search( {
+    my $rep_results = $microbedb->resultset('Replicon')->search( {
         rep_accnum => $accnum,
         version_id => $self->{microbedb_ver}
                                                               }

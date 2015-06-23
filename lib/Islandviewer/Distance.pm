@@ -170,7 +170,7 @@ sub calculate_all {
 
     # Search microbedb for chromosomes in the version we're
     # running against
-    my $rep_results = $schema->resultset('Replicon')->search( {
+    my $rep_results = $microbedb->resultset('Replicon')->search( {
         rep_type => 'chromosome',
         version_id => $version
                                                               }
@@ -585,7 +585,7 @@ sub run_cvtree {
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
-	open(RES, "<" . File::Spec(undef, $work_dir, "results.txt") or
+	open(RES, "<" . File::Spec(undef, $work_dir, "results.txt")) or
 	    die "Error opening results file $work_dir/results.txt: $!";
 
 	while(<RES>) {
@@ -615,7 +615,7 @@ sub run_cvtree {
 	mkdir $failed_dir
 	    unless( -d $failed_dir );
 
-	move(File::Spec->catpath(undef, $work_dir, "results.txt"), File::Spec->catpath(undef, $failed_dir, "$first.$second.txt");
+	move(File::Spec->catpath(undef, $work_dir, "results.txt"), File::Spec->catpath(undef, $failed_dir, "$first.$second.txt"));
     }
 
     return -1;

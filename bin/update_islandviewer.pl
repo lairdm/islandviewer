@@ -102,7 +102,7 @@ MAIN: {
     my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # Find all the replicons in this version
-    my $rep_results = $schema->resultset('Replicon')->search( {
+    my $rep_results = $microbedb->resultset('Replicon')->search( {
         rep_type => 'chromosome',
         version_id => $microbedb_ver
                                                               }
@@ -126,7 +126,7 @@ MAIN: {
 my $count = 0;
 
     foreach my $curr_rep ($rep_results->next()) {
-	my $accnum = $curr_rep->rep_accnum;
+	my $accnum = $curr_rep->rep_accnum . '.' . $curr_rep->rep_version;
 
 	# Has this replicon already been run before?
 	$check_analysis->execute($accnum);
