@@ -119,10 +119,22 @@ sub run_sigi {
     # formats string for microbedb its not always accurate, if we've
     # gotten to this point we must have generated the needed files,
     # but sanity check anyways.
-    unless(-f "$filename.embl" ) {
-#    unless($formats->{embl}) {
-	$logger->logdie("Error, we don't have the needed embl file... looking in $filename");
-#	return ();
+
+    my $embl_outfile;
+    if(-f "$filename.embl" ) {
+        $logger->debug("We have the EMBL file for $filename, good to go!");
+        $embl_outfile = "$filename.embl";
+    } elsif(-f "$filename.gbk") {
+        $logger->warn("We don't have an EMBL file for $filename, but we do have a Genbank, converting...");
+
+        $embl_outfile = $self->_make_tempfile();
+        $embl_outfile .= '.embl';
+        push @tmpfiles, $embl_outfile;
+        $genome_obj->convert_file("$filename.gbk", $embl_outfile);
+
+        unless(-f $embl_outfile) {
+            $logger->logdie("Failed in generating EMBL file $embl_outfile, aborting!");
+        }
     }
 
     # Now we need to start buildingthe command we'll run
@@ -145,7 +157,7 @@ sub run_sigi {
     push @tmpfiles, $tmp_stderr;
 
     # Build the command further...
-    $cmd .= " input=$filename.embl output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM 2>$tmp_stderr";
+    $cmd .= " input=$embl_outfile output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM 2>$tmp_stderr";
 
     $logger->trace("Sending the sigi command: $cmd");
 

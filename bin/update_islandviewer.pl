@@ -115,7 +115,7 @@ MAIN: {
     my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Sigi} = {
-			      MIN_GI_SIZE => 4000};
+			      extended_ids => 1, MIN_GI_SIZE => 4000};
     $args->{Dimob} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};

@@ -122,7 +122,7 @@ sub run_dimob {
 	return ();
     }    
 
-    $logger->trace("Grenome ($name, $filename), found formats: $format_str");
+    $logger->trace("Genome ($name, $filename), found formats: $format_str");
 
     # To make life easier, break out the formats available
     my $formats;
@@ -353,7 +353,7 @@ sub lookup_genome {
         my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
         my $rep_results = $microbedb->resultset('Replicon')->search( {
-            rep_accnum => $accnum,
+            rep_accnum => $rep_accnum,
             version_id => $self->{microbedb_ver}
                                                                   }
             )->first;

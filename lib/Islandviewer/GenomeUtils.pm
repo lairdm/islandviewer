@@ -629,6 +629,74 @@ sub read_and_convert {
     
 }    #end of gbk_or_embl_to_other_formats
 
+
+# We really need to go back to square one and manage the files and
+# formats better. Or improve the analysis pieces so they share
+# formats... ugh. But for now, a tool to convert a genbank to embl
+# and vise versa. Mainly needed so Sigi can deal with MicrobeDB,
+# since Sigi needs Embl and we no longer generate it in MicrobeDB v2
+
+sub convert_file {
+    my $self = shift;
+    my $filename = shift;
+    my $outfile = shift;
+
+    #seperate extension from filename
+    $filename =~ s/\/\//\//g;
+    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+
+    $outfile =~ s/\/\//\//g;
+    my ( $outbase, $outextension ) = $outfile =~ /(.+)\.(\w+)/;
+
+    $logger->debug("From filename $filename got $file, $extension");
+    $logger->debug("From outfile $outfile got $outbase, $outextension");
+
+    my $in;
+
+    if ( $extension =~ /embl/ ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbff/) ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } else {
+	$logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
+    }
+
+    my $out;    
+    if ( $outextension =~ /embl/ ) {
+
+        $out = Bio::SeqIO->new(
+            -file   => ">" . $outfile,
+            -format => 'EMBL'
+            );
+
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbff/) ) {
+        $out = Bio::SeqIO->new(
+            -file   => ">" . $outfile,
+            -format => 'GENBANK'
+            );
+    } else {
+        $logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
+    }
+
+    while ( my $seq = $in->next_seq() ) {
+
+	#Create gbk or embl file
+	$out->write_seq($seq);
+
+    }
+
+}
+
 sub genome_stats {
     my $self = shift;
     my $base_filename = shift;
@@ -1038,7 +1106,7 @@ sub lookup_genome {
 		$logger->warn("The database said we have (" . $rep_results->file_types . ") but on the file system we found ($file_types)");
 	    }
 
-	    return ($rep_results->definition,$rep_results->genomeproject->gpv_directory . $rep_results->file_name,$file_types);
+	    return ($rep_results->definition,File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name),$file_types);
 	}
     }
 
