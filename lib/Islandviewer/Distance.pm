@@ -177,7 +177,7 @@ sub calculate_all {
         );
 
     # Loop through the results and store them away
-    foreach my $curr_rep_obj ($rep_results->next()) {
+    while( my $curr_rep_obj = $rep_results->next() ) {
 	my $rep_accnum = $curr_rep_obj->rep_accnum;
 	my $filename = $curr_rep_obj->get_filename('faa');
 
