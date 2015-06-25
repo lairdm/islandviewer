@@ -148,7 +148,7 @@ sub create_qsub {
     }
 
     if($microbedb_database) {
-        print QSUB "# Setting MicrobeDB database to use\n"
+        print QSUB "# Setting MicrobeDB database to use\n";
         print QSUB "export MicrobeDB=\"$microbedb_database\"\n\n";
     }
 
