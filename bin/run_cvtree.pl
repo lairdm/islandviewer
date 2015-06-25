@@ -53,15 +53,21 @@ MAIN: {
     # If we're working in blocking mode we make a watchdog
     if($root) {
 	eval {
-	    $logger->debug("Creating zookeeper node $root/pid".$$."set.".$set);
+            my $timer_node = "$root/pid".$$."set.".$set;
+	    $logger->debug("Creating zookeeper node $timer_node");
 
 	    $watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $root);
 
-            $watchdog->create_timer("pid".$$."set".$set);
+            my $node_info = $watchdog->fetch_node($root);
+            $logger->debug("About root: $node_info");
+
+            $logger->debug("Creating timer $timer_node");
+            $watchdog->create_timer($timer_node);
 	    # We're throwing away the set because we're not
 	    # actually doing it that way, we get passed the
 	    # set on our command line
+            $logger->debug("Consuming queue");
 	    $watchdog->consume();
 	};
 	if($@) {
