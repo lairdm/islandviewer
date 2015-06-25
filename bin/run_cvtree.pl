@@ -80,8 +80,9 @@ MAIN: {
     };
 
     if($@) {
-	open(ERRORLOG, ">>" . File::Spec->catpath(undef, $set_dir, "error.log")) or
-	    die "Wow, we're really in trouble! Can't open error log!";
+        my $error_log = ">>" . File::Spec->catpath(undef, $set_dir, "error.log";
+	open(ERRORLOG, $error_log) or
+	    die "Wow, we're really in trouble! Can't open error log! $error_log: $!";
 	print ERRORLOG "Error running cvtree task: $@";
 	$logger->error("Error running cvtree task: $@");
 	close ERRORLOG;
