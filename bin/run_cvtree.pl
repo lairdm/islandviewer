@@ -53,7 +53,8 @@ MAIN: {
     # If we're working in blocking mode we make a watchdog
     if($root) {
 	eval {
-            my $hostname = chomp(`hostname`);
+            my $hostname = `hostname`;
+            chomp $hostname;
             $logger->debug("Running cvtree on host $hostname");
 
             my $timer_node = "$root/pid".$$."set.".$set;
