@@ -66,6 +66,23 @@ sub submit {
 	die "Error, can't open qsub file $workdir/qsub/$name.qsub: $!";
 
     print QSUB "# Build by Islandviewer::Torque\n\n";
+
+    # We need to set the environment variable for the 
+    # MicrobeDB API, so it knows what database to connect to
+    my $microbedb_database;
+    if($cfg->{microbedb}) {
+        $microbedb_database = $cfg->{microbedb};
+    } elsif($ENV{"MicrobeDBV2"}) {
+        $microbedb_database = $ENV{"MicrobeDBV2"};
+    } elsif($ENV{"MicrobeDB"}) {
+        $microbedb_database = $ENV{"MicrobeDB"};
+    }
+
+    if($microbedb_database) {
+        print QSUB "# Setting MicrobeDB database to use\n"
+        print QSUB "export MicrobeDB=\"$microbedb_database\"\n\n";
+    }
+
     print QSUB "echo \"Running cvtree for set $name\"\n";
     print QSUB "\n";
     print QSUB "#PBS -l walltime=10:00:00\n";

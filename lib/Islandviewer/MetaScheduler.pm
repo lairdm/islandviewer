@@ -135,6 +135,23 @@ sub create_qsub {
 	or $logger->logdie("Error creating qsub file $qsub_file: $@");
 
     print QSUB "# qsub file for Islandviewer\n\n";
+
+    # We need to set the environment variable for the 
+    # MicrobeDB API, so it knows what database to connect to
+    my $microbedb_database;
+    if($cfg->{microbedb}) {
+        $microbedb_database = $cfg->{microbedb};
+    } elsif($ENV{"MicrobeDBV2"}) {
+        $microbedb_database = $ENV{"MicrobeDBV2"};
+    } elsif($ENV{"MicrobeDB"}) {
+        $microbedb_database = $ENV{"MicrobeDB"};
+    }
+
+    if($microbedb_database) {
+        print QSUB "# Setting MicrobeDB database to use\n"
+        print QSUB "export MicrobeDB=\"$microbedb_database\"\n\n";
+    }
+
     print QSUB "echo \"Starting submission, command: $cmd\"\n";
     print QSUB "$cmd\n";
 
