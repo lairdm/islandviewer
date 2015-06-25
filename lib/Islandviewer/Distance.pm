@@ -312,7 +312,7 @@ sub build_sets {
 		mkdir $cvtree_dir
 		    or die "Error making workdir $cvtree_dir: $!";
 	    }
-            my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, 'cvtree_$job');
+            my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job");
             my $cvtree_set_file = File::Spec->catpath(undef, $cvtree_dir, 'set.txt');
 	    open $fh, ">$cvtree_set_file" 
 		or die "Error opening set file $cvtree_set_file: $!";
