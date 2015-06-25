@@ -307,13 +307,15 @@ sub build_sets {
 	unless($i) {
 	    # Start a new batch directory
 	    close $fh if($fh);
-	    unless( -d File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job") ) {
-		mkdir File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job")
-		    or die "Error making workdir " . $self->{workdir} . '/' . "cvtree_$job";
+            my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job");
+	    unless( -d $cvtree_dir ) {
+		mkdir $cvtree_dir
+		    or die "Error making workdir $cvtree_dir: $!";
 	    }
             my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, 'cvtree_$job');
-	    open $fh, ">" . File::Spec->catpath(undef, $cvtree_dir, 'set.txt') 
-		or die "Error opening set file $self->{workdir}/cvtree_$job/set.txt";
+            my $cvtree_set_file = File::Spec->catpath(undef, $cvtree_dir, 'set.txt');
+	    open $fh, ">$cvtree_set_file" 
+		or die "Error opening set file $cvtree_set_file: $!";
 	}
 
 	my ($first, $second) = split ':', $pair;
