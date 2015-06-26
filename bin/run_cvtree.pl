@@ -80,7 +80,7 @@ MAIN: {
     }
 
     # Now we have to actually run the set through cvtree
-    my $set_dir = File::Spec->catpath(undef, $workdir, '$set');
+    my $set_dir = File::Spec->catpath(undef, $workdir, "$set");
     eval {
 	my $dist_obj = Islandviewer::Distance->new({workdir => $set_dir });
 	$logger->debug("Starting cvtree run, set $set, watchdog $watchdog");
