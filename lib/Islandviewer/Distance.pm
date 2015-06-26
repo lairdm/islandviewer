@@ -587,7 +587,7 @@ sub run_cvtree {
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
-	open(RES, "<" . File::Spec(undef, $work_dir, "results.txt")) or
+	open(RES, "<" . File::Spec->catpath(undef, $work_dir, "results.txt")) or
 	    die "Error opening results file $work_dir/results.txt: $!";
 
 	while(<RES>) {
