@@ -42,7 +42,10 @@ use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
 use Data::UUID;
 
-use MicrobedbV2::Singleton;
+use MicrobeDB::Version;
+use MicrobeDB::Versions;
+use MicrobeDB::Search;
+use MicrobeDB::GenomeProject;
 
 use Net::ZooKeeper::WatchdogQueue;
 
@@ -165,25 +168,19 @@ sub calculate_all {
     die "Error, not a valid version"
 	unless($version);
 
-    # Fetch the microbedb library singleton
-    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+    # Create the filter on what type of records we're looking for
+    my $rep_obj = new MicrobeDB::Replicon( version_id => $version,
+	                                   rep_type => 'chromosome' );
 
-    # Search microbedb for chromosomes in the version we're
-    # running against
-    my $rep_results = $microbedb->resultset('Replicon')->search( {
-        rep_type => 'chromosome',
-        version_id => $version
-                                                              }
-        );
+    # Create the search object
+    my $search_obj = new MicrobeDB::Search();
+
+    # do the actual search
+    my @result_objs = $search_obj->object_search($rep_obj);
 
     # Loop through the results and store them away
-    while( my $curr_rep_obj = $rep_results->next() ) {
-	my $rep_accnum = $curr_rep_obj->rep_accnum;
-
-        # Backwards compatibility, add the version number if
-        # it's MicrobeDB v2
-        $rep_accnum .= '.' . $curr_rep_obj->rep_version 
-            unless($rep_accnum =~ /\./);
+    foreach my $curr_rep_obj (@result_objs) {
+	my $rep_accnum = $curr_rep_obj->rep_accnum();
 	my $filename = $curr_rep_obj->get_filename('faa');
 
 	$replicon->{$rep_accnum} = $filename
@@ -312,15 +309,12 @@ sub build_sets {
 	unless($i) {
 	    # Start a new batch directory
 	    close $fh if($fh);
-            my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job");
-	    unless( -d $cvtree_dir ) {
-		mkdir $cvtree_dir
-		    or die "Error making workdir $cvtree_dir: $!";
+	    unless( -d $self->{workdir} . '/' . "cvtree_$job" ) {
+		mkdir $self->{workdir} . '/' . "cvtree_$job"
+		    or die "Error making workdir " . $self->{workdir} . '/' . "cvtree_$job";
 	    }
-            my $cvtree_dir = File::Spec->catpath(undef, $self->{workdir}, "cvtree_$job");
-            my $cvtree_set_file = File::Spec->catpath(undef, $cvtree_dir, 'set.txt');
-	    open $fh, ">$cvtree_set_file" 
-		or die "Error opening set file $cvtree_set_file: $!";
+	    open $fh, ">$self->{workdir}/cvtree_$job/set.txt" 
+		or die "Error opening set file $self->{workdir}/cvtree_$job/set.txt";
 	}
 
 	my ($first, $second) = split ':', $pair;
@@ -366,7 +360,7 @@ sub add_replicon {
     unless($filename =~ /^\//) {
 	# The file doesn't start with a /, its not an absolute path
 	# fix it up, assume its under the custom_genomes folder
-	$filename = File::Spec->catpath(undef, $cfg->{custom_genomes}, "$filename");
+	$filename = $cfg->{custom_genomes} . "/$filename";
     }
 
     # Filenames are just saved as basenames, check if the fasta version exists
@@ -478,9 +472,8 @@ sub run_and_load {
 
     $logger->debug("running and loading cvtree, set $set, watchdog: $watchdog");
 
-    my $set_file = File::Spec->catpath(undef, $set, 'set.txt');
-    die "Error, can't access set file $set_file"
-	unless( -f $set_file && -r $set_file );
+    die "Error, can't access set file $set/set.txt"
+	unless( -f "$set/set.txt" && -r "$set/set.txt" );
 
     # Fetch the DBH
     my $dbh = Islandviewer::DBISingleton->dbh;
@@ -498,9 +491,9 @@ sub run_and_load {
 
     # We're going bulk load the results after the fact
     # for speed, so open some logging file
-    open(RESULTSET, ">" . File::Spec->catpath(undef, $set, "bulkload.txt")) or
+    open(RESULTSET, ">$set/bulkload.txt") or
 	die "Error opening $set/bulkload.txt output file: $!";
-    open(RESULTLOG, ">" . File::Spec->catpath(undef, $set, "bulklog.txt")) or
+    open(RESULTLOG, ">$set/bulklog.txt") or
 	die "Error opening $set/bulklog.txt log file: $!";
 
     while(<SET>) {
@@ -510,7 +503,16 @@ sub run_and_load {
 	    split "\t";
 
         $logger->debug("Running cvtree for: $first, $second, $first_file, $second_file");
-	my $dist = $self->run_cvtree($first, $second, $first_file, $second_file);
+
+	my $dist = 0;
+	eval {
+	    $dist = $self->run_cvtree($first, $second, $first_file, $second_file);
+	};
+
+	if($@) {
+	    $logger->error("Problem running $first, $second, skipping: $@");
+	}
+
         $logger->debug("Dist was: $dist");
 	
 	if($dist > 0) {
@@ -572,7 +574,7 @@ sub run_cvtree {
     $second_file =~ s/\.faa$//;
 
     # Make the input file
-    open(INPUT, ">" . File::Spec->catpath(undef, $work_dir, "cvtree.txt")) or
+    open(INPUT, ">$work_dir/cvtree.txt") or
 	die "Error, can't create cvtree input file $work_dir/cvtree.txt: $!";
 
     print INPUT "2\n";
@@ -581,10 +583,7 @@ sub run_cvtree {
 
     close INPUT;
 
-    my $cvtree_file = File::Spec->catpath(undef, $work_dir, 'cvtree.txt');
-    my $results_file = File::Spec->catpath(undef, $work_dir, 'results.txt');
-    my $output_file = File::Spec->catpath(undef, $work_dir, 'output.txt');
-    my $cmd = sprintf($cfg->{cvtree_cmd}, $cvtree_file, $results_file, $output_file);
+    my $cmd = sprintf($cfg->{cvtree_cmd}, "$work_dir/cvtree.txt", "$work_dir/results.txt", "$work_dir/output.txt");
 
     my $ret = system($cmd);
 
@@ -592,7 +591,7 @@ sub run_cvtree {
 
     # did we get a non-zero return value? If so, cvtree failed
     unless($ret) {
-	open(RES, "<" . File::Spec->catpath(undef, $work_dir, "results.txt")) or
+	open(RES, "<$work_dir/results.txt") or
 	    die "Error opening results file $work_dir/results.txt: $!";
 
 	while(<RES>) {
@@ -618,11 +617,10 @@ sub run_cvtree {
 
     # Are we saving failed runs for later examination?
     if($cfg->{save_failed}) {
-        my $failed_dir = File::Spec->catpath(undef, $work_dir, 'failed');
-	mkdir $failed_dir
-	    unless( -d $failed_dir );
+	mkdir "$work_dir/failed"
+	    unless( -d "$work_dir/failed" );
 
-	move(File::Spec->catpath(undef, $work_dir, "results.txt"), File::Spec->catpath(undef, $failed_dir, "$first.$second.txt"));
+	move("$work_dir/results.txt", "$work_dir/failed/$first.$second.txt");
     }
 
     return -1;
@@ -635,7 +633,7 @@ sub find_sets {
 	die "Error, can't opendir $self->{workdir}";
 
     # We only want to find the directories starting with "cvtree_"
-    my @sets = grep { /^cvtree_/ && -d File::Spec->catpath(undef, $self->{workdir}, "$_") } readdir($dh);
+    my @sets = grep { /^cvtree_/ && -d "$self->{workdir}/$_" } readdir($dh);
 
     closedir $dh;
 
@@ -741,13 +739,13 @@ sub set_version {
     my $v = shift;
 
     # Create a Versions object to look up the correct version
-    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+    my $versions = new MicrobeDB::Versions();
 
     # If we're not given a version, use the latest
-    $v = $microbedb->latest() unless($v);
+    $v = $versions->newest_version() unless($v);
 
     # Is our version valid?
-    return 0 unless($microbedb->fetch_version($v));
+    return 0 unless($versions->isvalid($v));
 
     return $v;
 }
