@@ -94,6 +94,9 @@ sub submit {
     my $qsub_cmd = $cfg->{qsub_cmd} .
 	" -d $workdir -N $name $qsub_file";
 
+    $logger->debug("Issuing command: $qsub_cmd");
+
+    # Pipe to stdin
     open(CMD, '-|', $qsub_cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
