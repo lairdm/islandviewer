@@ -31,6 +31,7 @@ package Islandviewer::Torque;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use Cwd;
 
 use Islandviewer::Config;
 
@@ -91,6 +92,10 @@ sub submit {
 
     close QSUB;
 
+    my $cwd = getcwd;
+    $logger->debug("Stashing cwd $cwd, switching to /");
+    chdir '/';
+
     my $qsub_cmd = $cfg->{qsub_cmd} .
 	" -d $workdir -N $name $qsub_file";
 
@@ -100,6 +105,9 @@ sub submit {
     open(CMD, '-|', $qsub_cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
+
+    $logger->debug("Switching cwd back to $cwd");
+    chdir $cwd;
 
     my $return_code = ${^CHILD_ERROR_NATIVE};
 
