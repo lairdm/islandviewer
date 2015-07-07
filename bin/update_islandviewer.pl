@@ -23,9 +23,16 @@ use Islandviewer::Distance;
 
 use MicrobedbV2::Singleton;
 
+my $host = 'localhost';
+my $port = 8211;
+my $handle;
+my $alarm_timeout = 60;
+my $protocol_version = '1.0';
+
 MAIN: {
-    my $cfname; my $logger;
-    my $res = GetOptions("config=s" => \$cfname
+    my $cfname; my $logger; my $doislandpick;
+    my $res = GetOptions("config=s" => \$cfname,
+			 "do-islandpick" => \$doislandpick,
     );
 
     die "Error, no config file given"
@@ -55,6 +62,16 @@ MAIN: {
 	$logger->logdie("Error, workdir already exists for today, not proceeding");
     }
     mkdir $base_work_dir;
+
+    $logger->info("Connecting to Islandviewer server $host:$port");
+    $host = $cfg->{daemon_host}
+        if($cfg->{daemon_host});
+    $port = $cfg->{tcp_port}
+        if($cfg->{tcp_port});
+
+    if($doislandpick) {
+	myconnect($host, $port);
+    }
 
     my $microbedb_ver; my $sets_run;
     my $sets_run_last_cycle = 99999999;
@@ -111,6 +128,8 @@ MAIN: {
     my $dbh = Islandviewer::DBISingleton->dbh;
     my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1");
 
+    my $find_analysis = $dbh->prepare("SELECT Analysis.aid, GIAnalysisTask.parameters FROM Analysis, GIAnalysisTask WHERE Analysis.aid = ? AND Analysis.aid = GIAnalysisTask.aid_id AND prediction_method = 'Islandpick' AND default_analysis = 1");
+
     # We're going to use the same arguments for all the runs
     my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
@@ -123,15 +142,43 @@ MAIN: {
     $args->{default_analysis} = 1;
     $args->{email} = 'lairdm@sfu.ca';
 
-my $count = 0;
+    my $count = 0;
 
     foreach my $curr_rep ($rep_results->next()) {
 	my $accnum = $curr_rep->rep_accnum . '.' . $curr_rep->rep_version;
 
 	# Has this replicon already been run before?
 	$check_analysis->execute($accnum);
+
+	# Skip this step of checking Islandpicks if we've been instructed to
+	next unless($doislandpick);
+
 	if(my @row = $check_analysis->fetchrow_array) {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
+
+	    $logger->debug("Checking if we should try rerunning Islandpick");
+	    $find_analysis->execute($row[0]);
+
+	    # See if there's an existing Islandpick for this analysis,
+	    # if not, rerun it to see if we now get an Islandpick using the new
+	    # genomes we've added
+	    if(my @a_row = $find_analysis->fetchrow_array) {
+		eval {
+		    my $json_obj = from_json($row[1]);
+
+		    unless ($json_obj->{comparison_genomes}) {
+			my $message = build_req($row[0]);
+			$logger->info("No existing Islandpick found for analysis, rerunning " . $row[0]);
+			my $received = send_req($message);
+			$logger->info("Received back message: " . $received);
+		    }
+		};
+		if($@) {
+		    $logger->error("Error decoding json or submitting ". $row[0] . ": " . $row[1] . ": " . $@);
+		}
+	    }
+	    
+	    # Move on to the next replicon
 	    next;
 	} else {
 	    # Else its new so add it to the name cache
@@ -175,4 +222,118 @@ my $count = 0;
     }
 
     $logger->info("All analysis should now be submitted");
+}
+
+sub myconnect {
+    my $host = shift;
+    my $port = shift || 8211;
+
+    $handle = IO::Socket::INET->new(Proto     => "tcp",
+				    PeerAddr  => $host,
+				    PeerPort  => $port)
+       or die "can't connect to port $port on $host: $!";
+
+}
+
+sub send_req {
+    my $msg = shift;
+    my $received = '';
+
+    print "Sending: $msg\n";
+
+    # Check if the message ends with a LF, if not
+    # add one
+    $msg .= "\n" unless($msg =~ /\n$/);
+    my $length = length $msg;
+
+    # Make sure the socket is still open and working
+    if(! defined $handle->connected) {
+#    if($handle->connected ~~ undef) {
+	return;
+    }
+
+    # Set up an alarm, we don't want to get stuck
+    # since we are allowing blocking in the send
+    # (the server might not be ready to receive, it's
+    # not multi-threaded, just multiplexed)
+    eval {
+	local $SIG{ALRM} = sub { die "timeout\n" };
+	alarm $alarm_timeout;
+	
+	# While we still have data to send
+	while($length > 0) {
+	    my $rv = $handle->send($msg, 0);
+
+	    # Oops, did we fail to send to the socket?
+	    unless(defined $rv) {
+		# Turn the alarm off!
+		alarm 0;
+		return undef;
+	    }
+
+	    # We've sent some or all of the buffer, record that
+	    $length -= $rv;
+
+	}
+
+	# The message is sent, now we wait for a reply, or until
+	# our alarm goes off
+	while($received !~ /\n$/) {
+	    my $data;
+	    # Receive the response and put it in the queue
+	    my $rv = $handle->recv($data, POSIX::BUFSIZ, 0);
+	    unless(defined($rv)) {
+		alarm 0;
+		return undef;
+	    }
+	    $received .= $data;
+
+	    if($received) {
+		my $status = $handle->send(' ', 0);
+		unless(defined($status)) {
+		    last;
+		}
+	    }
+	}
+
+	# We've successfully made our request, clear the alarm
+	alarm 0;
+    };
+    # Did we get any errors back?
+    if($@) {
+	# Uh-oh, we had an alarm, the iteration timed out
+	if($@ eq "timeout\n") {
+	    return undef;
+	} else {
+	    return undef;
+	}
+    }
+
+    # Success! Return the results
+    return $received;
+}
+
+sub build_req {
+    my $aid = shift;
+
+    my $modules = { Islandpick => { args => { } } };
+
+    my $req = { version => $protocol_version,
+		action => 'rerun',
+		aid => $aid,
+		args => { modules => $modules }
+    };
+
+    my $req_str = to_json($req, { pretty => 1});
+
+    $req_str .= "\nEOF";
+
+    my $str = "{\n \"version\": \"$protocol_version\",\n";
+    $str .= " \"action\": \"clone\",\n";
+#    $str .= " \"max_cutoff\": \"0.48\",\n";
+#    $str .= " \"max_compare_cutoff\": \"10\",\n";
+    $str .= " \"aid\": \"$aid\"\n";
+    $str .= " }\nEOF";
+
+    return $req_str;
 }
