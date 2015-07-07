@@ -42,10 +42,7 @@ use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
 use Data::UUID;
 
-use MicrobeDB::Version;
-use MicrobeDB::Versions;
-use MicrobeDB::Search;
-use MicrobeDB::GenomeProject;
+use MicrobedbV2::Singleton;
 
 use Net::ZooKeeper::WatchdogQueue;
 
@@ -168,19 +165,17 @@ sub calculate_all {
     die "Error, not a valid version"
 	unless($version);
 
-    # Create the filter on what type of records we're looking for
-    my $rep_obj = new MicrobeDB::Replicon( version_id => $version,
-	                                   rep_type => 'chromosome' );
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-    # Create the search object
-    my $search_obj = new MicrobeDB::Search();
-
-    # do the actual search
-    my @result_objs = $search_obj->object_search($rep_obj);
+    my $rep_results = $microbedb->resultset('Replicon')->search( {
+	rep_type => 'chromosome',
+	version_id => $version
+								 }
+	);
 
     # Loop through the results and store them away
-    foreach my $curr_rep_obj (@result_objs) {
-	my $rep_accnum = $curr_rep_obj->rep_accnum();
+    foreach my $curr_rep_obj ($rep_results->next()) {
+	my $rep_accnum = $curr_rep_obj->rep_accnum . '.' . $curr_rep_obj->rep_version;
 	my $filename = $curr_rep_obj->get_filename('faa');
 
 	$replicon->{$rep_accnum} = $filename
@@ -739,13 +734,13 @@ sub set_version {
     my $v = shift;
 
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we're not given a version, use the latest
-    $v = $versions->newest_version() unless($v);
+    $v = $microbedb->latest() unless($v);
 
     # Is our version valid?
-    return 0 unless($versions->isvalid($v));
+    return 0 unless($microbedb->fetch_version($v));
 
     return $v;
 }
