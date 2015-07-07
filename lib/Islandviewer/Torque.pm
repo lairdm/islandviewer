@@ -87,6 +87,8 @@ sub submit {
     print QSUB "echo \"Running cvtree for set $name\"\n";
     print QSUB "\n";
     print QSUB "#PBS -l walltime=10:00:00\n";
+    print QSUB "#PBS -d $workdir\n";
+    print QSUB "#PBS -N $name\n";
     print QSUB "\n";
     print QSUB "$cmd\n";
 
@@ -97,7 +99,8 @@ sub submit {
     chdir '/';
 
     my $qsub_cmd = $cfg->{qsub_cmd} .
-	" -d $workdir -N $name $qsub_file";
+	" $qsub_file";
+#	" -d $workdir -N $name $qsub_file";
 
     $logger->debug("Issuing command: $qsub_cmd");
 
