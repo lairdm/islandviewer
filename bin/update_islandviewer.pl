@@ -144,7 +144,7 @@ MAIN: {
 
     my $count = 0;
 
-    foreach my $curr_rep ($rep_results->next()) {
+    while( my $curr_rep = $rep_results->next() ) {
 	my $accnum = $curr_rep->rep_accnum . '.' . $curr_rep->rep_version;
 
 	# Has this replicon already been run before?
