@@ -41,6 +41,7 @@ use File::Spec;
 use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
 use Data::UUID;
+use Data::Dumper;
 
 use MicrobedbV2::Singleton;
 
@@ -535,6 +536,7 @@ sub run_and_load {
     close RESULTLOG;
 
     # Bulk load the results
+    $logger->info("Loading bulklog for cvtree run");
     $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP") or
         $logger->logdie("Error loading $set/bulklog.txt: " . $DBI::errstr);
     
@@ -542,9 +544,13 @@ sub run_and_load {
     $watchdog->kick_dog()
 	if($watchdog);
 
-
+    $logger->info("Loading bulkload for cvtree run");
     $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)") or
         $logger->logdie("Error loading $set/bulkload.txt:" . $DBI::errstr);
+
+    # Reset the timer just in case the load takes a while
+    $watchdog->kick_dog()
+	if($watchdog);
 
     # And we're done.
 
@@ -804,6 +810,8 @@ sub block_for_cvtree {
 
 	if($expired) {
 	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
+            $timers = $watchdog->get_timers();
+            $logger->fatal("Dumping times: " . Dumper($timers));
 	    return 0;
 	}
 
