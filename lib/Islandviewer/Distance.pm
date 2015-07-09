@@ -810,7 +810,7 @@ sub block_for_cvtree {
 
 	if($expired) {
 	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
-            $timers = $watchdog->get_timers();
+            my $timers = $watchdog->get_timers();
             $logger->fatal("Dumping times: " . Dumper($timers));
 	    return 0;
 	}
