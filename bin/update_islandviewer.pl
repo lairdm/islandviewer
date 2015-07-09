@@ -118,6 +118,8 @@ MAIN: {
     # We should have all the distances done now, let's do the IV
     my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
+    $logger->info("Finding all replicons in microbedb version $microbedb_ver");
+
     # Find all the replicons in this version
     my $rep_results = $microbedb->resultset('Replicon')->search( {
         rep_type => 'chromosome',
@@ -146,15 +148,16 @@ MAIN: {
 
     while( my $curr_rep = $rep_results->next() ) {
 	my $accnum = $curr_rep->rep_accnum . '.' . $curr_rep->rep_version;
+        $logger->debug("Testing if we should run $accnum");
 
 	# Has this replicon already been run before?
 	$check_analysis->execute($accnum);
 
-	# Skip this step of checking Islandpicks if we've been instructed to
-	next unless($doislandpick);
-
 	if(my @row = $check_analysis->fetchrow_array) {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
+
+            # Skip this step of checking Islandpicks if we've been instructed to
+            next unless($doislandpick);
 
 	    $logger->debug("Checking if we should try rerunning Islandpick");
 	    $find_analysis->execute($row[0]);
