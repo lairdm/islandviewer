@@ -437,7 +437,13 @@ sub read_and_convert {
 		-format => 'GENBANK'
 		);
 	} elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
-	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
+            # This whole section needs a lot of cleanup, but for now
+            # we really don't NEED embl files except for Sigi and the Sigi
+            # module now generates a temporary embl file if needed. If we get
+            # embl files we convert them to genbank anyways. This makes the
+            # microbedb stuff easier, don't need write permission there.
+            my $outfile = '/dev/null';
+#	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
 	    $out = Bio::SeqIO->new(
 		-file   => ">" . $outfile,
 		-format => 'EMBL'
