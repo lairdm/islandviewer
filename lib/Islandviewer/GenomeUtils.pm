@@ -89,7 +89,7 @@ sub read_and_check {
     $filename =~ s/\/\//\//g;
     # A bit hacky because new NCBI paths have . in the names now
     # Cut the file name off
-    ($volume,$directories,$basefile) =
+    my ($volume,$directories,$basefile) =
         File::Spec->splitpath( $filename );
     # Check if it has an extension
     my ( $file, $extension ) = $basefile =~ /(.+)\.(\w+)/;
