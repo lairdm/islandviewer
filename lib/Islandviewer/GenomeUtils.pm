@@ -87,7 +87,14 @@ sub read_and_check {
 
     #seperate extension from filename
     $filename =~ s/\/\//\//g;
-    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+    # A bit hacky because new NCBI paths have . in the names now
+    # Cut the file name off
+    ($volume,$directories,$basefile) =
+        File::Spec->splitpath( $filename );
+    # Check if it has an extension
+    my ( $file, $extension ) = $basefile =~ /(.+)\.(\w+)/;
+    # Put the base filename back on to the path
+    $file = File::Spec->catpath(undef, $directories, $file);
 
     unless($extension) {
 	$logger->info("Didn't receive file type for $filename");
