@@ -637,9 +637,13 @@ sub purge_module {
 }
 
 # Clone an analysis and return the new analysis instance
+#
+# Cloned jobs will default to being owner 1 - a public
+# job with new custom owner
 
 sub clone {
     my $self = shift;
+    my $owner = @_ ? shift : 1;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -647,7 +651,7 @@ sub clone {
 
     # First let's clone the analysis table record
     $logger->trace("Cloning analysis record in database: " . $self->{aid});
-    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, owner_id, status, workdir, microbedb_ver, token, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
+    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
 
