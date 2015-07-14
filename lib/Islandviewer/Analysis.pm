@@ -646,6 +646,7 @@ sub clone {
     my $args = @_ ? shift : {};
 
     my $owner = exists $args->{owner_id} ? $args->{owner_id} : 1;
+    my $default_analysis = $args->{default_analysis} ? $args->{default_analysis} : 0;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -653,7 +654,7 @@ sub clone {
 
     # First let's clone the analysis table record
     $logger->trace("Cloning analysis record in database: " . $self->{aid});
-    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
+    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, $default_analysis FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
 

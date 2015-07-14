@@ -388,6 +388,7 @@ sub build_req {
 		aid => $aid,
 		args => { modules => $modules,
                           owner_id => 0,
+                          default_analysis => 1,
                           microbedb_ver => $microbedb_ver }
     };
 

@@ -239,13 +239,21 @@ sub rerun_job {
 	if($args->{clone}) {
             my $clone_args = {};
             # Pass in the owner of the cloned job if given one
-            if($args->{owner_id}) {
+            if(exists $args->{owner_id}) {
+                $logger->trace("New owner_id for $aid: " . $args->{owner_id});
                 $clone_args->{owner_id} = $args->{owner_id};
+            }
+
+            # Pass in the owner of the cloned job if given one
+            if($args->{default_analysis}) {
+                $logger->trace("New default_analysis for $aid: " . $args->{default_analysis});
+                $clone_args->{default_analysis} = $args->{default_analysis};
             }
 
             # If we have a new microbedb version for our cloned analysis
             # pass that in
             if($args->{microbedb_ver}) {
+                $logger->trace("New microbedb_ver for $aid: " . $args->{microbedb_ver});
                 $clone_args->{microbedb_ver} = $args->{microbedb_ver};
             }
 
