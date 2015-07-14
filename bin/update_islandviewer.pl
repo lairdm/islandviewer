@@ -177,7 +177,10 @@ my $skip_distance; my $update_only;
             # Skip this step of checking Islandpicks if we've been instructed to
             # and the existing Analysis isn't from this version of Microbedb we're
             # updating to
-            next unless($doislandpick && ($microbedb_ver != $row[1]));
+            unless($doislandpick && ($microbedb_ver != $row[1])) {
+                $logger->trace("$Skipping (doislandpick: $doislandpick), current microbedb $microbedb_ver vs previous run version " . $row[1]);
+                next;
+            }
 
 	    $logger->debug("Checking if we should try rerunning Islandpick");
 	    $find_analysis->execute($row[0]);
