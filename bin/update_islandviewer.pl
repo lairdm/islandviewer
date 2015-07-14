@@ -33,8 +33,10 @@ my $microbedb_ver;
 
 MAIN: {
     my $cfname; my $logger; my $doislandpick; my $picker_obj;
+    my $skip_distance;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
+                         "skip-distance" => \$skip_distance,
     );
 
     die "Error, no config file given"
@@ -78,7 +80,8 @@ MAIN: {
     # We're going to loop until we stop computing more distances,
     # this will catch dying children that might cause some of our
     # distances to not be caught
-    while(1) {
+    my $loop_inf = $skip_distance ? 0 : 1;
+    while($loop_inf) {
 	eval{
 	    # We need the trailing slash becauce the code that uses this expects
 	    # it, my bad...
@@ -162,7 +165,9 @@ MAIN: {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
 
             # Skip this step of checking Islandpicks if we've been instructed to
-            next unless($doislandpick);
+            # and the existing Analysis isn't from this version of Microbedb we're
+            # updating to
+            next unless($doislandpick && ($microbedb_ver != $row[1]));
 
 	    $logger->debug("Checking if we should try rerunning Islandpick");
 	    $find_analysis->execute($row[0]);
@@ -172,7 +177,7 @@ MAIN: {
 	    # genomes we've added
 	    if(my @a_row = $find_analysis->fetchrow_array) {
 		eval {
-		    my $json_obj = from_json($row[1]);
+		    my $json_obj = from_json($a_row[1]);
 
 		    if ($json_obj->{comparison_genomes}) {
 			$logger->info("Existing Islandpick found: " . $json_obj->{comparison_genomes});
