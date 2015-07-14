@@ -237,7 +237,7 @@ sub rerun_job {
 	# If we're told to clone, do so, otherwise just use
 	# the existing analysis object
 	if($args->{clone}) {
-            my $clone_args = {}
+            my $clone_args = {};
             # Pass in the owner of the cloned job if given one
             if($args->{owner_id}) {
                 $clone_args->{owner_id} = $args->{owner_id};
