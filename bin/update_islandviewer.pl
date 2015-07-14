@@ -136,9 +136,9 @@ MAIN: {
     my $args->{Islandpick} = {
 			      MIN_GI_SIZE => 4000};
     $args->{Sigi} = {
-			      extended_ids => 1, MIN_GI_SIZE => 4000};
-    $args->{Dimob} = {
 			      MIN_GI_SIZE => 4000};
+    $args->{Dimob} = {
+			      extended_ids => 1, MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
     $args->{default_analysis} = 1;
