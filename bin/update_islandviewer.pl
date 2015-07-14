@@ -33,10 +33,11 @@ my $microbedb_ver;
 
 MAIN: {
     my $cfname; my $logger; my $doislandpick; my $picker_obj;
-    my $skip_distance;
+my $skip_distance; my $update_only;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
                          "skip-distance" => \$skip_distance,
+                         "update-only" => \$update_only,
     );
 
     die "Error, no config file given"
@@ -235,6 +236,11 @@ MAIN: {
 	    # Move on to the next replicon
 	    next;
 	} else {
+            if($update_only) {
+                $logger->debug("We've been told to only update, not submit new, skipping $accnum");
+                next;
+            }
+
 	    # Else its new so add it to the name cache
 	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name, rep_size, cds_num) VALUES (?, ?, ?, ?)", undef,
 		     $accnum,
