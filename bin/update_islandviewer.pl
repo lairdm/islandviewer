@@ -112,8 +112,19 @@ MAIN: {
 
 	$sets_run_last_cycle = $sets_run;
     }
+
+    # We should have all the distances done now, let's do the IV
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+
     unless($microbedb_ver) {
-	die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
+        $logger->warn("We don't have a microbedb version set, did we skip distance calculation?");
+
+        # Oh, we skipped doing the distance, that's ok, just grab the latest version
+        if($skip_distance) {
+            $microbedb_ver = $microbedb->latest();
+        } else {
+            die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
+        }
     }
 
     # Initializing backend connection and making picker obj is we'r edoing an Islandpick update too
@@ -122,9 +133,6 @@ MAIN: {
 	$picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => $microbedb_ver});
 
     }
-
-    # We should have all the distances done now, let's do the IV
-    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     $logger->info("Finding all replicons in microbedb version $microbedb_ver");
 
