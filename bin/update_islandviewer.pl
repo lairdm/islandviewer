@@ -146,7 +146,7 @@ my $skip_distance; my $update_only;
     );
 
     my $dbh = Islandviewer::DBISingleton->dbh;
-    my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1");
+    my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1 ORDER BY microbedb_ver DESC");
 
     my $find_analysis = $dbh->prepare("SELECT Analysis.aid, GIAnalysisTask.parameters FROM Analysis, GIAnalysisTask WHERE Analysis.aid = ? AND Analysis.aid = GIAnalysisTask.aid_id AND prediction_method = 'Islandpick' AND default_analysis = 1");
 
@@ -389,6 +389,7 @@ sub build_req {
 		args => { modules => $modules,
                           owner_id => 0,
                           default_analysis => 1,
+                          demote_old => 1,
                           microbedb_ver => $microbedb_ver }
     };
 

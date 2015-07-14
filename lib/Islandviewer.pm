@@ -257,6 +257,12 @@ sub rerun_job {
                 $clone_args->{microbedb_ver} = $args->{microbedb_ver};
             }
 
+            # If were told to demote the old analysis
+            if($args->{demote_old}) {
+                $logger->trace("Demoting old analysis $aid: " . $args->{demote_old});
+                $clone_args->{demote_old} = $args->{demote_old};
+            }
+
             $new_analysis_obj = $analysis_obj->clone($clone_args);
 
 	} else {
