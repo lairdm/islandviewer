@@ -211,6 +211,11 @@ my $skip_distance; my $update_only;
                         next;
                     }
 
+                    @comparison_genomes = sort @comparison_genomes;
+                    $logger->info("Found Islandpick comparison genomes: @comparison_genomes");
+
+                    $logger->trace("All candidate genomes: " . Dumper($picked_genomes));
+
                     # If we previously had comparison genomes last time this
                     # replicon was run, see if they've changed and we need to rerun
 		    if ($json_obj->{comparison_genomes}) {
@@ -233,6 +238,7 @@ my $skip_distance; my $update_only;
 		    } else {
                         # We didn't have comparison genomes last time, but we should
                         # only get here if we have them now
+
 			my $message = build_req($row[0]);
 			$logger->info("No existing Islandpick found for analysis, rerunning " . $row[0]);
 			my $received = send_req($message);
@@ -310,7 +316,7 @@ sub disconnect {
 
     # Closing connection
     $logger->trace("Closing connection to backend");
-    $handle->shutdown();
+    $handle->shutdown(2);
     $handle->close();
 
     $handle = undef;
