@@ -349,13 +349,27 @@ sub find_distance_range {
     $find_dists->execute($rep_accnum, $rep_accnum) or
 	die "Error, can't execute query: $DBI::errstr";
 
+    # We're going to lookup if the found replicons are still
+    # valid in this version
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
     # Alright, now let's build a set of the distances in a data structure
     my $dists;
     while(my @row = $find_dists->fetchrow_array) {
 	# Find which way around the pair is, put it in the data structure
 	if($row[0] eq $rep_accnum) {
+            my $genome_obj = $genome_utils->fetch_genome($row[1]);
+            unless($genome_obj->genome_status() eq 'READY') {
+                $logger->warn("Replicon is no longer valid in microbedb " . $self->{microbedb_ver} . ": " . $row[1]);
+                next;
+            }
 	    $dists->{$row[1]} = $row[2];
 	} elsif($row[1] eq $rep_accnum) {
+            my $genome_obj = $genome_utils->fetch_genome($row[0]);
+            unless($genome_obj->genome_status() eq 'READY') {
+                $logger->warn("Replicon is no longer valid in microbedb " . $self->{microbedb_ver} . ": " . $row[0]);
+                next;
+            }
 	    $dists->{$row[0]} = $row[2];
 	}
     }
