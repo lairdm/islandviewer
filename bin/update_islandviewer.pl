@@ -29,6 +29,7 @@ my $port = 8211;
 my $handle;
 my $alarm_timeout = 60;
 my $protocol_version = '1.0';
+my $microbedb_ver;
 
 MAIN: {
     my $cfname; my $logger; my $doislandpick; my $picker_obj;
@@ -70,7 +71,7 @@ MAIN: {
     $port = $cfg->{tcp_port}
         if($cfg->{tcp_port});
 
-    my $microbedb_ver; my $sets_run;
+    my $sets_run;
     my $sets_run_last_cycle = 99999999;
     my $cycle_num = 1;
 
@@ -359,13 +360,15 @@ sub build_req {
 
     my $compare_hash = ( $comparison_genomes ? { comparison_genomes => $comparison_genomes } : { } );
 
-    my $modules = { Islandpick => { args => $compare_hash } };
+    my $modules = { Islandpick => { args => $compare_hash },
+                    distance => { args => { reset => 1 } } };
 
     my $req = { version => $protocol_version,
 		action => 'rerun',
 		aid => $aid,
 		args => { modules => $modules,
-                          owner_id => 0 }
+                          owner_id => 0,
+                          microbedb_ver => $microbedb_ver }
     };
 
     my $req_str = to_json($req, { pretty => 1});
