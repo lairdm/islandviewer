@@ -215,17 +215,17 @@ my $skip_distance; my $update_only;
                     @comparison_genomes = sort @comparison_genomes;
                     $logger->info("Found Islandpick comparison genomes: @comparison_genomes");
 
-                    $logger->trace("All candidate genomes: " . Dumper($picked_genomes));
+#                    $logger->trace("All candidate genomes: " . Dumper($picked_genomes));
 
                     # If we previously had comparison genomes last time this
                     # replicon was run, see if they've changed and we need to rerun
 		    if ($json_obj->{comparison_genomes}) {
-			$logger->info("Existing Islandpick found: " . $json_obj->{comparison_genomes});
+			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
+                        @old_comparison_genomes = sort @old_comparison_genomes;
+			$logger->info("Existing Islandpick found: @old_comparison_genomes");
 
 			
 			$logger->info("Found comparison genomes: @comparison_genomes");
-			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
-                        @old_comparison_genomes = sort @old_comparison_genomes;
 
 			unless(@comparison_genomes ~~ @old_comparison_genomes) {
 			    $logger->info("Picked genomes don't match previous version, resubmitting Islandpick");
