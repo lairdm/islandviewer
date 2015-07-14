@@ -20,6 +20,7 @@ use Islandviewer;
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
+use Islandviewer::Genome_Picker;
 
 use MicrobedbV2::Singleton;
 
@@ -30,7 +31,7 @@ my $alarm_timeout = 60;
 my $protocol_version = '1.0';
 
 MAIN: {
-    my $cfname; my $logger; my $doislandpick;
+    my $cfname; my $logger; my $doislandpick; my $picker_obj;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
     );
@@ -68,10 +69,6 @@ MAIN: {
         if($cfg->{daemon_host});
     $port = $cfg->{tcp_port}
         if($cfg->{tcp_port});
-
-    if($doislandpick) {
-	myconnect($host, $port);
-    }
 
     my $microbedb_ver; my $sets_run;
     my $sets_run_last_cycle = 99999999;
@@ -113,6 +110,13 @@ MAIN: {
     }
     unless($microbedb_ver) {
 	die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
+    }
+
+    # Initializing backend connection and making picker obj is we'r edoing an Islandpick update too
+    if($doislandpick) {
+	myconnect($host, $port);
+	$picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => $microbedb_ver});
+
     }
 
     # We should have all the distances done now, let's do the IV
@@ -169,7 +173,40 @@ MAIN: {
 		eval {
 		    my $json_obj = from_json($row[1]);
 
-		    unless ($json_obj->{comparison_genomes}) {
+		    if ($json_obj->{comparison_genomes}) {
+			$logger->info("Existing Islandpick found: " . $json_obj->{comparison_genomes});
+
+			my $picked_genomes = $picker_obj->find_comparative_genomes($accnum);
+			my @comparison_genomes;
+
+			# Loop through the results
+			foreach my $tmp_rep (keys %{$picked_genomes}) {
+			    # If it wasn't picked, we don't want it
+			    next unless($picked_genomes->{$tmp_rep}->{picked});
+
+			    # Push it on the list of comparison genomes
+			    push @comparison_genomes, $tmp_rep;
+			}
+
+			unless(@comparison_genomes) {
+			    $logger->info("No comparison genomes found for $accnum");
+			    next;
+			}
+			
+			$logger->info("Found comparison genomes: @comparison_genomes");
+			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
+
+			unless(@comparison_genomes ~~ @old_comparison_genomes) {
+			    $logger->info("Picked genomes don't match previous version, resubmitting Islandpick");
+			    my $genomes_str = join ' ', sort(@comparison_genomes);
+			    $logger->debug("Submitting new comparison genomes: $genomes_str");
+
+			    my $message = build_req($row[0], $genomes_str);
+			    my $received = send_req($message);
+			    $logger->info("Received back message: " . $received);
+			}
+			
+		    } else {
 			my $message = build_req($row[0]);
 			$logger->info("No existing Islandpick found for analysis, rerunning " . $row[0]);
 			my $received = send_req($message);
@@ -318,8 +355,11 @@ sub send_req {
 
 sub build_req {
     my $aid = shift;
+    my $comparison_genomes = @_ ? shift : undef;
 
-    my $modules = { Islandpick => { args => { } } };
+    my $compare_hash = ( $comparison_genomes ? { comparison_genomes => $comparison_genomes } : { } );
+
+    my $modules = { Islandpick => { args => $compare_hash } };
 
     my $req = { version => $protocol_version,
 		action => 'rerun',
