@@ -384,7 +384,7 @@ sub build_req {
                     distance => { args => { reset => 1 } } };
 
     my $req = { version => $protocol_version,
-		action => 'rerun',
+		action => 'clone',
 		aid => $aid,
 		args => { modules => $modules,
                           owner_id => 0,

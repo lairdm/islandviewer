@@ -657,6 +657,11 @@ sub clone {
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
 
+    if($args->{demote_old}) {
+        $logger->debug("We've been told to demote the old analysis " . $self->{aid} . " from being the default");
+        $dbh->do("UPDATE Analysis SET default_analysis = 0 WHERE aid = ?", undef, $self->{aid});
+    }
+
     # We could do this with triggers but we won't, see below.
     # Make the workdir for our analysis
     my $new_workdir = File::Spec->catpath(undef, $cfg->{analysis_directory}, "$new_aid");
