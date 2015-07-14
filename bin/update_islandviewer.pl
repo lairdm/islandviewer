@@ -324,7 +324,8 @@ sub build_req {
     my $req = { version => $protocol_version,
 		action => 'rerun',
 		aid => $aid,
-		args => { modules => $modules }
+		args => { modules => $modules,
+                          owner_id => 0 }
     };
 
     my $req_str = to_json($req, { pretty => 1});

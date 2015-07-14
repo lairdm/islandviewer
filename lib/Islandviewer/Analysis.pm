@@ -643,7 +643,9 @@ sub purge_module {
 
 sub clone {
     my $self = shift;
-    my $owner = @_ ? shift : 1;
+    my $args = @_ ? shift : {};
+
+    my $owner = exists $args->{owner_id} ? $args->{owner_id} : 1;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -681,6 +683,10 @@ sub clone {
     }
 
     $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $shortened_workdir, $new_aid);
+
+    if($args->{microbedb_ver}) {
+        $dbh->do("UPDATE Analysis SET microbedb_ver = ? WHERE aid = ?", undef, $args->{microbedb_ver}, $new_aid);
+    }
 
     # Next clone the prediction tasks, since we're only cloning completed runs
     # we can just directly copy

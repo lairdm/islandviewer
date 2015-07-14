@@ -237,12 +237,20 @@ sub rerun_job {
 	# If we're told to clone, do so, otherwise just use
 	# the existing analysis object
 	if($args->{clone}) {
+            my $clone_args = {}
             # Pass in the owner of the cloned job if given one
             if($args->{owner_id}) {
-                $new_analysis_obj = $analysis_obj->clone($args->{owner_id});
-            } else {
-                $new_analysis_obj = $analysis_obj->clone();
+                $clone_args->{owner_id} = $args->{owner_id};
             }
+
+            # If we have a new microbedb version for our cloned analysis
+            # pass that in
+            if($args->{microbedb_ver}) {
+                $clone_args->{microbedb_ver} = $args->{microbedb_ver};
+            }
+
+            $new_analysis_obj = $analysis_obj->clone($clone_args);
+
 	} else {
 	    $new_analysis_obj = $analysis_obj;
 	}
@@ -257,12 +265,26 @@ sub rerun_job {
 
 	    if($args->{modules}->{$m}->{args}) {
 		my $old_args = $new_analysis_obj->{module_args};
-		#my $old_args = $new_analysis_obj->fetch_args($m);
-		# Loop through and update the arguments with the new
-		# values we've received
-		foreach my $a (keys $args->{modules}->{$m}->{args}) {
-		    $old_args->{$a} = $args->{modules}->{$m}->{args}->{$a};
-		}
+
+                # Were we told to completely reset the module and
+                # run it again with whatever defaults it decides
+                # during it's normal run?
+                if($args->{modules}->{$m}->{args}->{reset}) {
+                    $old_args = {};
+                } else {
+                    # Else we might have been arguments to update (maybe not,
+                    # maybe we're just rerunning with the existing arguments
+                    # from the previous run)
+                    
+                    # Loop through and update the arguments with the new
+                    # values we've received
+                    foreach my $a (keys $args->{modules}->{$m}->{args}) {
+                        $old_args->{$a} = $args->{modules}->{$m}->{args}->{$a};
+                    }
+                }
+
+                # We're updated or reset the arguments,
+                # save those updates
 		$new_analysis_obj->update_args($old_args, $m);
 	    }
 	    $new_analysis_obj->purge($m);
