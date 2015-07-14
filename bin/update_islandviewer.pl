@@ -31,9 +31,10 @@ my $handle;
 my $alarm_timeout = 60;
 my $protocol_version = '1.0';
 my $microbedb_ver;
+my $logger;
 
 MAIN: {
-    my $cfname; my $logger; my $doislandpick; my $picker_obj;
+    my $cfname; my $doislandpick; my $picker_obj;
 my $skip_distance; my $update_only;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
