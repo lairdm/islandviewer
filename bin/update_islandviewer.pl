@@ -225,6 +225,7 @@ my $skip_distance; my $update_only;
 			
 			$logger->info("Found comparison genomes: @comparison_genomes");
 			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
+                        @old_comparison_genomes = sort @old_comparison_genomes;
 
 			unless(@comparison_genomes ~~ @old_comparison_genomes) {
 			    $logger->info("Picked genomes don't match previous version, resubmitting Islandpick");
