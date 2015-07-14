@@ -7,6 +7,7 @@ use Getopt::Long;
 use Date::Manip;
 use File::Spec::Functions;
 use JSON;
+use Data::Dumper;
 
 BEGIN{
 # Find absolute path of script
