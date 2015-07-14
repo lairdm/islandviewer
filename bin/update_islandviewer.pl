@@ -36,11 +36,12 @@ my $logger;
 
 MAIN: {
     my $cfname; my $doislandpick; my $picker_obj;
-my $skip_distance; my $update_only;
+my $skip_distance; my $update_only; my $distance_only;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
                          "skip-distance" => \$skip_distance,
                          "update-only" => \$update_only,
+                         "distance-only" => \$distance_only,
     );
 
     die "Error, no config file given"
@@ -115,6 +116,11 @@ my $skip_distance; my $update_only;
 	}
 
 	$sets_run_last_cycle = $sets_run;
+    }
+
+    if($distance_only) {
+        $logger->info("Doing Distance only, exiting.");
+        exit;
     }
 
     # We should have all the distances done now, let's do the IV
