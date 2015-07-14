@@ -178,7 +178,7 @@ my $skip_distance; my $update_only;
             # and the existing Analysis isn't from this version of Microbedb we're
             # updating to
             unless($doislandpick && ($microbedb_ver != $row[1])) {
-                $logger->trace("$Skipping (doislandpick: $doislandpick), current microbedb $microbedb_ver vs previous run version " . $row[1]);
+                $logger->trace("Skipping (doislandpick: $doislandpick), current microbedb $microbedb_ver vs previous run version " . $row[1]);
                 next;
             }
 
