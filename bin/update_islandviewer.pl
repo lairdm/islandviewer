@@ -201,7 +201,8 @@ my $skip_distance; my $update_only; my $distance_only;
 
                     # See if we'd have any comparison genomes for this replicon
                     my $picked_genomes = $picker_obj->find_comparative_genomes($accnum);
-                    my @comparison_genomes;
+                    $logger->trace("Got back from picker: " . Dumper($picked_genomes));
+                    my @comparison_genomes = ();
 
                     # Loop through the results
                     foreach my $tmp_rep (keys %{$picked_genomes}) {
