@@ -17,6 +17,8 @@ use lib "../lib";
 use Islandviewer;
 use Islandviewer::Analysis;
 
+use MicrobedbV2::Singleton;
+
 MAIN: {
     my $cfname; my $aid; my $module; my $logger;
     my $res = GetOptions("config=s"   => \$cfname,
@@ -49,6 +51,10 @@ MAIN: {
 	$logger->trace("Process umask is: " . umask);
 
     }
+
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+    my $dbh = $microbedb->{dbh};
+    $logger->trace("MicrobeDB dbh: $dbh");
 
     $Islandviewer->run($aid, $module);
 };
