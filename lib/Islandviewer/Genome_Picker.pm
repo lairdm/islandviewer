@@ -359,6 +359,7 @@ sub find_distance_range {
     # Alright, now let's build a set of the distances in a data structure
     my $dists;
     while(my @row = $find_dists->fetchrow_array) {
+        $logger->trace("Found row: " . Dumper(@row));
 	# Find which way around the pair is, put it in the data structure
 	if($row[0] eq $rep_accnum) {
             my $genome_obj = $genome_utils->fetch_genome($row[1]);
@@ -377,7 +378,7 @@ sub find_distance_range {
 	}
     }
 
-    $logger->trace("Candidtates: " . Dumper($dists));
+    $logger->trace("Candidates: " . Dumper($dists));
 
     return $dists;
 }
