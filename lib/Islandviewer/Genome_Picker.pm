@@ -73,6 +73,18 @@ sub BUILD {
     $logger->trace("Config options: " . join(',', @configs));
 }
 
+# Clear data structures before a rerun
+
+sub clear_structures {
+    my $self = shift;
+
+    $logger->debug("Clearing data structures");
+    $self->{dist_set} = undef;
+    $self->{primary_rep_accnum} = undef;
+    $self->{picked} = undef;
+    $self->{find_custom_name} = undef;
+}
+
 # Find all the genomes within our range, and par it down to fit the min/max
 # number of comparative genomes we're allowed
 #
@@ -83,6 +95,9 @@ sub find_comparative_genomes {
     my $rep_accnum = shift;
 
     $logger->debug("Finding comparative genomes for $rep_accnum using microbedb_ver " . $self->{microbedb_ver});
+
+    # Clear internal structures before a run
+    $self->clear_structures();
 
     # First let's get all the genomes which meet our distance
     # criteria, we'll now have a hash matching that
