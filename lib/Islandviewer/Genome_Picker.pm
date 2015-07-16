@@ -377,6 +377,8 @@ sub find_distance_range {
 	}
     }
 
+    $logger->trace("Candidtates: " . Dumper($dists));
+
     return $dists;
 }
 
