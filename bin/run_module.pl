@@ -53,7 +53,7 @@ MAIN: {
     }
 
     my $microbedb = MicrobedbV2::Singleton->fetch_schema;
-    my $dbh = $microbedb->dbh;
+    my $dbh = MicrobedbV2::Singleton->dbh;
     $logger->trace("MicrobeDB dbh: $dbh");
 
     $Islandviewer->run($aid, $module);
