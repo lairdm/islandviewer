@@ -70,7 +70,7 @@ sub BUILD {
     $self->{min_gi_size} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
 
     my @configs = ($self->{max_cutoff}, $self->{min_cutoff}, $self->{max_compare_cutoff}, $self->{min_compare_cutoff}, $self->{max_dist_single_cutoff}, $self->{min_dist_single_cutoff}, $self->{min_gi_size});
-    $logger->trace("Config options: " . join(',', @configs);
+    $logger->trace("Config options: " . join(',', @configs));
 }
 
 # Find all the genomes within our range, and par it down to fit the min/max
