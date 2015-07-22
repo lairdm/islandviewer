@@ -173,6 +173,8 @@ sub check_names_match {
     my $def = shift;
     my $sub_def = shift;
 
+    $logger->trace("[$def] vs [$sub_def]");
+
     my $okay = 0;
 
     if ($sub_def =~ /^Escherichia coli/){
