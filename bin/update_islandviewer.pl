@@ -6,6 +6,8 @@ use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Date::Manip;
 use File::Spec::Functions;
+use JSON;
+use Data::Dumper;
 
 BEGIN{
 # Find absolute path of script
@@ -29,11 +31,17 @@ my $port = 8211;
 my $handle;
 my $alarm_timeout = 60;
 my $protocol_version = '1.0';
+my $microbedb_ver;
+my $logger;
 
 MAIN: {
-    my $cfname; my $logger; my $doislandpick; my $picker_obj;
+    my $cfname; my $doislandpick; my $picker_obj;
+my $skip_distance; my $update_only; my $distance_only;
     my $res = GetOptions("config=s" => \$cfname,
 			 "do-islandpick" => \$doislandpick,
+                         "skip-distance" => \$skip_distance,
+                         "update-only" => \$update_only,
+                         "distance-only" => \$distance_only,
     );
 
     die "Error, no config file given"
@@ -70,14 +78,15 @@ MAIN: {
     $port = $cfg->{tcp_port}
         if($cfg->{tcp_port});
 
-    my $microbedb_ver; my $sets_run;
+    my $sets_run;
     my $sets_run_last_cycle = 99999999;
     my $cycle_num = 1;
 
     # We're going to loop until we stop computing more distances,
     # this will catch dying children that might cause some of our
     # distances to not be caught
-    while(1) {
+    my $loop_inf = $skip_distance ? 0 : 1;
+    while($loop_inf) {
 	eval{
 	    # We need the trailing slash becauce the code that uses this expects
 	    # it, my bad...
@@ -108,19 +117,31 @@ MAIN: {
 
 	$sets_run_last_cycle = $sets_run;
     }
-    unless($microbedb_ver) {
-	die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
-    }
 
-    # Initializing backend connection and making picker obj is we'r edoing an Islandpick update too
-    if($doislandpick) {
-	myconnect($host, $port);
-	$picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => $microbedb_ver});
-
+    if($distance_only) {
+        $logger->info("Doing Distance only, exiting.");
+        exit;
     }
 
     # We should have all the distances done now, let's do the IV
     my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+
+    unless($microbedb_ver) {
+        $logger->warn("We don't have a microbedb version set, did we skip distance calculation?");
+
+        # Oh, we skipped doing the distance, that's ok, just grab the latest version
+        if($skip_distance) {
+            $microbedb_ver = $microbedb->latest();
+        } else {
+            die "Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver";
+        }
+    }
+
+    # Initializing backend connection and making picker obj is we'r edoing an Islandpick update too
+    if($doislandpick) {
+	$picker_obj = Islandviewer::Genome_Picker->new({microbedb_version => $microbedb_ver});
+
+    }
 
     $logger->info("Finding all replicons in microbedb version $microbedb_ver");
 
@@ -132,7 +153,7 @@ MAIN: {
     );
 
     my $dbh = Islandviewer::DBISingleton->dbh;
-    my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1");
+    my $check_analysis = $dbh->prepare("SELECT aid, microbedb_ver FROM Analysis WHERE ext_id = ? and default_analysis = 1 ORDER BY microbedb_ver DESC");
 
     my $find_analysis = $dbh->prepare("SELECT Analysis.aid, GIAnalysisTask.parameters FROM Analysis, GIAnalysisTask WHERE Analysis.aid = ? AND Analysis.aid = GIAnalysisTask.aid_id AND prediction_method = 'Islandpick' AND default_analysis = 1");
 
@@ -161,7 +182,12 @@ MAIN: {
 	    $logger->info("We already have $accnum in the database as analysis $row[0]");
 
             # Skip this step of checking Islandpicks if we've been instructed to
-            next unless($doislandpick);
+            # and the existing Analysis isn't from this version of Microbedb we're
+            # updating to
+            unless($doislandpick && ($microbedb_ver != $row[1])) {
+                $logger->trace("Skipping (doislandpick: $doislandpick), current microbedb $microbedb_ver vs previous run version " . $row[1]);
+                next;
+            }
 
 	    $logger->debug("Checking if we should try rerunning Islandpick");
 	    $find_analysis->execute($row[0]);
@@ -171,30 +197,42 @@ MAIN: {
 	    # genomes we've added
 	    if(my @a_row = $find_analysis->fetchrow_array) {
 		eval {
-		    my $json_obj = from_json($row[1]);
+		    my $json_obj = from_json($a_row[1]);
 
+                    # See if we'd have any comparison genomes for this replicon
+                    my $picked_genomes = $picker_obj->find_comparative_genomes($accnum);
+                    $logger->trace("Got back from picker: " . Dumper($picked_genomes));
+                    my @comparison_genomes = ();
+
+                    # Loop through the results
+                    foreach my $tmp_rep (keys %{$picked_genomes}) {
+                        # If it wasn't picked, we don't want it
+                        next unless($picked_genomes->{$tmp_rep}->{picked});
+                        
+                        # Push it on the list of comparison genomes
+                        push @comparison_genomes, $tmp_rep;
+                    }
+
+                    # None? Leave this replicon alone
+                    unless(@comparison_genomes) {
+                        $logger->info("No comparison genomes found for $accnum");
+                        next;
+                    }
+
+                    @comparison_genomes = sort @comparison_genomes;
+                    $logger->info("Found Islandpick comparison genomes: @comparison_genomes");
+
+#                    $logger->trace("All candidate genomes: " . Dumper($picked_genomes));
+
+                    # If we previously had comparison genomes last time this
+                    # replicon was run, see if they've changed and we need to rerun
 		    if ($json_obj->{comparison_genomes}) {
-			$logger->info("Existing Islandpick found: " . $json_obj->{comparison_genomes});
+			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
+                        @old_comparison_genomes = sort @old_comparison_genomes;
+			$logger->info("Existing Islandpick found: @old_comparison_genomes");
 
-			my $picked_genomes = $picker_obj->find_comparative_genomes($accnum);
-			my @comparison_genomes;
-
-			# Loop through the results
-			foreach my $tmp_rep (keys %{$picked_genomes}) {
-			    # If it wasn't picked, we don't want it
-			    next unless($picked_genomes->{$tmp_rep}->{picked});
-
-			    # Push it on the list of comparison genomes
-			    push @comparison_genomes, $tmp_rep;
-			}
-
-			unless(@comparison_genomes) {
-			    $logger->info("No comparison genomes found for $accnum");
-			    next;
-			}
 			
 			$logger->info("Found comparison genomes: @comparison_genomes");
-			my @old_comparison_genomes = split ' ', $json_obj->{comparison_genomes};
 
 			unless(@comparison_genomes ~~ @old_comparison_genomes) {
 			    $logger->info("Picked genomes don't match previous version, resubmitting Islandpick");
@@ -207,6 +245,9 @@ MAIN: {
 			}
 			
 		    } else {
+                        # We didn't have comparison genomes last time, but we should
+                        # only get here if we have them now
+
 			my $message = build_req($row[0]);
 			$logger->info("No existing Islandpick found for analysis, rerunning " . $row[0]);
 			my $received = send_req($message);
@@ -221,6 +262,11 @@ MAIN: {
 	    # Move on to the next replicon
 	    next;
 	} else {
+            if($update_only) {
+                $logger->debug("We've been told to only update, not submit new, skipping $accnum");
+                next;
+            }
+
 	    # Else its new so add it to the name cache
 	    $dbh->do("INSERT IGNORE INTO NameCache (cid, name, rep_size, cds_num) VALUES (?, ?, ?, ?)", undef,
 		     $accnum,
@@ -275,11 +321,24 @@ sub myconnect {
 
 }
 
+sub disconnect {
+
+    # Closing connection
+    $logger->trace("Closing connection to backend");
+    $handle->shutdown(2);
+    $handle->close();
+
+    $handle = undef;
+}
+
 sub send_req {
     my $msg = shift;
     my $received = '';
 
-    print "Sending: $msg\n";
+    $logger->trace("Sending: $msg\n");
+
+    $logger->trace("Connecting to backend");
+    myconnect($host, $port);
 
     # Check if the message ends with a LF, if not
     # add one
@@ -341,6 +400,11 @@ sub send_req {
     };
     # Did we get any errors back?
     if($@) {
+
+        $logger->error("Error communicating with backend: $@");
+
+        disconnect();
+
 	# Uh-oh, we had an alarm, the iteration timed out
 	if($@ eq "timeout\n") {
 	    return undef;
@@ -348,6 +412,8 @@ sub send_req {
 	    return undef;
 	}
     }
+
+    disconnect();
 
     # Success! Return the results
     return $received;
@@ -359,12 +425,17 @@ sub build_req {
 
     my $compare_hash = ( $comparison_genomes ? { comparison_genomes => $comparison_genomes } : { } );
 
-    my $modules = { Islandpick => { args => $compare_hash } };
+    my $modules = { Islandpick => { args => $compare_hash },
+                    distance => { args => { reset => 1 } } };
 
     my $req = { version => $protocol_version,
-		action => 'rerun',
+		action => 'clone',
 		aid => $aid,
-		args => { modules => $modules }
+		args => { modules => $modules,
+                          owner_id => 0,
+                          default_analysis => 1,
+                          demote_old => 1,
+                          microbedb_ver => $microbedb_ver }
     };
 
     my $req_str = to_json($req, { pretty => 1});

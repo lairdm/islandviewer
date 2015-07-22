@@ -68,6 +68,21 @@ sub BUILD {
     $self->{max_dist_single_cutoff} = $args->{MAX_DIST_SINGLE_CUTOFF} || $cfg->{MAX_DIST_SINGLE_CUTOFF};
     $self->{min_dist_single_cutoff} = $args->{MIN_DIST_SINGLE_CUTOFF} || $cfg->{MIN_DIST_SINGLE_CUTOFF};
     $self->{min_gi_size} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
+
+    my @configs = ($self->{max_cutoff}, $self->{min_cutoff}, $self->{max_compare_cutoff}, $self->{min_compare_cutoff}, $self->{max_dist_single_cutoff}, $self->{min_dist_single_cutoff}, $self->{min_gi_size});
+    $logger->trace("Config options: " . join(',', @configs));
+}
+
+# Clear data structures before a rerun
+
+sub clear_structures {
+    my $self = shift;
+
+    $logger->debug("Clearing data structures");
+    $self->{dist_set} = undef;
+    $self->{primary_rep_accnum} = undef;
+    $self->{picked} = undef;
+    $self->{find_custom_name} = undef;
 }
 
 # Find all the genomes within our range, and par it down to fit the min/max
@@ -80,6 +95,9 @@ sub find_comparative_genomes {
     my $rep_accnum = shift;
 
     $logger->debug("Finding comparative genomes for $rep_accnum using microbedb_ver " . $self->{microbedb_ver});
+
+    # Clear internal structures before a run
+    $self->clear_structures();
 
     # First let's get all the genomes which meet our distance
     # criteria, we'll now have a hash matching that
@@ -343,22 +361,40 @@ sub find_distance_range {
     my $dbh = Islandviewer::DBISingleton->dbh;
 
     my $sqlstmt = "SELECT rep_accnum1, rep_accnum2, distance FROM Distance WHERE (rep_accnum1 = ? OR rep_accnum2 = ?) AND distance <= $self->{max_cutoff} AND distance >= $self->{min_cutoff}";
+    $logger->trace("Searching: $sqlstmt");
     my $find_dists = $dbh->prepare($sqlstmt) or 
 	die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $find_dists->execute($rep_accnum, $rep_accnum) or
 	die "Error, can't execute query: $DBI::errstr";
 
+    # We're going to lookup if the found replicons are still
+    # valid in this version
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
     # Alright, now let's build a set of the distances in a data structure
     my $dists;
     while(my @row = $find_dists->fetchrow_array) {
+        $logger->trace("Found row: " . Dumper(@row));
 	# Find which way around the pair is, put it in the data structure
 	if($row[0] eq $rep_accnum) {
+            my $genome_obj = $genome_utils->fetch_genome($row[1]);
+            unless($genome_obj->genome_status() eq 'READY') {
+                $logger->warn("Replicon is no longer valid in microbedb " . $self->{microbedb_ver} . ": " . $row[1]);
+                next;
+            }
 	    $dists->{$row[1]} = $row[2];
 	} elsif($row[1] eq $rep_accnum) {
+            my $genome_obj = $genome_utils->fetch_genome($row[0]);
+            unless($genome_obj->genome_status() eq 'READY') {
+                $logger->warn("Replicon is no longer valid in microbedb " . $self->{microbedb_ver} . ": " . $row[0]);
+                next;
+            }
 	    $dists->{$row[0]} = $row[2];
 	}
     }
+
+    $logger->trace("Candidates: " . Dumper($dists));
 
     return $dists;
 }

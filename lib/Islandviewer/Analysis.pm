@@ -643,7 +643,10 @@ sub purge_module {
 
 sub clone {
     my $self = shift;
-    my $owner = @_ ? shift : 1;
+    my $args = @_ ? shift : {};
+
+    my $owner = exists $args->{owner_id} ? $args->{owner_id} : 1;
+    my $default_analysis = $args->{default_analysis} ? $args->{default_analysis} : 0;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -651,9 +654,14 @@ sub clone {
 
     # First let's clone the analysis table record
     $logger->trace("Cloning analysis record in database: " . $self->{aid});
-    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
+    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, $default_analysis FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
+
+    if($args->{demote_old}) {
+        $logger->debug("We've been told to demote the old analysis " . $self->{aid} . " from being the default");
+        $dbh->do("UPDATE Analysis SET default_analysis = 0 WHERE aid = ?", undef, $self->{aid});
+    }
 
     # We could do this with triggers but we won't, see below.
     # Make the workdir for our analysis
@@ -681,6 +689,10 @@ sub clone {
     }
 
     $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $shortened_workdir, $new_aid);
+
+    if($args->{microbedb_ver}) {
+        $dbh->do("UPDATE Analysis SET microbedb_ver = ? WHERE aid = ?", undef, $args->{microbedb_ver}, $new_aid);
+    }
 
     # Next clone the prediction tasks, since we're only cloning completed runs
     # we can just directly copy
