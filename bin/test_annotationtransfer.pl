@@ -37,10 +37,10 @@ MAIN: {
 	$logger->debug("Logging initialized");
     }
 
-    my $transfer_obj = Islandviewer::AnnotationTransfer->new({microbedb_version => 1, 
+    my $transfer_obj = Islandviewer::AnnotationTransfer->new({microbedb_version => 89, 
 							   workdir => $workdir});
 
-    my $results = $transfer_obj->run('NC_020564.1');
+    my $results = $transfer_obj->run('NC_018663.1');
 
     print Dumper $results;
 };

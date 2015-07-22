@@ -52,8 +52,9 @@ sub BUILD {
 #	or die "Error, can't connect to Islandviewer via DBIx";
 
     die "Error, you must specify a microbedb version"
-	unless($args->{microbedb_version});
-    $self->{microbedb_ver} = $args->{microbedb_version};
+	unless($args->{microbedb_version} || $args->{microbedb_ver});
+    $self->{microbedb_ver} = $args->{microbedb_version} if( $args->{microbedb_version} );
+    $self->{microbedb_ver} = $args->{microbedb_ver} if( $args->{microbedb_ver} );
 
     $logger = Log::Log4perl->get_logger;
 
