@@ -62,13 +62,13 @@ sub BUILD {
     # unless we're explicitly told otherwise
     # and yes, I used all caps, that's what it is in the original
     # code and I'm playing it safe in case of code reuse.
-    $self->{max_cutoff} = $args->{MAX_CUTOFF} || $cfg->{MAX_CUTOFF};
-    $self->{min_cutoff} = $args->{MIN_CUTOFF} || $cfg->{MIN_CUTOFF};
-    $self->{max_compare_cutoff} = $args->{MAX_COMPARE_CUTOFF} || $cfg->{MAX_COMPARE_CUTOFF};
-    $self->{min_compare_cutoff} = $args->{MIN_COMPARE_CUTOFF} || $cfg->{MIN_COMPARE_CUTOFF};
-    $self->{max_dist_single_cutoff} = $args->{MAX_DIST_SINGLE_CUTOFF} || $cfg->{MAX_DIST_SINGLE_CUTOFF};
-    $self->{min_dist_single_cutoff} = $args->{MIN_DIST_SINGLE_CUTOFF} || $cfg->{MIN_DIST_SINGLE_CUTOFF};
-    $self->{min_gi_size} = $args->{MIN_GI_SIZE} || $cfg->{MIN_GI_SIZE};
+    $self->{max_cutoff} = defined($args->{MAX_CUTOFF}) ? $args->{MAX_CUTOFF} : $cfg->{MAX_CUTOFF};
+    $self->{min_cutoff} = defined($args->{MIN_CUTOFF}) ? $args->{MIN_CUTOFF} : $cfg->{MIN_CUTOFF};
+    $self->{max_compare_cutoff} = defined($args->{MAX_COMPARE_CUTOFF}) ? $args->{MAX_COMPARE_CUTOFF} : $cfg->{MAX_COMPARE_CUTOFF};
+    $self->{min_compare_cutoff} = defined($args->{MIN_COMPARE_CUTOFF}) ? $args->{MIN_COMPARE_CUTOFF} : $cfg->{MIN_COMPARE_CUTOFF};
+    $self->{max_dist_single_cutoff} = defined($args->{MAX_DIST_SINGLE_CUTOFF}) ? $args->{MAX_DIST_SINGLE_CUTOFF} : $cfg->{MAX_DIST_SINGLE_CUTOFF};
+    $self->{min_dist_single_cutoff} = defined($args->{MIN_DIST_SINGLE_CUTOFF}) ? $args->{MIN_DIST_SINGLE_CUTOFF} : $cfg->{MIN_DIST_SINGLE_CUTOFF};
+    $self->{min_gi_size} = defined($args->{MIN_GI_SIZE}) ? $args->{MIN_GI_SIZE} : $cfg->{MIN_GI_SIZE};
 
     my @configs = ($self->{max_cutoff}, $self->{min_cutoff}, $self->{max_compare_cutoff}, $self->{min_compare_cutoff}, $self->{max_dist_single_cutoff}, $self->{min_dist_single_cutoff}, $self->{min_gi_size});
     $logger->trace("Config options: " . join(',', @configs));
