@@ -97,8 +97,8 @@ sub find_comparison_genomes {
     # We're going to reuse the genome picker code for finding candidates
     my $picker_obj = Islandviewer::Genome_Picker->new({workdir => $self->{workdir},
 						       microbedb_ver => $self->{microbedb_ver},
-						       min_cutoff => 0,
-						       max_cutoff => 0.3 });
+						       MIN_CUTOFF => 0,
+						       MAX_CUTOFF => 0.3 });
 
     my $dists = $picker_obj->find_distance_range($accnum);
 
