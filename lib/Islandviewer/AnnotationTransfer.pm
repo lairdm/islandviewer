@@ -37,6 +37,8 @@ use Islandviewer::DBISingleton;
 use Islandviewer::Genome_Picker;
 use Islandviewer::GenomeUtils;
 
+use MicrobedbV2::Singleton;
+
 my $module_name = 'AnnotationTransfer';
 
 my $logger; my $cfg;
@@ -51,6 +53,13 @@ sub BUILD {
 
     $self->{microbedb_ver} = (defined($args->{microbedb_ver}) ?
 			      $args->{microbedb_ver} : undef );
+
+    unless($self->{microbedb_ver}) {
+	my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+	$self->{microbedb_ver} = $microbedb->latest();
+	
+	$logger->info("Microbedb version not defined, using latest: " . $self->{microbedb_ver})
+    }
 
     $self->{ref_accnum} = (defined($args->{ref_accnum}) ?
 			      $args->{ref_accnum} : undef );
