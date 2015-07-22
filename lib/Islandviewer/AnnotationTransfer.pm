@@ -103,7 +103,7 @@ sub find_comparison_genomes {
     my $dists = $picker_obj->find_distance_range($accnum);
 
     # Find ourself and then filter down our name for the comparison step
-    my $genome_obj = $genome_utils->fetch_genome($accnum)) {
+    my $genome_obj = $genome_utils->fetch_genome($accnum);
     unless($genome_obj->genome_status() eq 'READY') {
 	$logger->error("Failed in fetching genome object for $accnum");
 	return 0;
@@ -128,7 +128,7 @@ sub find_comparison_genomes {
 	    next;
 	}
 
-	my $cur_genome_obj = $genome_utils->fetch_genome($cur_accnum)) {
+	my $cur_genome_obj = $genome_utils->fetch_genome($cur_accnum);
 	unless($cur_genome_obj->genome_status() eq 'READY') {
 	    $logger->error("Failed in fetching genome object for $cur_accnum");
 	    next;
