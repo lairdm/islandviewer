@@ -35,6 +35,7 @@ use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 
 use Bio::SeqIO; 
+use Bio::Perl;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Genome_Picker;
