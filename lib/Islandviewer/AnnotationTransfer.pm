@@ -32,6 +32,7 @@ package Islandviewer::AnnotationTransfer;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use File::Temp qw/ :mktemp /;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Genome_Picker;
