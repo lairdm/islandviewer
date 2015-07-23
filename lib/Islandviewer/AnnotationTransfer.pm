@@ -192,7 +192,7 @@ sub make_vir_fasta {
 	
     while(my @row = $find_vir_genes->fetchrow_array) {
 	# Fetch the sequence from the fna file
-	my $seq = $genome_utils->fetch_protein_seq($genome_obj, $row[8], $row[6], $row[7]);
+	my $seq = $genome_utils->fetch_protein_seq($genome_obj, $row[7], $row[5], $row[6]);
 
 	my @display_id = ("accnum|" . $row[0] . "|ext_id|" . $row[1] . "|source|" . $row[2]);
 	if($row[3]) {
