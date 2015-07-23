@@ -47,6 +47,8 @@ use Array::Utils qw(:all);
 use Data::Dumper;
 use File::Spec;
 
+use Bio::Perl;
+
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 use Islandviewer::CustomGenome;
