@@ -919,6 +919,58 @@ sub find_file_types {
     return join ' ', @formats;
 }
 
+# Fetch and return the nucleotide sequence for
+# a genome object, or the sub-sequence if requested
+
+sub fetch_nuc_seq {
+    my $self = shift;
+    my $genome_obj = shift;
+    my $strand = @_ ? shift : 1;
+    my $start = @_ ? shift : undef;
+    my $end = @_ ? shift : undef;
+
+    my $filename = $genome_obj->filename() . '.fna';
+    $logger->trace("Reading sequences from $filename");
+
+    unless(-f $filename) {
+	$logger->logdie("Error, file $filename doesn't exist");
+    }
+
+    # Grab the fna file via bioperl
+    my $in = new Bio::SeqIO(-file => $filename);
+
+    my $seqobj = $in->next_seq();
+
+    # If we've been given a start and end, then we grab the
+    # subsequence, otherwise just return the entire sequence
+    if(defined($start) && defined($end)) {
+	return (($strand eq '-1' || $strand eq '-') ?
+		reverse_complement_as_string($seqobj->subseq($start, $end)) :
+		$seqobj->subseq($start, $end));
+
+    } else {
+	return (($strand eq '-1' || $strand eq '-') ?
+		reverse_complement_as_string($seqobj->seq()) :
+		$seqobj->seq());
+
+    }
+
+}
+
+sub fetch_protein_seq {
+    my $self = shift;
+    my $genome_obj = shift;
+    my $strand = @_ ? shift : 1;
+    my $start = @_ ? shift : undef;
+    my $end = @_ ? shift : undef;
+
+    return Bio::Seq->new(-seq => $self->fetch_nuc_seq($genome_obj, $strand, $start, $end),
+		  -alphabet => 'dna')
+	->translate(-codontable_id => 11, -complete => 1)
+	->seq();
+
+}
+
 sub insert_custom_genome {
     my $self = shift;
 

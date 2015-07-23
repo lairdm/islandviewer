@@ -80,6 +80,9 @@ sub run {
     my $comparison_genomes = $self->find_comparison_genomes($accnum);
 
     # And now start blasting and transfering the annotations
+    foreach my $ref_accnum (@$comparison_genomes) {
+	$self->transfer_single_genome($accnum, $ref_accnum);
+    }
 
 }
 
@@ -147,6 +150,68 @@ sub find_comparison_genomes {
     }
 
     return \@run_shortlist;
+}
+
+sub transfer_single_genome {
+    my $self = shift;
+    my $accnum = shift;
+    my $ref_accnum = shift;
+
+    my $query_file = $self->make_vir_fasta($ref_accnum);
+
+}
+
+# Find all the virulence genes and write them out of a fasta file
+
+sub make_vir_fasta {
+    my $self = shift;
+    my $accnum = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    # Get a GenomeUtils object so we can do lookups
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
+    # Find ourself and then filter down our name for the comparison step
+    my $genome_obj = $genome_utils->fetch_genome($accnum);
+    unless($genome_obj->genome_status() eq 'READY') {
+	$logger->error("Failed in fetching genome object for $accnum, this shouldn't happen!");
+	return undef;
+    }
+    
+    my $find_vir_genes = $dbh->prepare("SELECT virulence.protein_accnum, virulence.external_id, virulence.source, virulence.flag, virulence.pmid, Genes.start, Genes.end, Genes.strand  from virulence, Genes where Genes.ext_id = ? AND Genes.name = virulence.protein_accnum AND virulence.type='virulence' AND virulence.source!='BLAST' and virulence.source!='PAG'");
+
+    $find_vir_genes->execute($accnum);
+
+    # Make a temporary file and a fasta file for the virulence sequences
+    my $query_file = $self->_make_tempfile();
+    my $out = Bio::SeqIO->new(-file => ">$query_file" ,
+				  -format => 'Fasta');
+    $logger->trace("Making temporary fasta file $query_file");
+	
+    while(my @row = $find_vir_genes->fetchrow_array) {
+	# Fetch the sequence from the fna file
+	my $seq = $genome_utils->fetch_protein_seq($genome_obj, $row[8], $row[6], $row[7]);
+
+	my @display_id = ("accnum|" . $row[0] . "|ext_id|" . $row[1] . "|source|" . $row[2]);
+	if($row[3]) {
+	    push @display_id, "flag|" . $row[3];
+	}
+	if($row[4]) {
+	    push @display_id, "pmid|" . $row[4];
+	}
+	my $display = join '|', @display_id;
+
+	my $pseq = Bio::PrimarySeq->new(
+	    -display_id => $display, 
+	    -seq => $seq,
+	    -alphabet => 'protein');
+
+	$out->write_seq($pseq);
+	
+    }
+
+    return $query_file;
 }
 
 # Little helper to shorten the genome name of the pieces
@@ -245,6 +310,20 @@ sub check_names_match {
 
     return $okay;
 
+}
+
+# Make a temp file in our work directory and return the name
+
+sub _make_tempfile {
+    my $self = shift;
+
+    # Let's put the file in our workdir
+    my $tmp_file = mktemp($self->{workdir} . "/blasttmpXXXXXXXXXX");
+    
+    # And touch it to make sure it gets made
+    `touch $tmp_file`;
+
+    return $tmp_file;
 }
 
 1;
