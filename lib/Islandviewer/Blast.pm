@@ -104,7 +104,7 @@ sub run {
     
     # The location of blastp, assume it's in the path
     # unless otherwise stated in the config file
-    my $blastp = 'makeblastdb';
+    my $blastp = 'blastp';
     $blastp = $cfg->{blastp} if($cfg->{blastp});
     
     my $cmd = "$blastp $param_str";
