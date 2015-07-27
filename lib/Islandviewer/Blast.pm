@@ -28,7 +28,6 @@
 
 package Islandviewer::Blast;
 
-use static;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
@@ -39,9 +38,10 @@ use Islandviewer::DBISingleton;
 
 my $logger; my $cfg;
 
+my @temp_files;
+
 # my @BLAST_PARAMS = qw (db query evalue outfmt out);
-my @BLAST_PARAMS =  qw(p d i e m o F K);
-# p = blast program
+my @BLAST_PARAMS =  qw(d i e m o F K);
 # d = database
 # i = input query
 # e = evalue
@@ -69,8 +69,178 @@ sub BUILD {
     }
 
     #Set each attribute that is given as an arguement
-    foreach ( keys(%arg) ) {
-        $self->$_( $arg{$_} ) if($_ ~~ @BLAST_PARAMS);
+    foreach ( keys(%$args) ) {
+        $self->{ $_ } = $args->{$_} if($_ ~~ @BLAST_PARAMS);
     }    
 }
 
+sub run {
+    my $self = shift;
+    my $query_file = shift;
+    my $db_file = shift;
+
+    $logger->info("Running blast of $query_file against $db_file");
+
+    unless(-f $query_file) {
+        $logger->logdie("Can't find query file $query_file");
+    }
+
+    my $database = $self->make_database($db_file);
+
+    my $outfile = $self->_make_tempfile();
+    $self->{o} = $outfile;
+    push @temp_files, $outfile;
+
+    $self->{d} = $database;
+    $self->{i} = $query_file;
+
+    my @params;
+    foreach (@BLAST_PARAMS) {
+        if(defined($self->{$_})) {
+            push( @params, join( "", "-", $_, " ", $self->{$_} ) );
+        }
+    }
+    my $param_str = join( " ", @params );
+    
+    # The location of blastp, assume it's in the path
+    # unless otherwise stated in the config file
+    my $blastp = 'makeblastdb';
+    $blastp = $cfg->{blastp} if($cfg->{blastp});
+    
+    my $cmd = "$blastp $param_str";
+
+    #pipe the stderr from the command to a temp file
+    my $tmp_stderr = $self->_make_tempfile();
+    push( @temp_files, $tmp_stderr );
+    $cmd .= " 2>$tmp_stderr";
+
+    $logger->debug("Running command: $cmd");
+
+    #run the actual command
+    unless ( open( BLAST, "$cmd |" ) ) {
+        $logger->logdie("Cannot run $cmd");
+    }
+    
+    #Waits until the system call is done before saving to the array
+    my @stdout = <BLAST>;
+    close(BLAST);
+    
+    #give sometime so that files have time to be written to
+    sleep(5);
+    
+    #Open the file that contains the std error from the command call
+    open( BLAST_ERROR, $tmp_stderr )
+        || $logger->logdie("Can't open std_error file: \"$tmp_stderr\" when using command: $cmd. System error: $!");
+    my @stderr = <BLAST_ERROR>;
+    close(BLAST_ERROR);
+    
+    $logger->trace("Logging stderr:");
+    foreach(@stderr) {
+        $logger->trace($_);
+    }
+
+    #store the results in memory as a blast results object
+    my $blast_results_obj = $self->_save_results( \@stdout, \@stderr );
+	
+    #return the blast results object
+    return $blast_results_obj;
+
+}
+
+sub _save_results {
+	my ( $self, $stdout, $stderr ) = @_;
+
+	my $file_name = $self->{o};
+        $logger->trace("Parsing blast outfile file: $file_name");
+
+	my $blast_results_obj = new Bio::SearchIO(-format => 'blast', -file => $file_name);
+
+	my @output;
+	my %unique_hits;
+	
+	while (my $result = $blast_results_obj->next_result) {
+            $logger->trace(" Query: ".$result->query_accession.", length=".$result->query_length);
+
+		my $length_cutoff = ($result->query_length)*0.8;
+		
+		## Check if $result->num_hits is > 1 
+		while (my $hit = $result->next_hit) {
+			while (my $hsp = $hit->next_hsp) { 
+                            $logger->trace(" Hsp: ".$hit->name." ".$hsp->percent_identity."%id length=".$hsp->length('total'));
+
+				if ($hsp->percent_identity >= 90 && $hsp->length('total') >= $length_cutoff) {
+                                    $logger->trace("Hit name: " . $hit->name . " against " . $result->query_name);
+                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
+                                        $unique_hits{$2} = $result->query_name;
+                                        $logger->trace("Found hit: " . $2 . " against " . $result->query_name);
+                                    }
+				}
+			}
+		}
+		undef $result;
+	}
+	undef $blast_results_obj;
+
+        $logger->info("TOTAL UNIQUE HITS: ".keys(%unique_hits));
+
+	return \%unique_hits;
+
+}
+
+# Make a blast db in a local temp file, also
+# stash away the db file for cleaning up later.
+
+sub make_database {
+    my $self = shift;
+    my $db_file = shift;
+
+    $logger->debug("Making blast database for $db_file");
+
+    unless(-f $db_file) {
+        $logger->logdie("Error, db file doesn't exist: $db_file");
+    }
+
+    # Make a local database to use
+    
+    # The location of makeblastdb, assume it's in the path
+    # unless otherwise stated in the config file
+    my $makeblastdb = 'makeblastdb';
+    $makeblastdb = $cfg->{makeblastdb} if($cfg->{makeblastdb});
+
+    my $db_root = $self->_make_tempfile();
+    push @temp_files, $db_root;
+
+    my $cmd = $makeblastdb . " -in " . $db_file . " -out " . $db_root . " -input_type fasta -dbtype prot";
+    $logger->trace("Running command: $cmd");
+    
+    my $ret = system($cmd);
+    $logger->trace("Got back: $ret");
+
+    return $db_root;
+}
+
+sub _make_tempfile {
+    my $self = shift;
+
+    # Let's put the file in our workdir
+    my $tmp_file = mktemp($self->{workdir} . "/blasttmpXXXXXXXXXX");
+    
+    # And touch it to make sure it gets made
+    `touch $tmp_file`;
+
+    return $tmp_file;
+}
+
+sub _clean_tmp {
+    my $self = shift;
+
+    while(my $base = shift @temp_files) {
+        my @files = glob $base . "*";
+        foreach my $file (@files) {
+            $logger->trace("Removing temp file: $file");
+            unlink $file;
+        }
+    }
+}
+
+1;

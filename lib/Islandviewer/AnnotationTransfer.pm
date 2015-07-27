@@ -34,11 +34,14 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 
+use Data::Dumper;
+
 use Bio::SeqIO; 
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Genome_Picker;
 use Islandviewer::GenomeUtils;
+use Islandviewer::Blast;
 
 use MicrobedbV2::Singleton;
 
@@ -160,7 +163,38 @@ sub transfer_single_genome {
     my $accnum = shift;
     my $ref_accnum = shift;
 
+    # Get a GenomeUtils object so we can do lookups
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
     my $query_file = $self->make_vir_fasta($ref_accnum);
+
+    # Fetch the referencd genome object, and fasta file
+    my $ref_genome_obj = $genome_utils->fetch_genome($ref_accnum);
+    unless($ref_genome_obj->genome_status() eq 'READY') {
+	$logger->logdie("Failed in fetching genome object for $ref_accnum, this shouldn't happen!");
+    }
+
+    my $ref_filename = $ref_genome_obj->filename() . '.faa';
+    $logger->trace("Fasta file for ref genome $ref_accnum should be: $ref_filename");
+    unless(-f $ref_filename) {
+        $logger->logdie("Error, can't find file for ref genome $ref_accnum: $ref_filename");
+    }
+
+    my $blast_obj = new Islandviewer::Blast({microbedb_ver => $self->{microbedb_ver},
+                                             workdir => $self->{workdir},
+                                             d => $ref_filename,
+                                             i => $query_file,
+                                             e => 1e-10,
+                                             m => 0,
+                                             F => 'F',
+                                             K => 3
+                                            }
+        );
+
+    my $vir_hits = $blast_obj->run($query_file, $ref_filename);
+
+    print Dumper $vir_hits;
+
 
 }
 
@@ -196,7 +230,7 @@ sub make_vir_fasta {
 	# Fetch the sequence from the fna file
 	my $seq = $genome_utils->fetch_protein_seq($genome_obj, $row[7], $row[5], $row[6]);
 
-	my @display_id = ("accnum|" . $row[0] . "|ext_id|" . $row[1] . "|source|" . $row[2]);
+	my @display_id = ("ref|" . $row[0] . "|ext_id|" . $row[1] . "|source|" . $row[2]);
 	if($row[3]) {
 	    push @display_id, "flag|" . $row[3];
 	}
