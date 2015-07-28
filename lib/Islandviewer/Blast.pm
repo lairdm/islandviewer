@@ -236,6 +236,7 @@ sub split_header {
         $identifiers->{$type} = $val;
     }
 
+    $logger->trace(Dumper($identifiers));
     return $identifiers;
 }
 
