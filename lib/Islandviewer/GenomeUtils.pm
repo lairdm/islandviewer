@@ -45,6 +45,7 @@ use File::Copy;
 use File::Basename;
 use Array::Utils qw(:all);
 use Data::Dumper;
+use File::Temp qw/ :mktemp /;
 use File::Spec;
 
 use Bio::Perl;
