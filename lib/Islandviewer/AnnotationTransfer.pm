@@ -227,6 +227,8 @@ sub transfer_single_genome {
     $logger->info("Doing blast of subject hit proteins ($subject_fasta_file) against reference genome ($ref_filename)");
     my $reverse_hits = $blast_obj->run($subject_fasta_file, $ref_filename);
 
+    $logger->trace(Dumper($reverse_hits));
+
 }
 
 # Find all the virulence genes and write them out of a fasta file
