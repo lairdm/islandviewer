@@ -177,8 +177,8 @@ sub _save_results {
                                     my $hit_headers = $self->split_header($hit->name);
 #                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
                                     if (my $ref = $hit_headers->{ref}) {
-                                        $unique_hits{$ref} = $result->query_description;
-                                        $logger->trace("Found hit: " . $ref . " against " . $result->query_description);
+                                        $unique_hits{"ref|$ref"} = $result->query_description;
+                                        $logger->trace("Found hit: ref|" . $ref . " against " . $result->query_description);
                                     }
 				}
 			}
@@ -236,7 +236,6 @@ sub split_header {
         $identifiers->{$type} = $val;
     }
 
-    $logger->trace(Dumper($identifiers));
     return $identifiers;
 }
 
