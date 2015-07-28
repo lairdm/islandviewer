@@ -138,6 +138,8 @@ sub find_comparison_genomes {
 	    next;
 	}
 
+        $logger->debug("In curated set, $cur_accnum");
+
 	my $cur_genome_obj = $genome_utils->fetch_genome($cur_accnum);
 	unless($cur_genome_obj->genome_status() eq 'READY') {
 	    $logger->error("Failed in fetching genome object for $cur_accnum");
@@ -169,6 +171,18 @@ sub transfer_single_genome {
 
     my $query_file = $self->make_vir_fasta($ref_accnum);
 
+    # Fetch the query genome object, and fasta file
+    my $genome_obj = $genome_utils->fetch_genome($accnum);
+    unless($genome_obj->genome_status() eq 'READY') {
+	$logger->logdie("Failed in fetching genome object for $accnum, this shouldn't happen!");
+    }
+
+    my $query_filename = $genome_obj->filename() . '.faa';
+    $logger->trace("Fasta file for query genome $accnum should be: $query_filename");
+    unless(-f $query_filename) {
+        $logger->logdie("Error, can't find file for query genome $accnum: $query_filename");
+    }
+
     # Fetch the referencd genome object, and fasta file
     my $ref_genome_obj = $genome_utils->fetch_genome($ref_accnum);
     unless($ref_genome_obj->genome_status() eq 'READY') {
@@ -183,7 +197,7 @@ sub transfer_single_genome {
 
     my $blast_obj = new Islandviewer::Blast({microbedb_ver => $self->{microbedb_ver},
                                              workdir => $self->{workdir},
-                                             db => $ref_filename,
+                                             db => $query_filename,
                                              query => $query_file,
                                              evalue => 1e-10,
                                              outfmt => 5,
@@ -192,7 +206,7 @@ sub transfer_single_genome {
                                             }
         );
 
-    my $vir_hits = $blast_obj->run($query_file, $ref_filename);
+    my $vir_hits = $blast_obj->run($query_file, $query_filename);
 
     print Dumper $vir_hits;
 
