@@ -141,7 +141,7 @@ sub run {
     }
 
     #store the results in memory as a blast results object
-    my $blast_results_obj = $self->_save_results( \@stdout, \@stderr );
+    my $blast_results_obj = $self->_save_results( );
 	
     #return the blast results object
     return $blast_results_obj;
@@ -149,9 +149,9 @@ sub run {
 }
 
 sub _save_results {
-	my ( $self, $stdout, $stderr ) = @_;
+	my ( $self ) = @_;
 
-	my $file_name = $self->{o};
+	my $file_name = $self->{out};
         $logger->trace("Parsing blast outfile file: $file_name");
 
 	my $blast_results_obj = new Bio::SearchIO(-format => 'blast', -file => $file_name);
