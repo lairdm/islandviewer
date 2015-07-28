@@ -177,10 +177,10 @@ sub transfer_single_genome {
 	$logger->logdie("Failed in fetching genome object for $accnum, this shouldn't happen!");
     }
 
-    my $query_filename = $genome_obj->filename() . '.faa';
-    $logger->trace("Fasta file for query genome $accnum should be: $query_filename");
-    unless(-f $query_filename) {
-        $logger->logdie("Error, can't find file for query genome $accnum: $query_filename");
+    my $subject_filename = $genome_obj->filename() . '.faa';
+    $logger->trace("Fasta file for subject genome $accnum should be: $subject_filename");
+    unless(-f $subject_filename) {
+        $logger->logdie("Error, can't find file for subject genome $accnum: $subject_filename");
     }
 
     # Fetch the referencd genome object, and fasta file
@@ -197,7 +197,7 @@ sub transfer_single_genome {
 
     my $blast_obj = new Islandviewer::Blast({microbedb_ver => $self->{microbedb_ver},
                                              workdir => $self->{workdir},
-                                             db => $query_filename,
+                                             db => $subject_filename,
                                              query => $query_file,
                                              evalue => 1e-10,
                                              outfmt => 5,
@@ -224,6 +224,8 @@ sub transfer_single_genome {
     my $seq_found = $genome_utils->make_sub_fasta($genome_obj, $subject_fasta_file, @accs);
     $logger->info("Made fasta file of blast hits for rbb: $subject_fasta_file, num seq found: $seq_found");
 
+    $logger->info("Doing blast of subject hit proteins ($subject_fasta_file) against reference genome ($ref_filename)");
+    $reverse_hits = $blast_obj->run($subject_fasta_file, $ref_filename);
 
 }
 
