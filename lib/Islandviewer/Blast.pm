@@ -232,7 +232,7 @@ sub split_header {
     my @pieces = split '|', $id;
 
     my $identifiers = {};
-    if((my $type = shift @pieces) && (my $val = shift)) {
+    if((my $type = shift @pieces) && (my $val = shift @pieces)) {
         $identifiers->{$type} = $val;
     }
 
