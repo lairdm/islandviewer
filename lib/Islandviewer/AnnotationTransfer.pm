@@ -220,8 +220,9 @@ sub transfer_single_genome {
         push @accs, $acc;
     }
     $logger->trace("Found protein accessions: " . Dumper(@accs));
-    my $subject_fasta_file = $genome_utils->make_sub_fasta($genome_obj, @accs);
-    $logger->info("Made fasta file of blast hits for rbb: $subject_fasta_file");
+    my $subject_fasta_file = $self->_make_tempfile();
+    my $seq_found = $genome_utils->make_sub_fasta($genome_obj, $subject_fasta_file, @accs);
+    $logger->info("Made fasta file of blast hits for rbb: $subject_fasta_file, num seq found: $seq_found");
 
 
 }

@@ -981,6 +981,7 @@ sub fetch_protein_seq {
 sub make_sub_fasta {
     my $self = shift;
     my $genome_obj = shift;
+    my $outfile = shift;
     my @accessions = @_;
 
     my $filename = $genome_obj->filename() . '.faa';
@@ -990,7 +991,6 @@ sub make_sub_fasta {
 	$logger->logdie("Error, file $filename doesn't exist");
     }
 
-    my $outfile = $self->_make_tempfile();
     my $out = Bio::SeqIO->new(-file => ">$outfile" ,
 				  -format => 'Fasta');
     $logger->trace("Making temporary fasta file $outfile");
@@ -999,6 +999,7 @@ sub make_sub_fasta {
     my $in = new Bio::SeqIO(-file => $filename);
 
     # Loop through the sequences in the fasta file
+    my $found = 0;
     while(my $seq = $in->next_seq()) {
         # Split the display_id in to identifier types
         my $identifiers = $self->split_header($seq->display_id);
@@ -1007,10 +1008,11 @@ sub make_sub_fasta {
         # list of accessions we're looking for
         if($identifiers->{ref} && $identifiers->{ref} ~~ @accessions) {
             $out->write_seq($seq);
+            $found++;
         }
     }
 
-    return $outfile;
+    return $found;
 }
 
 sub insert_custom_genome {
@@ -1358,16 +1360,20 @@ sub calc_gc {
 
 sub _make_tempfile {
     my $self = shift;
+    my $workdir = shift;
     my $prefix = (@_ ? shift : 'genomeutils');
 
     # Let's put the file in our workdir
-    my $tmp_file = mktemp(File::Spec->catpath(undef, $self->{workdir}, $prefix . "tmpXXXXXXXXXX"));
+    my $tmp_file = mktemp(File::Spec->catpath(undef, $workdir, $prefix . "tmpXXXXXXXXXX"));
     
     # And touch it to make sure it gets made
     `touch $tmp_file`;
 
     return $tmp_file;
 }
+
+# Split a fasta display_id line and make a hash of
+# the values based on type and value
 
 sub split_header {
     my $self = shift;
