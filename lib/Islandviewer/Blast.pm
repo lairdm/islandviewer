@@ -174,9 +174,11 @@ sub _save_results {
 				if ($hsp->percent_identity >= 90 && $hsp->length('total') >= $length_cutoff) {
                                     $logger->trace("Hit name: " . $hit->name . " against " . $result->query_description);
                                     $logger->trace(Dumper($result));
-                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
-                                        $unique_hits{$2} = $result->query_description;
-                                        $logger->trace("Found hit: " . $2 . " against " . $result->query_description);
+                                    my $hit_headers = $self->split_headers($hit->name);
+#                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
+                                    if (my $ref = $hit_headers->{ref}) {
+                                        $unique_hits{$ref} = $result->query_description;
+                                        $logger->trace("Found hit: " . $ref . " against " . $result->query_description);
                                     }
 				}
 			}
@@ -221,6 +223,20 @@ sub make_database {
     $logger->trace("Got back: $ret");
 
     return $db_root;
+}
+
+sub split_header {
+    my $self = shift;
+    my $id = shift;
+
+    my @pieces = split '|', $id;
+
+    my $identifiers = {};
+    if(my $type = shift @pieces && my $val = shift) {
+        $identifiers->{$type} = $val;
+    }
+
+    return $identifiers;
 }
 
 sub _make_tempfile {
