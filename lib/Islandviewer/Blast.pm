@@ -173,7 +173,7 @@ sub _save_results {
 
 				if ($hsp->percent_identity >= 90 && $hsp->length('total') >= $length_cutoff) {
                                     $logger->trace("Hit name: " . $hit->name . " against " . $result->query_description);
-                                    $logger->trace(Dumper($result));
+#                                    $logger->trace(Dumper($result));
                                     my $hit_headers = $self->split_headers($hit->name);
 #                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
                                     if (my $ref = $hit_headers->{ref}) {
