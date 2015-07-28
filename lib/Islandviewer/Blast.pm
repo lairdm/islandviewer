@@ -154,7 +154,7 @@ sub _save_results {
 	my $file_name = $self->{out};
         $logger->trace("Parsing blast outfile file: $file_name");
 
-	my $blast_results_obj = new Bio::SearchIO(-format => 'blast', -file => $file_name);
+	my $blast_results_obj = new Bio::SearchIO(-format => 'blastxml', -file => $file_name);
 
 	my @output;
 	my %unique_hits;

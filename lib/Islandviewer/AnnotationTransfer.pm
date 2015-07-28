@@ -186,7 +186,7 @@ sub transfer_single_genome {
                                              db => $ref_filename,
                                              query => $query_file,
                                              evalue => 1e-10,
-                                             outfmt => 6,
+                                             outfmt => 5,
                                              seg => 'no',
                                              K => 3
                                             }
