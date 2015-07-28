@@ -33,6 +33,8 @@ use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use File::Spec;
 
+use Data::Dumper;
+
 use Bio::SearchIO;
 
 use Islandviewer::DBISingleton;
