@@ -175,7 +175,7 @@ sub _save_results {
                                     $logger->trace("Hit name: " . $hit->name . " against " . $result->query_description);
                                     $logger->trace(Dumper($result));
                                     if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
-                                        $unique_hits{$2} = $result->query_name;
+                                        $unique_hits{$2} = $result->query_description;
                                         $logger->trace("Found hit: " . $2 . " against " . $result->query_description);
                                     }
 				}
