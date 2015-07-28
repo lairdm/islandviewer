@@ -33,6 +33,7 @@ use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
+use File::Spec;
 
 use Data::Dumper;
 
@@ -182,11 +183,11 @@ sub transfer_single_genome {
 
     my $blast_obj = new Islandviewer::Blast({microbedb_ver => $self->{microbedb_ver},
                                              workdir => $self->{workdir},
-                                             d => $ref_filename,
-                                             i => $query_file,
-                                             e => 1e-10,
-                                             m => 0,
-                                             F => 'F',
+                                             db => $ref_filename,
+                                             query => $query_file,
+                                             evalue => 1e-10,
+                                             outfmt => 6,
+                                             seg => 'no',
                                              K => 3
                                             }
         );
@@ -355,7 +356,7 @@ sub _make_tempfile {
     my $self = shift;
 
     # Let's put the file in our workdir
-    my $tmp_file = mktemp($self->{workdir} . "/blasttmpXXXXXXXXXX");
+    my $tmp_file = mktemp(File::Spec->catpath(undef, $self->{workdir}, "blasttmpXXXXXXXXXX"));
     
     # And touch it to make sure it gets made
     `touch $tmp_file`;

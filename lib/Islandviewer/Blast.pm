@@ -31,6 +31,7 @@ package Islandviewer::Blast;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
+use File::Spec;
 
 use Bio::SearchIO;
 
@@ -41,12 +42,12 @@ my $logger; my $cfg;
 my @temp_files;
 
 # my @BLAST_PARAMS = qw (db query evalue outfmt out);
-my @BLAST_PARAMS =  qw(d i e m o F K);
-# d = database
-# i = input query
-# e = evalue
-# m = output format
-# o = output file
+my @BLAST_PARAMS =  qw(db query evalue outfmt out seg);
+# db = database
+# query = input query
+# evalue = evalue
+# outfmt = output format
+# out = output file
 
 sub BUILD {
     my $self = shift;
@@ -88,11 +89,11 @@ sub run {
     my $database = $self->make_database($db_file);
 
     my $outfile = $self->_make_tempfile();
-    $self->{o} = $outfile;
+    $self->{out} = $outfile;
     push @temp_files, $outfile;
 
-    $self->{d} = $database;
-    $self->{i} = $query_file;
+    $self->{db} = $database;
+    $self->{query} = $query_file;
 
     my @params;
     foreach (@BLAST_PARAMS) {
@@ -223,7 +224,7 @@ sub _make_tempfile {
     my $self = shift;
 
     # Let's put the file in our workdir
-    my $tmp_file = mktemp($self->{workdir} . "/blasttmpXXXXXXXXXX");
+    my $tmp_file = mktemp(File::Spec->catpath(undef, $self->{workdir}, "blasttmpXXXXXXXXXX"));
     
     # And touch it to make sure it gets made
     `touch $tmp_file`;
