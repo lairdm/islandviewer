@@ -210,6 +210,19 @@ sub transfer_single_genome {
 
     print Dumper $vir_hits;
 
+    # Now we're going to go through our hits and find all the 
+    # accessions for the proteins so we can make a sub-fasta file
+    # of those proteins for the RBB run
+    my @accs;
+    foreach my $hit (keys %$vir_hits) {
+        my ($type, $acc) = split /\|/, $hit;
+
+        push @accs, $acc;
+    }
+    $logger->trace("Found protein accessions: " . Dumper(@accs));
+    my $subject_fasta_file = $genome_utils->make_sub_fasta($genome_obj, @accs);
+    $logger->info("Made fasta file of blast hits for rbb: $subject_fasta_file");
+
 
 }
 

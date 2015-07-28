@@ -973,6 +973,45 @@ sub fetch_protein_seq {
 
 }
 
+# Given a genome_obj and a list of identifiers,
+# pull those sequences out of the fasta file and put
+# them in a new temp file
+
+sub make_sub_fasta {
+    my $self = shift;
+    my $genome_obj = shift;
+    my @accessions = @_;
+
+    my $filename = $genome_obj->filename() . '.faa';
+    $logger->trace("Reading sequences from $filename");
+    
+    unless(-f $filename) {
+	$logger->logdie("Error, file $filename doesn't exist");
+    }
+
+    my $outfile = $self->_make_tempfile();
+    my $out = Bio::SeqIO->new(-file => ">$outfile" ,
+				  -format => 'Fasta');
+    $logger->trace("Making temporary fasta file $outfile");
+
+    # Grab the fna file via bioperl
+    my $in = new Bio::SeqIO(-file => $filename);
+
+    # Loop through the sequences in the fasta file
+    while(my $seq = $in->next_seq()) {
+        # Split the display_id in to identifier types
+        my $identifiers = $self->split_header($seq->display_id);
+        
+        # If the sequence has a refseq accession and it's in the
+        # list of accessions we're looking for
+        if($identifiers->{ref} && $identifiers->{ref} ~~ @accessions) {
+            $out->write_seq($seq);
+        }
+    }
+
+    return $outfile;
+}
+
 sub insert_custom_genome {
     my $self = shift;
 
@@ -1312,6 +1351,35 @@ sub calc_gc {
     my $c = ( $seq =~ tr/c// );
     $c += ( $seq =~ tr/C// );
     return ( $g + $c ) / length($seq);
+}
+
+# Make a temp file in our work directory and return the name
+
+sub _make_tempfile {
+    my $self = shift;
+    my $prefix = (@_ ? shift : 'genomeutils');
+
+    # Let's put the file in our workdir
+    my $tmp_file = mktemp(File::Spec->catpath(undef, $self->{workdir}, $prefix . "tmpXXXXXXXXXX"));
+    
+    # And touch it to make sure it gets made
+    `touch $tmp_file`;
+
+    return $tmp_file;
+}
+
+sub split_header {
+    my $self = shift;
+    my $id = shift;
+
+    my @pieces = split /\|/, $id;
+
+    my $identifiers = {};
+    while((my $type = shift @pieces) && (my $val = shift @pieces)) {
+        $identifiers->{$type} = $val;
+    }
+
+    return $identifiers;
 }
 
 1;
