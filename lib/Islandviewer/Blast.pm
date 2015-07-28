@@ -172,7 +172,7 @@ sub _save_results {
                             $logger->trace(" Hsp: ".$hit->name." ".$hsp->percent_identity."%id length=".$hsp->length('total'));
 
 				if ($hsp->percent_identity >= 90 && $hsp->length('total') >= $length_cutoff) {
-                                    $logger->trace("Hit name: " . $hit->name . " against " . $result->query_description);
+                                    $logger->trace("Hit name: " . $hit->name . " against " . $result->query_accession);
                                     $logger->trace(Dumper($result));
                                     if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
                                         $unique_hits{$2} = $result->query_name;
