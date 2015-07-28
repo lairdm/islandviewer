@@ -206,7 +206,7 @@ sub transfer_single_genome {
                                             }
         );
 
-    my $vir_hits = $blast_obj->run($query_file, $query_filename);
+    my $vir_hits = $blast_obj->run($query_file, $subject_filename);
 
     print Dumper $vir_hits;
 
