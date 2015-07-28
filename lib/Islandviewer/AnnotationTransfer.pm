@@ -240,6 +240,7 @@ sub make_vir_fasta {
 	}
 	my $display = join '|', @display_id;
 
+        $logger->trace("Writing sequence for protein: $display");
 	my $pseq = Bio::PrimarySeq->new(
 	    -display_id => $display, 
 	    -seq => $seq,
