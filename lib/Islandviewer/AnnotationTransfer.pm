@@ -239,7 +239,7 @@ sub transfer_single_genome {
         # this protein, then see if we have a reverse. If
         # we do, mark it down for later entry in to the
         # database.
-        my @query_accnums = ();
+        my @query_accnums = [];
         if(reftype $vir_hits->{$vir_hit} eq 'ARRAY') {
             @query_accnums = $vir_hits->{$vir_hit};
         } else {
