@@ -40,7 +40,8 @@ MAIN: {
     my $transfer_obj = Islandviewer::AnnotationTransfer->new({microbedb_ver => 89, 
 							   workdir => $workdir});
 
-    my $results = $transfer_obj->run('NC_017436.1');
+#    my $results = $transfer_obj->run('NC_017436.1');
+    my $results = $transfer_obj->run('NC_021054.1');
 
     print Dumper $results;
 };
