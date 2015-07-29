@@ -281,6 +281,7 @@ sub transfer_single_genome {
         }   
     }
 
+    $logger->debug("RBBS FOUND:");
     $logger->debug(Dumper($found_rbbs));
 
 }

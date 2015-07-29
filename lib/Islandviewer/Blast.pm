@@ -187,6 +187,7 @@ sub _save_results {
                                         } elsif( reftype $unique_hits{"ref|$ref"} eq 'ARRAY') {
                                             push @{ $unique_hits{"ref|$ref"} }, $result->query_description;
                                         } else {
+                                            $logger->trace("Pushing a second item on: " . $unique_hits{"ref|$ref"} . ", " . $result->query_description);
                                             $unique_hits{"ref|$ref"} = ($unique_hits{"ref|$ref"}, $result->query_description);
                                         }
                                         $logger->trace("Found hit: ref|" . $ref . " against " . $result->query_description);
