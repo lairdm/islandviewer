@@ -34,6 +34,7 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use File::Spec;
+use Scalar::Util qw(reftype);
 
 use Data::Dumper;
 
@@ -228,6 +229,59 @@ sub transfer_single_genome {
     my $reverse_hits = $blast_obj->run($subject_fasta_file, $ref_filename);
 
     $logger->trace(Dumper($reverse_hits));
+
+    # We have the forward and reverse BLAST, now we need to go through
+    # the hits and see if we have any RBBHs
+
+    my $found_rbbs = {};
+    foreach my $vir_hit (keys %$vir_hits) {
+        # Get the refseq accession(s) of everything that hits
+        # this protein, then see if we have a reverse. If
+        # we do, mark it down for later entry in to the
+        # database.
+        my @query_accnums = ();
+        if(reftype $vir_hits->{$vir_hit} eq 'ARRAY') {
+            @query_accnums = $vir_hits->{$vir_hit};
+        } else {
+            push @query_accnums, $vir_hits->{$vir_hit};
+        }
+        $logger->trace("For hit $vir_hit found query accessions " . Dumper(@query_accnums));
+
+        foreach my $query_accnum (@query_accnums) {
+            # Pull apart the header line for the query to get the
+            # accession piece only
+            $logger->trace("Examining protein for RBB: $query_accnum");
+            my $header = $genome_utils->split_header($query_accnum);
+
+            unless(defined $header->{ref}) {
+                $logger->error("We don't have a refseq accession for this protein, this is very bad");
+                next;
+            }
+
+            my $ref_key = "ref|" . $header->{ref};
+            $logger->debug("Looking up if we have a RBB for $ref_key");
+            if($reverse_hits->{$ref_key}) {
+                $logger->trace("Found key, let's see if the reverse mapping exists: " . Dumper($reverse_hits->{$ref_key}));
+                # There were multiple hits, it's an array...
+                if(reftype $reverse_hits->{$ref_key} eq 'ARRAY') {
+                    foreach my $rev_hit (@{ $reverse_hits->{$ref_key} }) {
+                        if($rev_hit =~ /$vir_hit/) {
+                            $logger->info("Found an RBB! $ref_key and $vir_hit (in $rev_hit)");
+                            push @{ $found_rbbs->{$vir_hit} }, $query_accnum;
+                            last;
+                        }
+                    }
+                } else {
+                    if($reverse_hits->{$ref_key} =~ /$vir_hit/) {
+                        $logger->info("Found an RBB! $ref_key and $vir_hit (in " . $reverse_hits->{$ref_key} . ")");
+                        push @{ $found_rbbs->{$vir_hit} }, $query_accnum;
+                    }
+                }
+            }
+        }   
+    }
+
+    $logger->debug(Dumper($found_rbbs));
 
 }
 

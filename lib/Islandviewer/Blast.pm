@@ -32,6 +32,7 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use File::Spec;
+use Scalar::Util qw(reftype);
 
 use Data::Dumper;
 
@@ -177,7 +178,17 @@ sub _save_results {
                                     my $hit_headers = $self->split_header($hit->name);
 #                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
                                     if (my $ref = $hit_headers->{ref}) {
-                                        $unique_hits{"ref|$ref"} = $result->query_description;
+                                        # In case we have multiple hits to a particular protein, if the
+                                        # key isn't defined just record it. If it's an array (multiple values
+                                        # already existing) push the new one. Otherwise if the key exists 
+                                        # but isn't an array, convert it to an array.
+                                        if(!defined $unique_hits{"ref|$ref"}) {
+                                            $unique_hits{"ref|$ref"} = $result->query_description;
+                                        } elsif( reftype $unique_hits{"ref|$ref"} eq 'ARRAY') {
+                                            push @{ $unique_hits{"ref|$ref"} }, $result->query_description;
+                                        } else {
+                                            push @{ $unique_hits{"ref|$ref"} }, $unique_hits{"ref|$ref"}, $result->query_description;
+                                        }
                                         $logger->trace("Found hit: ref|" . $ref . " against " . $result->query_description);
                                     }
 				}
