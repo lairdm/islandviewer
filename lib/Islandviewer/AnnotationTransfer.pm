@@ -239,18 +239,18 @@ sub transfer_single_genome {
         # this protein, then see if we have a reverse. If
         # we do, mark it down for later entry in to the
         # database.
-        my @query_accnums = [];
+        my $query_accnums = [];
         if(reftype $vir_hits->{$vir_hit} eq 'ARRAY') {
-            @query_accnums = $vir_hits->{$vir_hit};
+            $query_accnums = $vir_hits->{$vir_hit};
         } else {
-            push @query_accnums, $vir_hits->{$vir_hit};
+            push @{$query_accnums}, $vir_hits->{$vir_hit};
         }
-        $logger->trace("For hit $vir_hit found query accessions " . Dumper(@query_accnums));
+        $logger->trace("For hit $vir_hit found query accessions " . Dumper($query_accnums));
 
-        foreach my $query_accnum (@query_accnums) {
+        foreach my $query_accnum (@{$query_accnums}) {
             # Pull apart the header line for the query to get the
             # accession piece only
-            $logger->trace("Examining protein for RBB: $query_accnum");
+            $logger->trace("Examining protein for RBB: " . Dumper($query_accnum));
             my $header = $genome_utils->split_header($query_accnum);
 
             unless(defined $header->{ref}) {
