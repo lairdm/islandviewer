@@ -88,9 +88,28 @@ sub run {
     my $comparison_genomes = $self->find_comparison_genomes($accnum);
 
     # And now start blasting and transfering the annotations
+    my $all_rbbs = {};
     foreach my $ref_accnum (@$comparison_genomes) {
-	$self->transfer_single_genome($accnum, $ref_accnum);
+        # Find the RBBHs for a single genome
+	my $found_rbbs = $self->transfer_single_genome($accnum, $ref_accnum);
+
+        # Now integrate those in to the master list
+        foreach my $ref (keys %{$found_rbbs}) {
+            if($all_rbbs->{$ref}) {
+                $logger->trace("Found $ref in the master set, integrating...");
+                $all_rbbs->{$ref} = [ @$all_rbbs->{$ref}, @$found_rbbs->{$ref} ];
+            } else {
+                $logger->trace("Haven't seen $ref before, copying over to master set");
+                $all_rbbs->{$ref} = $found_rbbs->{$ref};
+            }
+        }
     }
+
+    $logger->info("All RBBS FOUND:");
+    $logger->info(Dumper($all_rbbs));
+
+    # And here we add them to the database, again checking the
+    # database first for duplicates
 
 }
 
@@ -209,8 +228,6 @@ sub transfer_single_genome {
 
     my $vir_hits = $blast_obj->run($query_file, $subject_filename);
 
-    print Dumper $vir_hits;
-
     # Now we're going to go through our hits and find all the 
     # accessions for the proteins so we can make a sub-fasta file
     # of those proteins for the RBB run
@@ -283,6 +300,11 @@ sub transfer_single_genome {
 
     $logger->debug("RBBS FOUND:");
     $logger->debug(Dumper($found_rbbs));
+
+    $logger->info("Cleaning up temp files for this iteration.");
+    $blast_obj->_clean_tmp();
+
+    return $found_rbbs;
 
 }
 
