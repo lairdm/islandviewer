@@ -374,10 +374,10 @@ sub update_database {
         # and shouldn't be in the virulence table any longer.
         foreach my $ref_accnum (keys %{$ref_accnums}) {
             my $flag = (defined $ref_accnums->{$ref_accnum}->{flag} ?
-                        join(',', @{$ref_accnums->{$ref_accnum}->{flag}}) :
+                        join(';', @{$ref_accnums->{$ref_accnum}->{flag}}) :
                         undef);
             my $pmid = (defined $ref_accnums->{$ref_accnum}->{pmid} ?
-                        join(',', @{$ref_accnums->{$ref_accnum}->{pmid}}) :
+                        join(';', @{$ref_accnums->{$ref_accnum}->{pmid}}) :
                         undef);
 
             $logger->trace("Updating virulence table: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
