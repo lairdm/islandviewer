@@ -110,6 +110,7 @@ sub run {
 
     # And here we add them to the database, again checking the
     # database first for duplicates
+    $self->update_database($all_rbbs);
 
 }
 
@@ -380,12 +381,12 @@ sub update_database {
                         undef);
 
             $logger->trace("Updating virulence table: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
-            $update_vir_record->execute($acc_mapping->{ref},
-                                        $ref_accnum,
-                                        'BLAST',
-                                        'virulence',
-                                        $flag,
-                                        $pmid);
+#            $update_vir_record->execute($acc_mapping->{ref},
+#                                        $ref_accnum,
+#                                        'BLAST',
+#                                        'virulence',
+#                                        $flag,
+#                                        $pmid);
         }
     }
 }
