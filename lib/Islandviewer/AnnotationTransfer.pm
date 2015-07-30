@@ -381,12 +381,12 @@ sub update_database {
                         undef);
 
             $logger->trace("Updating virulence table: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
-#            $update_vir_record->execute($acc_mapping->{ref},
-#                                        $ref_accnum,
-#                                        'BLAST',
-#                                        'virulence',
-#                                        $flag,
-#                                        $pmid);
+            $update_vir_record->execute($acc_mapping->{ref},
+                                        $ref_accnum,
+                                        'BLAST',
+                                        'virulence',
+                                        $flag,
+                                        $pmid);
         }
     }
 }
