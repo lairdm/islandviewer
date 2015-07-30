@@ -308,6 +308,88 @@ sub transfer_single_genome {
 
 }
 
+# Go through the hash of rbb results and
+# add them to the database. This is going to
+# be complicated because we have to separate
+# each out by reference accession, then
+# within that group see if we have that
+# accession in the database already to append
+# the new records.
+
+sub update_database {
+    my $self = shift;
+    my $blast_results = shift;
+
+    # Get a GenomeUtils object so we can do lookups
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $update_vir_record = $dbh->prepare("REPLACE INTO virulence (protein_accnum, external_id, source, type, flag, pmid) VALUES (?, ?, ?, ?, ?, ?)");
+
+    foreach my $acc (keys %{$blast_results}) {
+        $logger->trace("Updating record for accession $acc");
+
+        my $acc_mapping = $genome_utils->split_header($acc);
+        unless(defined $acc_mapping->{ref}) {
+            $logger->error("No accession for this accession? How could that happen? $acc");
+            next;
+        }
+        
+        my $ref_accnums = {};
+        # Now we loop through all the RBBs found
+        # for this accession, building our
+        # data structure of potential duplicates
+
+        foreach my $ref_row (@{$blast_results->{$acc}}) {
+            $logger->trace("Found row $ref_row");
+
+            my $row_pieces = $genome_utils->split_header($ref_row);
+
+            unless(defined $row_pieces->{ref}) {
+                $logger->error("No accession for this rbb? How could that happen? $ref_row");
+                next;
+            }
+
+            # Push the record on to the structure so we can save this information
+            # Filter for duplicates
+            push @{$ref_accnums->{$row_pieces->{ref}}->{flag}}, $ref_row
+                unless(grep $_ eq $ref_row, @{$ref_accnums->{$row_pieces->{ref}}->{flag}});
+
+            # If we have a pmid, remember that
+            if(defined $row_pieces->{pmid} && !(grep $_ eq $row_pieces->{pmid}, @{$ref_accnums->{$row_pieces->{ref}}->{pmid}})) {
+                push @{$ref_accnums->{$row_pieces->{ref}}->{pmid}}, $row_pieces->{pmid};
+            }
+
+        }
+
+        # At this point we should have all the RBBs grouped by
+        # unique accession number from the reference hit.
+        # Let's replace or insert any new record. The reason we're
+        # replacing and not updating is because this should be
+        # the definitive source for any genome we're transfering
+        # annotations from, if we didn't find it now, it means
+        # obviously that genome is gone from the reference set
+        # and shouldn't be in the virulence table any longer.
+        foreach my $ref_accnum (keys %{$ref_accnums}) {
+            my $flag = (defined $ref_accnums->{$ref_accnum}->{flag} ?
+                        join(',', @{$ref_accnums->{$ref_accnum}->{flag}}) :
+                        undef);
+            my $pmid = (defined $ref_accnums->{$ref_accnum}->{pmid} ?
+                        join(',', @{$ref_accnums->{$ref_accnum}->{pmid}}) :
+                        undef);
+
+            $logger->trace("Updating virulence table: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
+            $update_vir_record->execute($acc_mapping->{ref},
+                                        $ref_accnum,
+                                        'BLAST',
+                                        'virulence',
+                                        $flag,
+                                        $pmid);
+        }
+    }
+}
+
 # Find all the virulence genes and write them out of a fasta file
 
 sub make_vir_fasta {
