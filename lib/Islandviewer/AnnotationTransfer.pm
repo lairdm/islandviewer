@@ -44,6 +44,7 @@ use Islandviewer::DBISingleton;
 use Islandviewer::Genome_Picker;
 use Islandviewer::GenomeUtils;
 use Islandviewer::Blast;
+use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 
 use MicrobedbV2::Singleton;
 
@@ -112,6 +113,10 @@ sub run {
     # database first for duplicates
     $self->update_database($all_rbbs);
 
+    # Send back the genomes we used to do the annonation
+    # transfer
+    return $comparison_genomes;
+
 }
 
 # Find all the genomes we want to transfer annotations from
@@ -171,7 +176,12 @@ sub find_comparison_genomes {
 	my $cur_def = $self->filter_name($cur_genome_obj->name());
 	$logger->info("Candidate's name: $cur_def");
 
-	my $okay = $self->check_names_match($definition, $cur_def);
+	my $okay = 0;
+        if($genome_obj->atype() eq $ATYPE_MAP->{custom}) {
+            $okay = 1;
+        } else {
+            $okay = $self->check_names_match($definition, $cur_def);
+        }
 	
 	if($okay) {
 	    push @run_shortlist, $cur_accnum;

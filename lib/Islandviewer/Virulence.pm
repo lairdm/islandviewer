@@ -36,6 +36,7 @@ use Data::Dumper;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::IslandFetcher;
+use Islandviewer::AnnotationTransfer;
 
 use Islandviewer::GenomeUtils;
 
@@ -83,6 +84,25 @@ sub run {
     my $genes = $self->run_virulence($accnum, $islands);
 
     $callback->record_genes($genes);
+
+    eval {
+        $logger->info("Creating AnnotationTransfer object");
+        my $transfer_obj = Islandviewer::AnnotationTransfer->new({ microbedb_ver => $self->{microbedb_ver}, 
+                                                                   workdir => $self->{workdir} });
+
+        my $comparison_genomes = $transfer_obj->run($accnum);
+        $logger->debug("Received back comparison genomes: " . Dumper($comparison_genomes));
+
+        if($comparison_genomes) {
+            my $args = {'transfer_genomes' => $comparison_genomes };
+            $logger->trace("Updating module argument with: " . Dumper($args));
+            $callback->update_args($args, $module_name);
+        }
+    };
+    if($@) {
+        # This won't be a fatal error
+        $logger->error("We have an issue with the annonation transfer: $@");
+    }
 
     return 1;
 }
