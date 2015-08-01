@@ -545,11 +545,14 @@ sub read_and_convert {
 	    my $gi = $count;
 	    $gi = $1 if tag( $feat, 'db_xref' ) =~ m/\bGI:(\d+)\b/;
 
+	    my $ref_accnum = "UN_$count.0";
+	    $ref_accnum = $1 if tag( $feat, 'protein_id' ) =~ m/(.*)/;
+
 	    my $strand_expand  = $strand >= 0 ? '+' : '-';
 	    my $strand_expand2 = $strand >= 0 ? ''  : 'c';
 	    my $desc = "\:$strand_expand2" . "$start-$end";
 
-	    $desc = "gi\|$gi\|" . $desc;
+	    $desc = "ref\|$ref_accnum\|gi\|$gi\|" . $desc;
 
 	    #Create the ffn seq
 	    my $ffn_seq = $seq->trunc( $start, $end );
