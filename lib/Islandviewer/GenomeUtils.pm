@@ -546,7 +546,9 @@ sub read_and_convert {
 	    $gi = $1 if tag( $feat, 'db_xref' ) =~ m/\bGI:(\d+)\b/;
 
 	    my $ref_accnum = "UN_$count.0";
-	    $ref_accnum = $1 if tag( $feat, 'protein_id' ) =~ m/(.*)/;
+	    if tag( $feat, 'protein_id' ) {
+		$ref_accnum = tag( $feat, 'protein_id' );
+	    }
 
 	    my $strand_expand  = $strand >= 0 ? '+' : '-';
 	    my $strand_expand2 = $strand >= 0 ? ''  : 'c';
