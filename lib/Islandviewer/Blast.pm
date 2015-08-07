@@ -176,6 +176,8 @@ sub _save_results {
                                     $logger->trace("Hit name: " . $hit->name . " against " . $result->query_description);
 #                                    $logger->trace(Dumper($result));
                                     my $hit_headers = $self->split_header($hit->name);
+                                    $logger->trace("Split header: " . Dumper($hit_headers));
+
 #                                    if ($hit->name =~ /gi\|(\d+)\|\w+\|(.+)\|/) {
                                     if (my $ref = $hit_headers->{ref}) {
                                         # In case we have multiple hits to a particular protein, if the
