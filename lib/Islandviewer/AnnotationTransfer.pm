@@ -280,6 +280,7 @@ sub transfer_single_genome {
             # accession piece only
             $logger->trace("Examining protein for RBB: " . Dumper($query_accnum));
             my $header = $genome_utils->split_header($query_accnum);
+            $logger->trace("Split header: " . Dumper($header));
 
             unless(defined $header->{ref}) {
                 $logger->error("We don't have a refseq accession for this protein, this is very bad");
@@ -342,6 +343,7 @@ sub update_database {
         $logger->trace("Updating record for accession $acc");
 
         my $acc_mapping = $genome_utils->split_header($acc);
+        $logger->trace("Split header: " . Dumper($acc_mapping));
         unless(defined $acc_mapping->{ref}) {
             $logger->error("No accession for this accession? How could that happen? $acc");
             next;
@@ -356,6 +358,7 @@ sub update_database {
             $logger->trace("Found row $ref_row");
 
             my $row_pieces = $genome_utils->split_header($ref_row);
+            $logger->trace("Split header: " . Dumper($row_pieces));
 
             unless(defined $row_pieces->{ref}) {
                 $logger->error("No accession for this rbb? How could that happen? $ref_row");

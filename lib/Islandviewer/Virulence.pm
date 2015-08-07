@@ -93,7 +93,7 @@ sub run {
         my $comparison_genomes = $transfer_obj->run($accnum);
         $logger->debug("Received back comparison genomes: " . Dumper($comparison_genomes));
 
-        if($comparison_genomes) {
+        if(@{$comparison_genomes}) {
             my $args = {'transfer_genomes' => $comparison_genomes };
             $logger->trace("Updating module argument with: " . Dumper($args));
             $callback->update_args($args, $module_name);
