@@ -247,7 +247,8 @@ sub split_header {
     my @pieces = split /\|/, $id;
 
     my $identifiers = {};
-    while((my $type = shift @pieces) && (my $val = shift @pieces)) {
+    my $type;
+    while(($type = shift @pieces) && (my $val = shift @pieces)) {
         $identifiers->{$type} = $val;
     }
 
