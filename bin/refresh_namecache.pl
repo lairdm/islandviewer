@@ -64,8 +64,8 @@ my $skip_distance; my $update_only; my $distance_only;
     $microbedb_ver = $microbedb->latest();
     $logger->info("Using microbedb version $microbedb_ver");
 
-    my $find_names = $dbh->prepare("SELECT id, cid FROM NameCache WHERE valid = 1");
-    my $invalidate_genome = $dbh->prepare("UPDATE NameCache SET valid = 0 WHERE id = ?");
+    my $find_names = $dbh->prepare("SELECT id, cid FROM NameCache WHERE isvalid = 1");
+    my $invalidate_genome = $dbh->prepare("UPDATE NameCache SET isvalid = 0 WHERE id = ?");
 
     $find_names->execute();
 
