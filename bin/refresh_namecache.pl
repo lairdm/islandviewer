@@ -88,6 +88,8 @@ my $skip_distance; my $update_only; my $distance_only;
             if(-f "$base_file.gbk" && -f "$base_file.faa" && "$base_file.fna" && "$base_file.ptt") {
                 $logger->info("Found $cid, great!");
                 next;
+            } else {
+                $logger->error("We found a DB entry but not a file for $cid??? $base_file");
             }
         }
 
