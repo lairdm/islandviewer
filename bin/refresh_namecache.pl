@@ -94,6 +94,6 @@ my $skip_distance; my $update_only; my $distance_only;
         }
 
         $logger->info("Can't seem to find a valid genome for $cid ($id), invalidating");
-#        $invalidate_genome->execute($id);
+        $invalidate_genome->execute($id);
     }
 }
