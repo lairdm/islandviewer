@@ -251,6 +251,12 @@ sub split_header {
         $identifiers->{$type} = $val;
     }
 
+    # See if we have a coordinate in the header
+    if($type =~ /:c?(\d+)\-(\d+)/) {
+        $identifiers->{start} = $1;
+        $identifiers->{end} = $2;
+    }
+
     return $identifiers;
 }
 
