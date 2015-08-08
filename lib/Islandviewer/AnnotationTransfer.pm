@@ -76,6 +76,12 @@ sub BUILD {
     die "Error, work dir not specified:  $args->{workdir}"
 	unless( -d $args->{workdir} );
     $self->{workdir} = $args->{workdir};
+
+    # We'll need these later...
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    $self->{find_by_coord} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND start = ? and end = ?");
+    $self->{find_by_ref} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND name = ?");
     
 }
 
@@ -111,7 +117,7 @@ sub run {
 
     # And here we add them to the database, again checking the
     # database first for duplicates
-    $self->update_database($all_rbbs);
+    $self->update_database($accnum, $all_rbbs);
 
     # Send back the genomes we used to do the annonation
     # transfer
@@ -320,6 +326,51 @@ sub transfer_single_genome {
 
 }
 
+# For writing the results to the database we're going
+# to need some mappings, for custom genomes we'll be looking
+# them up via coordinate so we need to slurp the
+# fasta file and find this information. It seems
+# a little wasteful to do it this way, but such is life.
+
+sub fetch_fasta_headers {
+    my $self = shift;
+    my $accnum = shift;
+
+    # Get a GenomeUtils object so we can do lookups
+    my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
+
+    # Fetch the query genome object, and fasta file
+    my $genome_obj = $genome_utils->fetch_genome($accnum);
+    unless($genome_obj->genome_status() eq 'READY') {
+	$logger->logdie("Failed in fetching genome object for $accnum, this shouldn't happen!");
+    }
+
+    my $subject_filename = $genome_obj->filename() . '.faa';
+    $logger->trace("Fasta file for subject genome $accnum should be: $subject_filename");
+    unless(-f $subject_filename) {
+        $logger->logdie("Error, can't find file for subject genome $accnum: $subject_filename");
+    }
+
+    $logger->trace("Opening file with bioperl: $subject_filename");
+    my $in = Bio::SeqIO->new(
+	-file    => $subject_filename,
+	-format  => 'FASTA'
+	);
+
+    my $headers;
+    while( my $seq = $in->next_seq() ) {
+	# Split the display id in to piece
+	my $pieces = $genome_utils->split_header($seq->display_id);
+
+	if($pieces->{ref}) {
+	    # If we have a header with an accession, add it to the lookup table
+	    $headers->{$pieces->{ref}} = $pieces;
+	}
+    }
+
+    return $headers;
+}
+
 # Go through the hash of rbb results and
 # add them to the database. This is going to
 # be complicated because we have to separate
@@ -330,14 +381,19 @@ sub transfer_single_genome {
 
 sub update_database {
     my $self = shift;
+    my $accnum = shift;
     my $blast_results = shift;
 
     # Get a GenomeUtils object so we can do lookups
     my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $self->{microbedb_ver} });
 
+    # Fetch all the fasta headers from our subject genome so
+    # we can look it up in the database by coordinate if needed
+    my $headers = $self->fetch_fasta_headers($accnum);
+
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $update_vir_record = $dbh->prepare("REPLACE INTO virulence (protein_accnum, external_id, source, type, flag, pmid) VALUES (?, ?, ?, ?, ?, ?)");
+    my $update_vir_record = $dbh->prepare("REPLACE INTO virulence_mapping (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
     foreach my $acc (keys %{$blast_results}) {
         $logger->trace("Updating record for accession $acc");
@@ -394,14 +450,47 @@ sub update_database {
                         undef);
 
             $logger->trace("Updating virulence table: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
-            $update_vir_record->execute($acc_mapping->{ref},
+	    my $gene_id = $self->find_gene($accnum, $headers->{$acc_mapping->{ref}});
+
+	    if($gene_id) {
+            $update_vir_record->execute($gene_id,
+					$accnum,
+					($acc_mapping->{ref} =~ /^UN\-\d+\.0/ ? undef : $acc_mapping->{ref}),
                                         $ref_accnum,
                                         'BLAST',
                                         'virulence',
                                         $flag,
                                         $pmid);
+	    } else {
+		$logger->error("We weren't able to find a gene id for the record: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
+	    }
         }
     }
+}
+
+sub find_gene {
+    my $self = shift;
+    my $accnum = shift;
+    my $gene_header = shift;
+    
+    if($gene_header->{start} && $gene_header->{end}) {
+	$self->{find_by_coord}->execute($accnum,
+					$gene_header->{start},
+					$gene_header->{end});
+
+	if(my ($id) = $self->{find_by_coord}->fetchrow_array) {
+	    return $id;
+	}
+    } elsif($gene_header->{ref}) {
+	$self->{find_by_ref}->execute($accnum,
+				      $gene_header->{ref});
+
+	if(my ($id) = $self->{find_by_ref}->fetchrow_array) {
+	    return $id;
+	}
+    }
+
+    return undef;
 }
 
 # Find all the virulence genes and write them out of a fasta file
