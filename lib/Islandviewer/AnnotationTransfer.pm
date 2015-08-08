@@ -97,8 +97,6 @@ sub run {
 
     $self->transfer_curated($accnum);
 
-    return;
-
     # Find all the comparison genomes within the approved distance and
     # who's names match the criteria
     my $comparison_genomes = $self->find_comparison_genomes($accnum);
