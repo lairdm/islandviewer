@@ -145,7 +145,7 @@ sub transfer_curated {
 
     $logger->info("Transferring curated annotations from $accnum to mapped table");
 
-    my $find_virulence = $dbh->prepare("INSERT INTO virulence_mapped (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid, date) FROM SELECT G.id, G.ext_id, V.protein_accnum, V.external_id, V.source, V.type, V.flag, V.pmid, V.date FROM Genes AS G, virulence AS V WHERE G.name = V.protein_accnum and G.ext_id = ?");
+    my $find_virulence = $dbh->prepare("INSERT INTO virulence_mapped (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid, date) SELECT G.id, G.ext_id, V.protein_accnum, V.external_id, V.source, V.type, V.flag, V.pmid, V.date FROM Genes AS G, virulence AS V WHERE G.name = V.protein_accnum and G.ext_id = ?");
 
     $find_virulence->execute($accnum) or
 	$logger->logdie("Error transferring curated annotations: $DBI::errstr");
@@ -160,7 +160,7 @@ sub clear_annotations {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    $dbh->do("DELETE FROM virulence_mapping WHERE ext_id = ?", undef, $accnum) or
+    $dbh->do("DELETE FROM virulence_mapped WHERE ext_id = ?", undef, $accnum) or
 	$logger->logdie("Error clearing annotations: $DBI::errstr");
 
 }
@@ -433,7 +433,7 @@ sub update_database {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $update_vir_record = $dbh->prepare("REPLACE INTO virulence_mapping (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    my $update_vir_record = $dbh->prepare("REPLACE INTO virulence_mapped (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
     foreach my $acc (keys %{$blast_results}) {
         $logger->trace("Updating record for accession $acc");
