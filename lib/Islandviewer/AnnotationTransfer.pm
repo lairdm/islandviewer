@@ -158,6 +158,8 @@ sub clear_annotations {
 
     $logger->info("Purging existing annotations for $accnum");
 
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
     $dbh->do("DELETE FROM virulence_mapping WHERE ext_id = ?", undef, $accnum) or
 	$logger->logdie("Error clearing annotations: $DBI::errstr");
 
