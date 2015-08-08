@@ -453,14 +453,14 @@ sub update_database {
 	    my $gene_id = $self->find_gene($accnum, $headers->{$acc_mapping->{ref}});
 
 	    if($gene_id) {
-            $update_vir_record->execute($gene_id,
-					$accnum,
-					($acc_mapping->{ref} =~ /^UN\-\d+\.0/ ? undef : $acc_mapping->{ref}),
-                                        $ref_accnum,
-                                        'BLAST',
-                                        'virulence',
-                                        $flag,
-                                        $pmid);
+		$update_vir_record->execute($gene_id,
+					    $accnum,
+					    ($acc_mapping->{ref} =~ /^UN\-\d+\.0/ ? undef : $acc_mapping->{ref}),
+					    $ref_accnum,
+					    'BLAST',
+					    'virulence',
+					    $flag,
+					    $pmid);
 	    } else {
 		$logger->error("We weren't able to find a gene id for the record: " . $acc_mapping->{ref} . ", $ref_accnum, BLAST, virulence, $flag, $pmid");
 	    }
@@ -480,6 +480,7 @@ sub find_gene {
 					$gene_header->{end});
 
 	if(my ($id) = $self->{find_by_coord}->fetchrow_array) {
+	    $logger->trace("Found gene $id");
 	    return $id;
 	}
     } elsif($gene_header->{ref}) {
