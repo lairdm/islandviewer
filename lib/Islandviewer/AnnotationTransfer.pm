@@ -80,8 +80,11 @@ sub BUILD {
     # We'll need these later...
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    $self->{find_by_coord} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND start = ? and end = ?");
-    $self->{find_by_ref} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND name = ?");
+    $self->{find_by_coord} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND start = ? AND end = ?") or 
+	$logger->logdie("Error preparing find_by_coord statement: $DBI::errstr");
+
+    $self->{find_by_ref} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND name = ?") or
+	$logger->logdie("Error preparing find_by_ref statement: $DBI::errstr");
     
 }
 
@@ -477,7 +480,9 @@ sub find_gene {
 	$logger->trace("Looking up by coord: $accnum, " . $gene_header->{start} . ", " . $gene_header->{end});
 	$self->{find_by_coord}->execute($accnum,
 					$gene_header->{start},
-					$gene_header->{end});
+					$gene_header->{end}) or
+					    $logger->error("Error searching by coord: $DBI::errstr");
+
 
 	if(my ($id) = $self->{find_by_coord}->fetchrow_array) {
 	    $logger->trace("Found gene $id");
@@ -486,7 +491,9 @@ sub find_gene {
     } elsif($gene_header->{ref}) {
 	$logger->trace("Looking up by ref: $accnum, " . $gene_header->{ref});
 	$self->{find_by_ref}->execute($accnum,
-				      $gene_header->{ref});
+				      $gene_header->{ref}) or
+					  $logger->error("Error searching by ref: $DBI::errstr");
+					  
 
 	if(my ($id) = $self->{find_by_ref}->fetchrow_array) {
 	    return $id;
