@@ -93,6 +93,12 @@ sub run {
     my $accnum = shift;
     my $callback = shift;
 
+    $self->clear_annotations($accnum);
+
+    $self->transfer_curated($accnum);
+
+    return;
+
     # Find all the comparison genomes within the approved distance and
     # who's names match the criteria
     my $comparison_genomes = $self->find_comparison_genomes($accnum);
@@ -126,6 +132,33 @@ sub run {
     # transfer
     return $comparison_genomes;
 
+}
+
+# Transfer all the annotated genomes from the virulence table
+# to the virulence_mapped table for a single genome
+
+sub transfer_curated {
+    my $self = shift;
+    my $accnum = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    $logger->info("Transferring curated annotations from $accnum to mapped table");
+
+    my $find_virulence = $dbh->prepare("INSERT INTO virulence_mapped (gene_id, ext_id, protein_accnum, external_id, source, type, flag, pmid, date) FROM SELECT G.id, G.ext_id, V.protein_accnum, V.external_id, V.source, V.type, V.flag, V.pmid, V.date FROM Genes AS G, virulence AS V WHERE G.name = V.protein_accnum and G.ext_id = ?");
+
+    $find_virulence->execute($accnum) or
+	$logger->logdie("Error transferring curated annotations: $DBI::errstr");
+
+}
+
+sub clear_annotations {
+    my $self = shift;
+    my $accnum = shift;
+
+    $logger->info("Purging existing annotations for $accnum");
+
+    $dbh->do("DELETE FROM virulence_mapping WHERE ext_id = ?", undef, $accnum);
 }
 
 # Find all the genomes we want to transfer annotations from
