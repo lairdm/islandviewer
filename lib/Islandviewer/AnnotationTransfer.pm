@@ -80,10 +80,10 @@ sub BUILD {
     # We'll need these later...
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    $self->{find_by_coord} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND start = ? AND end = ?") or 
+    $self->{find_by_coord} = $dbh->prepare("SELECT id from Genes WHERE ext_id = ? AND start = ? AND end = ?") or 
 	$logger->logdie("Error preparing find_by_coord statement: $DBI::errstr");
 
-    $self->{find_by_ref} = $dbh->prepare("SELECT id from Gene WHERE ext_id = ? AND name = ?") or
+    $self->{find_by_ref} = $dbh->prepare("SELECT id from Genes WHERE ext_id = ? AND name = ?") or
 	$logger->logdie("Error preparing find_by_ref statement: $DBI::errstr");
     
 }
