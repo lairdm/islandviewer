@@ -458,7 +458,7 @@ sub update_database {
 	    if($gene_id) {
 		$update_vir_record->execute($gene_id,
 					    $accnum,
-					    ($acc_mapping->{ref} =~ /^UN\-\d+\.0/ ? undef : $acc_mapping->{ref}),
+					    ($acc_mapping->{ref} =~ /^UN_\d+\.0/ ? undef : $acc_mapping->{ref}),
 					    $ref_accnum,
 					    'BLAST',
 					    'virulence',
