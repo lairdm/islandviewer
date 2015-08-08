@@ -66,7 +66,7 @@ my $skip_distance; my $update_only; my $distance_only;
     $microbedb_ver = $microbedb->latest();
     $logger->info("Using microbedb version $microbedb_ver");
 
-    my $find_analysis = $dbh->prepare("SELECT ext_id FROM Analysis WHERE owner = 0 AND default_analysis = 1 AND status = 4 AND atype = 2");
+    my $find_analysis = $dbh->prepare("SELECT ext_id FROM Analysis WHERE owner_id = 0 AND default_analysis = 1 AND status = 4 AND atype = 2");
 
     $find_analysis->execute();
 
