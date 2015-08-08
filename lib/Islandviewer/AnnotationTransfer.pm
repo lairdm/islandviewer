@@ -474,6 +474,7 @@ sub find_gene {
     my $gene_header = shift;
     
     if($gene_header->{start} && $gene_header->{end}) {
+	$logger->trace("Looking up by coord: $accnum, " . $gene_header->{start} . ", " . $gene_header->{end});
 	$self->{find_by_coord}->execute($accnum,
 					$gene_header->{start},
 					$gene_header->{end});
@@ -482,6 +483,7 @@ sub find_gene {
 	    return $id;
 	}
     } elsif($gene_header->{ref}) {
+	$logger->trace("Looking up by ref: $accnum, " . $gene_header->{ref});
 	$self->{find_by_ref}->execute($accnum,
 				      $gene_header->{ref});
 
