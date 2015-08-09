@@ -101,6 +101,11 @@ sub run {
     # who's names match the criteria
     my $comparison_genomes = $self->find_comparison_genomes($accnum);
 
+    unless($comparison_genomes) {
+	$logger->error("We didn't get any comparison genomes back for $accnum, aborting.");
+	return;
+    }
+
     # And now start blasting and transfering the annotations
     my $all_rbbs = {};
     foreach my $ref_accnum (@$comparison_genomes) {
