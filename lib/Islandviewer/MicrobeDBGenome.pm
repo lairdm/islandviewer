@@ -83,7 +83,7 @@ coerce 'MDBArrayRefofStr'
   => from 'ArrayRef[Str]'
     => via { $_ }
   => from 'Undef'
-      via { '' };
+    => via { '' };
 
 has formats => (
     traits  => ['Array'],
