@@ -110,7 +110,15 @@ sub run {
     my $all_rbbs = {};
     foreach my $ref_accnum (@$comparison_genomes) {
         # Find the RBBHs for a single genome
-	my $found_rbbs = $self->transfer_single_genome($accnum, $ref_accnum);
+        my $found_rbbs;
+        
+        eval {
+            $found_rbbs = $self->transfer_single_genome($accnum, $ref_accnum);
+        };
+        if($@) {
+            $logger->error("Error transfering genome $ref_accnum for $accnum: $@");
+            next;
+        }
 
         # Now integrate those in to the master list
         foreach my $ref (keys %{$found_rbbs}) {
