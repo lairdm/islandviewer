@@ -41,7 +41,8 @@ MAIN: {
 							   workdir => $workdir});
 
 #    my $results = $transfer_obj->run('NC_017436.1');
-    my $results = $transfer_obj->run('NC_021054.1');
+#    my $results = $transfer_obj->run('NC_021054.1');
+    my $results = $transfer_obj->run('NC_002516.2');
 
     print Dumper $results;
 };

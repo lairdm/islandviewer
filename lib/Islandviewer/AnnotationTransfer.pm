@@ -85,6 +85,9 @@ sub BUILD {
 
     $self->{find_by_ref} = $dbh->prepare("SELECT id from Genes WHERE ext_id = ? AND name = ?") or
 	$logger->logdie("Error preparing find_by_ref statement: $DBI::errstr");
+
+    $self->{check_curated} = $dbh->prepare("SELECT rep_accnum FROM virulence_curated_reps WHERE rep_accnum=?") or
+        $logger->logdie("Error preparing check_curated statement: $DBI::errstr");
     
 }
 
@@ -96,6 +99,12 @@ sub run {
     $self->clear_annotations($accnum);
 
     $self->transfer_curated($accnum);
+
+    $self->{check_curated}->execute($accnum);
+    if(my @row = $self->{check_curated}->fetchrow_array) {
+        $logger->info("This genomes ($accnum) is a reference genome, we won't run the blast/rbb check on it");
+        return;
+    }
 
     # Find all the comparison genomes within the approved distance and
     # who's names match the criteria
@@ -211,17 +220,14 @@ sub find_comparison_genomes {
     my $definition = $self->filter_name($genome_obj->name());
     $logger->info("Our shortened name: $definition");
 
-    my $dbh = Islandviewer::DBISingleton->dbh;
-    my $check_curated = $dbh->prepare("SELECT rep_accnum FROM virulence_curated_reps WHERE rep_accnum=?");
-
     # Now the real work, go through the candidates and see if they match the 
     # name patterns we're allowing
     my @run_shortlist;
     foreach my $cur_accnum (keys %{$dists}) {
 	$logger->info("Examining: $cur_accnum, dist: " . $dists->{$cur_accnum});
 
-	$check_curated->execute($cur_accnum);
-	unless(my @row = $check_curated->fetchrow_array) {
+	$self->{check_curated}->execute($cur_accnum);
+	unless(my @row = $self->{check_curated}->fetchrow_array) {
 	    $logger->info("Not in curated set, skipping");
 	    next;
 	}
