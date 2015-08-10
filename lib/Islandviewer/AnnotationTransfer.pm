@@ -137,7 +137,12 @@ sub run {
 
     # And here we add them to the database, again checking the
     # database first for duplicates
-    $self->update_database($accnum, $all_rbbs);
+    eval {
+        $self->update_database($accnum, $all_rbbs);
+    };
+    if($@) {
+        $logger->error("Error updating the database for genome $accnum");
+    }
 
     # Send back the genomes we used to do the annonation
     # transfer
