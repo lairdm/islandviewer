@@ -133,7 +133,12 @@ sub run {
         foreach my $ref (keys %{$found_rbbs}) {
             if($all_rbbs->{$ref}) {
                 $logger->trace("Found $ref in the master set, integrating...");
-                $all_rbbs->{$ref} = [ @$all_rbbs->{$ref}, @$found_rbbs->{$ref} ];
+
+                foreach my $item (@{$found_rbbs->{$ref}}) {
+                    push $all_rbbs->{$ref}, $item
+                        unless(grep $_ eq $item, $all_rbbs->{$ref});
+                }
+
             } else {
                 $logger->trace("Haven't seen $ref before, copying over to master set");
                 $all_rbbs->{$ref} = $found_rbbs->{$ref};
