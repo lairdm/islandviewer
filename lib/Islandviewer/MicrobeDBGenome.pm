@@ -159,7 +159,7 @@ sub loadGenome {
 	$self->filename(File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name) );
 	$self->cds_num( $rep_results->cds_num );
 	$self->rep_size( $rep_results->rep_size );
-	$self->formats( $rep_results->file_types );
+	$self->formats( $rep_results->file_types ? $rep_results->file_types : '' );
 	$self->contigs ( 1 );
 	$self->genome_status( 'READY' );
     }
