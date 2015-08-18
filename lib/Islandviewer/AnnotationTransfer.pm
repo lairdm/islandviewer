@@ -251,7 +251,10 @@ sub find_comparison_genomes {
 
 	my $okay = 0;
         if($genome_obj->atype() eq $ATYPE_MAP->{custom}) {
-            $okay = 1;
+	    # We're disabling annotation transfer for now on
+	    # custom genomes until we find a better way to check distance and genus
+            $okay = 0;
+#            $okay = 1;
         } else {
             $okay = $self->check_names_match($definition, $cur_def);
         }
