@@ -109,6 +109,8 @@ sub submit {
     my $output = do { local $/; <CMD> };
     close CMD;
 
+    $logger->debug("Returned from command: $output");
+
     $logger->debug("Switching cwd back to $cwd");
     chdir $cwd;
 
