@@ -194,8 +194,8 @@ CREATE TABLE IF NOT EXISTS `Distance` (
 
 CREATE TABLE IF NOT EXISTS `DistanceAttempts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `rep_accnum1` varchar(15) NOT NULL,
-  `rep_accnum2` varchar(15) NOT NULL,
+  `rep_accnum1` varchar(24) NOT NULL,
+  `rep_accnum2` varchar(24) NOT NULL,
   `status` int(11) NOT NULL,
   `run_date` datetime NOT NULL,
   PRIMARY KEY (`id`),
