@@ -116,6 +116,9 @@ my $skip_distance; my $update_only; my $distance_only;
 	}
 
 	$sets_run_last_cycle = $sets_run;
+
+        # And incremenet the cycle for the next iteration
+        $cycle++;
     }
 
     if($distance_only) {
