@@ -105,9 +105,12 @@ sub submit {
     $logger->debug("Issuing command: $qsub_cmd");
 
     # Pipe to stdin
+#    my $output = `$qsub_cmd 2>&1`;
     open(CMD, '-|', $qsub_cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
+
+    $logger->debug("Returned from command: $output");
 
     $logger->debug("Switching cwd back to $cwd");
     chdir $cwd;
