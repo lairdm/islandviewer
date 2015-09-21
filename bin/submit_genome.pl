@@ -47,12 +47,13 @@ my $verbose = 0;
 MAIN: {
     my $cfname; my $filename; my $name; my $logger;
     my $format; my $email; my $comparison_genomes;
-    my $microbedb_ver; my $ref_accnum;
+    my $microbedb_ver; my $ref_accnum; my $owner_id;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "filename=s" => \$filename,
 			 "name=s"     => \$name,
 			 "type=s"   => \$format,
 			 "email=s"    => \$email,
+			 "owner=s"   => \$owner_id, # owner_id to set
                          "refgenome=s" => \$ref_accnum,
 			 "islandpick_genomes=s" => \$comparison_genomes,
 			 "microbedb_ver=s" => \$microbedb_ver,
@@ -104,6 +105,10 @@ MAIN: {
     if($comparison_genomes) {
 	my $genomelist_str = join(' ', split(',', $comparison_genomes));
 	$req_struct->{Islandpick} = { args => { comparison_genomes => $genomelist_str } };
+    }
+
+    if(defined($owner_id)) {
+	$req_struct->{owner_id} = $owner_id;
     }
 
     $req_struct->{microbedb_ver} = $microbedb_ver if ($microbedb_ver);

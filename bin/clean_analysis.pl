@@ -75,7 +75,7 @@ MAIN: {
 sub purge_old_custom_analysis {
     my $dbh = Islandviewer::DBISingleton->dbh;
 
-    my $find_old_custom = $dbh->prepare("SELECT aid, ext_id, workdir FROM Analysis WHERE atype = 1 AND DATE_SUB(CURDATE(), INTERVAL $maxage DAY) >= start_date");
+    my $find_old_custom = $dbh->prepare("SELECT aid, ext_id, workdir FROM Analysis WHERE atype = 1 AND owner_id != 0 AND DATE_SUB(CURDATE(), INTERVAL $maxage DAY) >= start_date");
 
     $find_old_custom->execute();
 
