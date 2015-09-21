@@ -361,7 +361,7 @@ sub submit_complete_job {
     $args->{Dimob}->{extended_ids} = 1;
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
-    $args->{owner_id} = 1;
+    $args->{owner_id} = (defined($args->{owner_id}) ? $args->{owner_id} : 1);
     $args->{default_analysis} = 1;
     if($args->{email}) {
 	$logger->trace("We've been asked to notify: " . $args->{email});
@@ -445,7 +445,7 @@ sub submit_job {
 			      MIN_GI_SIZE => 4000};
     $args->{Distance} = {block => 1, scheduler => 'Islandviewer::NullScheduler'};
     $args->{microbedb_ver} = $microbedb_ver;
-    $args->{owner_id} = 1;
+    $args->{owner_id} = (defined($args->{owner_id}) ? $args->{owner_id} : 1);
     $args->{default_analysis} = 1;
     $args->{email} = $email;
 
