@@ -172,7 +172,7 @@ sub loadGenome {
     if(my $row = $fetch_cg->fetchrow_hashref) {
 	# Load the pieces
 	for my $k (keys %$row) {
-	    if($row->{$k}) {
+	    if(defined($row->{$k})) {
 		if($k eq 'filename') {
 		    # Stupid hack because the coerce in the definiton won't fucking work
 		    $self->$k( Islandviewer::Config->expand_directory( $row->{$k} ) );
