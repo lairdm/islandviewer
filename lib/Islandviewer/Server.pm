@@ -254,6 +254,10 @@ sub prep_job {
 	$params{load} = $args->{cid};
     }
 
+    if(defined($args->{owner_id})) {
+	$params{owner_id} = $args->{owner_id};
+    }
+
     eval {
 	$cg = Islandviewer::CustomGenome->new(%params);
 

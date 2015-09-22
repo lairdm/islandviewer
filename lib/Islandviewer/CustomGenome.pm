@@ -146,6 +146,10 @@ sub BUILD {
 	$self->genome_status('NEW');
     }
 
+    if(defined($args->{owner_id})) {
+	$self->owner_id($args->{owner_id});
+    }
+
     if($args->{microbedb_ver}) {
 	$self->{microbedb_ver} = $args->{microbedb_ver};
     }
