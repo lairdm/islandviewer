@@ -57,7 +57,7 @@ has name => (
 has owner_id => (
     is     => 'rw',
     isa    => 'Int',
-    default => 0
+    default => 1
 );
 
 has cds_num => (
