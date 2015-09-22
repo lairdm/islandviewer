@@ -147,6 +147,7 @@ sub BUILD {
     }
 
     if(defined($args->{owner_id})) {
+	$logger->debug("Setting owner_id to " . $args->{owner_id});
 	$self->owner_id($args->{owner_id});
     }
 
