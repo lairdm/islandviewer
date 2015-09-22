@@ -255,6 +255,7 @@ sub prep_job {
     }
 
     if(defined($args->{owner_id})) {
+	$logger->debug("Setting owner_id to " . $args->{owner_id});
 	$params{owner_id} = $args->{owner_id};
     }
 
