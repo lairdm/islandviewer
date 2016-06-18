@@ -17,8 +17,6 @@ use lib "../lib";
 use Islandviewer;
 use Islandviewer::Analysis;
 
-use MicrobedbV2::Singleton;
-
 MAIN: {
     my $cfname; my $aid; my $module; my $logger;
     my $res = GetOptions("config=s"   => \$cfname,
@@ -52,9 +50,8 @@ MAIN: {
 
     }
 
-    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
-    my $dsn = MicrobedbV2::Singleton->fetch_dsn();
-    $logger->trace("MicrobeDB dbh: $dsn");
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
 
-    $Islandviewer->run($aid, $module);
+    $analysis_obj->fetch_module($module);
+    $analysis_obj->set_module_status('PENDING');
 };

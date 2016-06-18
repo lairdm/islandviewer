@@ -73,7 +73,7 @@ sub build_and_submit {
     $logger->info("Received submit command with aid $aid");
     $logger->info("Received submit command with job_type $job_type");
     $logger->info("Received submit command with workdir $workdir");
-    $logger->info("Received submit command with args $args");
+    $logger->info("Received submit command with args " . Dumper($args));
     $logger->info("Received submit command with modules " . join(',', @modules));
 
     $logger->info("Returning true.");

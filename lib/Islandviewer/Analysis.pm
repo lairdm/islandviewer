@@ -33,12 +33,14 @@ use Log::Log4perl qw(get_logger :nowarn);
 use JSON;
 use Data::Dumper;
 use File::Copy::Recursive qw(dircopy);
+use Session::Token;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 use Islandviewer::Notification;
 
-use MicrobeDB::Versions;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -93,13 +95,13 @@ sub load_analysis {
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 	
-    my $fetch_analysis = $dbh->prepare("SELECT atype, ext_id, default_analysis, status, workdir, microbedb_ver FROM Analysis WHERE aid = ?");
+    my $fetch_analysis = $dbh->prepare("SELECT atype, ext_id, default_analysis, status, workdir, microbedb_ver, token FROM Analysis WHERE aid = ?");
 
     $fetch_analysis->execute($aid) 
 	or $logger->logdie("Error, can't fetch analysis $aid");
     
     # There should only be one
-    if(my($atype, $ext_id, $default_analysis, $status, $workdir, $microbedb_ver) =
+    if(my($atype, $ext_id, $default_analysis, $status, $workdir, $microbedb_ver, $token) =
        $fetch_analysis->fetchrow_array) {
 	$self->{atype} = $atype;
 	$self->{ext_id} = $ext_id;
@@ -110,6 +112,7 @@ sub load_analysis {
 	}
 	$self->{base_workdir} = $workdir;
 	$self->{microbedb_ver} = $microbedb_ver;
+        $self->{token} = $token if $token;
     } else {
 	$logger->logdie("Error, can't find analysis $aid");
     }
@@ -136,13 +139,13 @@ sub submit {
     
     my $microbedb_ver;
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we've been given a microbedb version AND its valid...
-    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+    if($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
 	$microbedb_ver = $args->{microbedb_ver}
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     # Submit the analysis!
@@ -478,6 +481,32 @@ sub run {
     }
 }
 
+sub generate_token {
+    my $self = shift;
+
+    my $dbh = Islandviewer::DBISingleton->dbh;
+
+    my $fetch_analysis = $dbh->prepare("SELECT aid, token FROM Analysis WHERE aid = ?");
+
+    $fetch_analysis->execute($self->{aid});
+
+    if(my @row = $fetch_analysis->fetchrow_array) {
+        if($row[1]) {
+            # Do we have an existing token? Yes, return it
+            return $row[1];
+        } else {
+            # Nope? Generate one and save it
+            my $token = Session::Token->new->get;
+
+            $dbh->do("UPDATE Analysis set token = ? WHERE aid = ?", undef, $token, $self->{aid});
+            return $token;
+        }
+    } else {
+        # We can't find our own record?  Very, very bad.
+        die "Error, can't find analysis id " . $self->{aid} . " when generating security token this is very bad.";
+    }
+}
+
 sub record_islands {
     my $self = shift;
     my $module_name = shift;
@@ -608,9 +637,16 @@ sub purge_module {
 }
 
 # Clone an analysis and return the new analysis instance
+#
+# Cloned jobs will default to being owner 1 - a public
+# job with new custom owner
 
 sub clone {
     my $self = shift;
+    my $args = @_ ? shift : {};
+
+    my $owner = exists $args->{owner_id} ? $args->{owner_id} : 1;
+    my $default_analysis = $args->{default_analysis} ? $args->{default_analysis} : 0;
 
     my $dbh = Islandviewer::DBISingleton->dbh;
 
@@ -618,13 +654,18 @@ sub clone {
 
     # First let's clone the analysis table record
     $logger->trace("Cloning analysis record in database: " . $self->{aid});
-    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, default_analysis) SELECT atype, ext_id, owner_id, status, workdir, microbedb_ver, 0 FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
+    $dbh->do("INSERT INTO Analysis (atype, ext_id, owner_id, status, workdir, microbedb_ver, token, default_analysis) SELECT atype, ext_id, $owner, status, workdir, microbedb_ver, token, $default_analysis FROM Analysis WHERE aid = ?", undef, $self->{aid} ) or $logger->logdie("Error cloning analysis $self->{aid}: $DBI::errstr");
     my $new_aid = $dbh->last_insert_id(undef, undef, undef, undef);
     $logger->trace("New analysis id, was " . $self->{aid} . ", new id is " . $new_aid);
 
+    if($args->{demote_old}) {
+        $logger->debug("We've been told to demote the old analysis " . $self->{aid} . " from being the default");
+        $dbh->do("UPDATE Analysis SET default_analysis = 0 WHERE aid = ?", undef, $self->{aid});
+    }
+
     # We could do this with triggers but we won't, see below.
     # Make the workdir for our analysis
-    my $new_workdir = $cfg->{analysis_directory} . "/$new_aid";
+    my $new_workdir = File::Spec->catpath(undef, $cfg->{analysis_directory}, "$new_aid");
     unless(mkdir $new_workdir) {
 	# Oops, we weren't able to make the workdir...
 	$logger->logdie("Oops, we weren't able to make the workdir $new_workdir for cloned analysis $new_aid");
@@ -648,6 +689,10 @@ sub clone {
     }
 
     $dbh->do("UPDATE Analysis SET workdir = ? WHERE aid = ?", undef, $shortened_workdir, $new_aid);
+
+    if($args->{microbedb_ver}) {
+        $dbh->do("UPDATE Analysis SET microbedb_ver = ? WHERE aid = ?", undef, $args->{microbedb_ver}, $new_aid);
+    }
 
     # Next clone the prediction tasks, since we're only cloning completed runs
     # we can just directly copy

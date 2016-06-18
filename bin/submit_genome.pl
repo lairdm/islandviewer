@@ -1,9 +1,11 @@
 #!/usr/bin/env perl
 
-# Used to submit a custom genome, given a file name it copies it over
+# Used to submit a genome, given a file name it copies it over
 # and tries to prep it for analysis
 # Returns the cid number which can be used to sub the analysis
 # for execution.
+
+# This version does not require it to be run... as me.
 
 use strict;
 use Cwd qw(abs_path getcwd);
@@ -31,7 +33,7 @@ sub mypath { return $path; }
 };
 
 use lib "../lib";
-use Islandviewer;
+use Islandviewer::Config;
 
 # Set connection information here
 my $cfg;
@@ -45,13 +47,14 @@ my $verbose = 0;
 MAIN: {
     my $cfname; my $filename; my $name; my $logger;
     my $format; my $email; my $comparison_genomes;
-    my $microbedb_ver; my $owner_id;
+    my $microbedb_ver; my $ref_accnum; my $owner_id;
     my $res = GetOptions("config=s"   => \$cfname,
 			 "filename=s" => \$filename,
 			 "name=s"     => \$name,
 			 "type=s"   => \$format,
 			 "email=s"    => \$email,
 			 "owner=s"   => \$owner_id, # owner_id to set
+                         "refgenome=s" => \$ref_accnum,
 			 "islandpick_genomes=s" => \$comparison_genomes,
 			 "microbedb_ver=s" => \$microbedb_ver,
 			 "verbose" => \$verbose
@@ -60,19 +63,12 @@ MAIN: {
     die "Error, no config file given"
       unless($cfname);
 
-    my $Islandviewer = Islandviewer->new({cfg_file => $cfname });
-    my $cfg = Islandviewer::Config->config;
-
-    if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
-	Log::Log4perl::init($cfg->{logger_conf});
-	$logger = Log::Log4perl->get_logger;
-	$logger->debug("Logging initialized");
-    }
+    # Initialize the configuration file
+    Islandviewer::Config->initialize({cfg_file => $cfname });
+    $cfg = Islandviewer::Config->config;
 
     unless( -f $filename && -r $filename ) {
-	$logger->error("Custom genome $filename is not readable, failing");
-	print "0\n";
-	exit;
+	die "Custom genome $filename is not readable, failing";
     }
 
     $host = $cfg->{daemon_host}
@@ -93,7 +89,7 @@ MAIN: {
     my $genome_data = urlsafe_b64encode($file_contents);
     $req_struct->{genome_data} = $genome_data;
 
-    $req_struct->{genome_name} = ($name ? $name : 'user genome');
+    $req_struct->{genome_name} = ($name ? $name : 'Custom Genome');
 
     # Set the format
     $format = 'gbk' if($format eq 'gbk');
@@ -102,6 +98,8 @@ MAIN: {
     $req_struct->{genome_format} = ($format ? $format : 'gbk');
 
     $req_struct->{email} = $email if($email);
+
+    $req_struct->{ref_accnum} = $ref_accnum if($ref_accnum);
 
     # Add islandpick comparison genomes if given
     if($comparison_genomes) {

@@ -3,6 +3,7 @@
 use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
+use File::Spec;
 
 BEGIN{
 # Find absolute path of script
@@ -36,12 +37,13 @@ MAIN: {
     if($cfg->{logger_conf} && ( -r $cfg->{logger_conf})) {
 	Log::Log4perl::init($cfg->{logger_conf});
 	$logger = Log::Log4perl->get_logger;
-	$logger->debug("Logging initialize for set $set");
+	$logger->debug("Logging initialize for set $set, workdir $workdir, blocking: $root");
     }
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
-    if(-d "$workdir/$set") {
-	$app->file_switch("$workdir/$set/distance.log");
+    my $set_dir = File::Spec->catpath(undef, $workdir, $set);
+    if(-d $set_dir) {
+	$app->file_switch(File::Spec->catpath(undef, $set_dir, "distance.log"));
 	$logger->info("Initializing logging for set $set");
     } else {
 	$logger->error("Error, can't switch log file for set $set");
@@ -51,15 +53,25 @@ MAIN: {
     # If we're working in blocking mode we make a watchdog
     if($root) {
 	eval {
-	    $logger->debug("Creating zookeeper node $root/pid".$$."set.".$set);
+            my $hostname = `hostname`;
+            chomp $hostname;
+            $logger->debug("Running cvtree on host $hostname");
+
+            my $timer_node = "$root/pid".$$."set.".$set;
+	    $logger->debug("Creating zookeeper node $timer_node");
 
 	    $watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $root);
 
-            $watchdog->create_timer("pid".$$."set".$set);
+            my $node_info = $watchdog->fetch_node($root);
+            $logger->debug("About root: $node_info");
+
+            $logger->debug("Creating timer $timer_node");
+            $watchdog->create_timer($timer_node);
 	    # We're throwing away the set because we're not
 	    # actually doing it that way, we get passed the
 	    # set on our command line
+            $logger->debug("Consuming queue");
 	    $watchdog->consume();
 	};
 	if($@) {
@@ -68,19 +80,24 @@ MAIN: {
     }
 
     # Now we have to actually run the set through cvtree
+    my $set_dir = File::Spec->catpath(undef, $workdir, "$set");
     eval {
-	my $dist_obj = Islandviewer::Distance->new({workdir => "$workdir/$set" });
-	$logger->debug("Starting cvtree run");
+	my $dist_obj = Islandviewer::Distance->new({workdir => $set_dir });
+	$logger->debug("Starting cvtree run, set $set, watchdog $watchdog");
 
-	$dist_obj->run_and_load("$workdir/$set", $watchdog);
+	$dist_obj->run_and_load($set_dir, $watchdog);
+        $logger->info("Finished cvtree run normally, I hope.")
     };
 
     if($@) {
-	open(ERRORLOG, ">>$workdir/$set/error.log") or
-	    die "Wow, we're really in trouble! Can't open error log!";
+        my $error_log = ">>" . File::Spec->catpath(undef, $set_dir, "error.log");
+	open(ERRORLOG, $error_log) or
+	    die "Wow, we're really in trouble! Can't open error log! $error_log: $!";
 	print ERRORLOG "Error running cvtree task: $@";
 	$logger->error("Error running cvtree task: $@");
 	close ERRORLOG;
 	die "Error running cvtree task: $@"
     }
+
+    $logger->info("Exiting run_cvtree.pl");
 };

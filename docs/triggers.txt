@@ -1,0 +1,11 @@
+DELIMITER //
+ CREATE TRIGGER updatestatus BEFORE UPDATE ON Analysis
+    FOR EACH ROW
+    BEGIN
+    IF NEW.status = 2 THEN
+      SET NEW.start_date = NOW();
+    ELSEIF NEW.status = 3 OR NEW.status = 4 THEN
+      SET NEW.complete_date = NOW();
+    END IF;
+    END
+//

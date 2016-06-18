@@ -45,14 +45,17 @@ use File::Copy;
 use File::Basename;
 use Array::Utils qw(:all);
 use Data::Dumper;
+use File::Temp qw/ :mktemp /;
+use File::Spec;
+
+use Bio::Perl;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
 use Islandviewer::CustomGenome;
 use Islandviewer::MicrobeDBGenome;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 use Bio::SeqIO;
 use Bio::Seq;
@@ -87,7 +90,14 @@ sub read_and_check {
 
     #seperate extension from filename
     $filename =~ s/\/\//\//g;
-    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+    # A bit hacky because new NCBI paths have . in the names now
+    # Cut the file name off
+    my ($volume,$directories,$basefile) =
+        File::Spec->splitpath( $filename );
+    # Check if it has an extension
+    my ( $file, $extension ) = $basefile =~ /(.+)\.(\w+)/;
+    # Put the base filename back on to the path
+    $file = File::Spec->catpath(undef, $directories, $file);
 
     unless($extension) {
 	$logger->info("Didn't receive file type for $filename");
@@ -430,7 +440,13 @@ sub read_and_convert {
 		-format => 'GENBANK'
 		);
 	} elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) ) {
-	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
+            # This whole section needs a lot of cleanup, but for now
+            # we really don't NEED embl files except for Sigi and the Sigi
+            # module now generates a temporary embl file if needed. If we get
+            # embl files we convert them to genbank anyways. This makes the
+            # microbedb stuff easier, don't need write permission there.
+            my $outfile = '/dev/null';
+#	    my $outfile = ($formats->{embl} ? '/dev/null' : $file . '.embl');
 	    $out = Bio::SeqIO->new(
 		-file   => ">" . $outfile,
 		-format => 'EMBL'
@@ -529,11 +545,16 @@ sub read_and_convert {
 	    my $gi = $count;
 	    $gi = $1 if tag( $feat, 'db_xref' ) =~ m/\bGI:(\d+)\b/;
 
+	    my $ref_accnum = "UN_" . sprintf("%06d", $count) . ".0";
+	    if($feat->has_tag('protein_id')) {
+		$ref_accnum = tag( $feat, 'protein_id' );
+	    }
+
 	    my $strand_expand  = $strand >= 0 ? '+' : '-';
 	    my $strand_expand2 = $strand >= 0 ? ''  : 'c';
 	    my $desc = "\:$strand_expand2" . "$start-$end";
 
-	    $desc = "gi\|$gi\|" . $desc;
+	    $desc = "ref\|$ref_accnum\|gi\|$gi\|" . $desc;
 
 	    #Create the ffn seq
 	    my $ffn_seq = $seq->trunc( $start, $end );
@@ -629,6 +650,74 @@ sub read_and_convert {
     
 }    #end of gbk_or_embl_to_other_formats
 
+
+# We really need to go back to square one and manage the files and
+# formats better. Or improve the analysis pieces so they share
+# formats... ugh. But for now, a tool to convert a genbank to embl
+# and vise versa. Mainly needed so Sigi can deal with MicrobeDB,
+# since Sigi needs Embl and we no longer generate it in MicrobeDB v2
+
+sub convert_file {
+    my $self = shift;
+    my $filename = shift;
+    my $outfile = shift;
+
+    #seperate extension from filename
+    $filename =~ s/\/\//\//g;
+    my ( $file, $extension ) = $filename =~ /(.+)\.(\w+)/;
+
+    $outfile =~ s/\/\//\//g;
+    my ( $outbase, $outextension ) = $outfile =~ /(.+)\.(\w+)/;
+
+    $logger->debug("From filename $filename got $file, $extension");
+    $logger->debug("From outfile $outfile got $outbase, $outextension");
+
+    my $in;
+
+    if ( $extension =~ /embl/ ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'EMBL'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbff/) ) {
+
+	$in = Bio::SeqIO->new(
+	    -file   => $filename,
+	    -format => 'GENBANK'
+	    );
+	$logger->info("The genome sequence in $filename has been read.");
+    } else {
+	$logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
+    }
+
+    my $out;    
+    if ( $outextension =~ /embl/ ) {
+
+        $out = Bio::SeqIO->new(
+            -file   => ">" . $outfile,
+            -format => 'EMBL'
+            );
+
+    } elsif ( ($extension =~ /gbk/) || ($extension =~ /gb/) || ($extension =~ /gbff/) ) {
+        $out = Bio::SeqIO->new(
+            -file   => ">" . $outfile,
+            -format => 'GENBANK'
+            );
+    } else {
+        $logger->logdie("Can't figure out if file is genbank (.gbk) or embl (.embl)");
+    }
+
+    while ( my $seq = $in->next_seq() ) {
+
+	#Create gbk or embl file
+	$out->write_seq($seq);
+
+    }
+
+}
+
 sub genome_stats {
     my $self = shift;
     my $base_filename = shift;
@@ -686,6 +775,8 @@ sub genome_stats {
 	$stats = { cds_num => $num_proteins,
 		   rep_size => $seq_length
 	};
+
+        $stats->{name} = $seq->desc if($seq->desc);
 
 	$contig_count += 1;
     }
@@ -834,6 +925,99 @@ sub find_file_types {
     }
 
     return join ' ', @formats;
+}
+
+# Fetch and return the nucleotide sequence for
+# a genome object, or the sub-sequence if requested
+
+sub fetch_nuc_seq {
+    my $self = shift;
+    my $genome_obj = shift;
+    my $strand = @_ ? shift : 1;
+    my $start = @_ ? shift : undef;
+    my $end = @_ ? shift : undef;
+
+    my $filename = $genome_obj->filename() . '.fna';
+    $logger->trace("Reading sequences from $filename");
+
+    unless(-f $filename) {
+	$logger->logdie("Error, file $filename doesn't exist");
+    }
+
+    # Grab the fna file via bioperl
+    my $in = new Bio::SeqIO(-file => $filename);
+
+    my $seqobj = $in->next_seq();
+
+    # If we've been given a start and end, then we grab the
+    # subsequence, otherwise just return the entire sequence
+    if(defined($start) && defined($end)) {
+	return (($strand eq '-1' || $strand eq '-') ?
+		reverse_complement_as_string($seqobj->subseq($start, $end)) :
+		$seqobj->subseq($start, $end));
+
+    } else {
+	return (($strand eq '-1' || $strand eq '-') ?
+		reverse_complement_as_string($seqobj->seq()) :
+		$seqobj->seq());
+
+    }
+
+}
+
+sub fetch_protein_seq {
+    my $self = shift;
+    my $genome_obj = shift;
+    my $strand = @_ ? shift : 1;
+    my $start = @_ ? shift : undef;
+    my $end = @_ ? shift : undef;
+
+    return Bio::Seq->new(-seq => $self->fetch_nuc_seq($genome_obj, $strand, $start, $end),
+		  -alphabet => 'dna')
+	->translate(-codontable_id => 11, -complete => 1)
+	->seq();
+
+}
+
+# Given a genome_obj and a list of identifiers,
+# pull those sequences out of the fasta file and put
+# them in a new temp file
+
+sub make_sub_fasta {
+    my $self = shift;
+    my $genome_obj = shift;
+    my $outfile = shift;
+    my @accessions = @_;
+
+    my $filename = $genome_obj->filename() . '.faa';
+    $logger->trace("Reading sequences from $filename");
+    
+    unless(-f $filename) {
+	$logger->logdie("Error, file $filename doesn't exist");
+    }
+
+    my $out = Bio::SeqIO->new(-file => ">$outfile" ,
+				  -format => 'Fasta');
+    $logger->trace("Making temporary fasta file $outfile");
+
+    # Grab the fna file via bioperl
+    my $in = new Bio::SeqIO(-file => $filename);
+
+    # Loop through the sequences in the fasta file
+    my $found = 0;
+    while(my $seq = $in->next_seq()) {
+        # Split the display_id in to identifier types
+        my $identifiers = $self->split_header($seq->display_id);
+        
+        # If the sequence has a refseq accession and it's in the
+        # list of accessions we're looking for
+        if($identifiers->{ref} && $identifiers->{ref} ~~ @accessions) {
+            $out->write_seq($seq);
+            $found++;
+        }
+    }
+
+    return $found;
 }
 
 sub insert_custom_genome {
@@ -1007,37 +1191,36 @@ sub lookup_genome {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-#));
-								      version_id => $self->{microbedb_ver} ));
+        my $rep_results = $microbedb->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    # One extra step, we need the path to the genome file
-	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	    my ($gpo) = $search_obj->object_search($rep_results);
 
-	    $self->{name} = $rep_results->definition();
+	    $self->{name} = $rep_results->definition;
 	    $self->{accnum} = $rep_accnum;
-	    $self->{base_filename} = $gpo->gpv_directory() . $rep_results->file_name();
-	    $self->{num_proteins} = $rep_results->protein_num();
-	    $self->{total_length} = $rep_results->cds_num();
-	    $self->{formats} = $self->parse_formats($rep_results->file_types());
+	    $self->{base_filename} = File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name);
+	    $self->{num_proteins} = $rep_results->cds_num;
+	    $self->{total_length} = $rep_results->cds_num;
+	    $self->{formats} = $self->parse_formats($rep_results->file_types);
 	    $self->{type} = 'microbedb';
 	    $self->{atype} = $ATYPE_MAP->{microbedb};
-	    $self->{version} = $rep_results->version_id();
+	    $self->{version} = $rep_results->version_id;
 	    $self->{genome_read} = 1;
 
 	    # Ensure we actually have the file types the database says
-	    my $file_types = $self->find_file_types( $gpo->gpv_directory() . $rep_results->file_name() );
+	    my $file_types = $self->find_file_types( File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory(), $rep_results->file_name()) );
 
-	    if($file_types ne $rep_results->file_types()) {
-		$logger->warn("The database said we have (" . $rep_results->file_types() . ") but on the file system we found ($file_types)");
+	    if($file_types ne $rep_results->file_types) {
+		$logger->warn("The database said we have (" . $rep_results->file_types . ") but on the file system we found ($file_types)");
 	    }
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$file_types);
+	    return ($rep_results->definition,File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name),$file_types);
 	}
     }
 
@@ -1176,6 +1359,46 @@ sub calc_gc {
     my $c = ( $seq =~ tr/c// );
     $c += ( $seq =~ tr/C// );
     return ( $g + $c ) / length($seq);
+}
+
+# Make a temp file in our work directory and return the name
+
+sub _make_tempfile {
+    my $self = shift;
+    my $workdir = shift;
+    my $prefix = (@_ ? shift : 'genomeutils');
+
+    # Let's put the file in our workdir
+    my $tmp_file = mktemp(File::Spec->catpath(undef, $workdir, $prefix . "tmpXXXXXXXXXX"));
+    
+    # And touch it to make sure it gets made
+    `touch $tmp_file`;
+
+    return $tmp_file;
+}
+
+# Split a fasta display_id line and make a hash of
+# the values based on type and value
+
+sub split_header {
+    my $self = shift;
+    my $id = shift;
+
+    my @pieces = split /\|/, $id;
+
+    my $identifiers = {};
+    my $type;
+    while(($type = shift @pieces) && (my $val = shift @pieces)) {
+        $identifiers->{$type} = $val;
+    }
+
+    # See if we have a coordinate in the header
+    if($type =~ /:c?(\d+)\-(\d+)/) {
+        $identifiers->{start} = $1;
+        $identifiers->{end} = $2;
+    }
+
+    return $identifiers;
 }
 
 1;

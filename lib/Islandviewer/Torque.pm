@@ -31,6 +31,7 @@ package Islandviewer::Torque;
 use strict;
 use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
+use Cwd;
 
 use Islandviewer::Config;
 
@@ -66,17 +67,53 @@ sub submit {
 	die "Error, can't open qsub file $workdir/qsub/$name.qsub: $!";
 
     print QSUB "# Build by Islandviewer::Torque\n\n";
+
+    # We need to set the environment variable for the 
+    # MicrobeDB API, so it knows what database to connect to
+    my $microbedb_database;
+    if($cfg->{microbedb}) {
+        $microbedb_database = $cfg->{microbedb};
+    } elsif($ENV{"MicrobeDBV2"}) {
+        $microbedb_database = $ENV{"MicrobeDBV2"};
+    } elsif($ENV{"MicrobeDB"}) {
+        $microbedb_database = $ENV{"MicrobeDB"};
+    }
+
+    if($microbedb_database) {
+        print QSUB "# Setting MicrobeDB database to use\n";
+        print QSUB "export MicrobeDB=\"$microbedb_database\"\n\n";
+    }
+
     print QSUB "echo \"Running cvtree for set $name\"\n";
+    print QSUB "\n";
+    print QSUB "#PBS -l walltime=10:00:00\n";
+    print QSUB "#PBS -d $workdir\n";
+    print QSUB "#PBS -N $name\n";
+    print QSUB "\n";
     print QSUB "$cmd\n";
 
     close QSUB;
 
-    my $qsub_cmd = $cfg->{qsub_cmd} .
-	" -d $workdir -N $name $qsub_file";
+    my $cwd = getcwd;
+    $logger->debug("Stashing cwd $cwd, switching to /");
+    chdir '/';
 
+    my $qsub_cmd = $cfg->{qsub_cmd} .
+	" $qsub_file";
+#	" -d $workdir -N $name $qsub_file";
+
+    $logger->debug("Issuing command: $qsub_cmd");
+
+    # Pipe to stdin
+#    my $output = `$qsub_cmd 2>&1`;
     open(CMD, '-|', $qsub_cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
+
+    $logger->debug("Returned from command: $output");
+
+    $logger->debug("Switching cwd back to $cwd");
+    chdir $cwd;
 
     my $return_code = ${^CHILD_ERROR_NATIVE};
 

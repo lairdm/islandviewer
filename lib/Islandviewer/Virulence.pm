@@ -36,11 +36,11 @@ use Data::Dumper;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::IslandFetcher;
+use Islandviewer::AnnotationTransfer;
 
 use Islandviewer::GenomeUtils;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -84,6 +84,25 @@ sub run {
     my $genes = $self->run_virulence($accnum, $islands);
 
     $callback->record_genes($genes);
+
+    eval {
+        $logger->info("Creating AnnotationTransfer object");
+        my $transfer_obj = Islandviewer::AnnotationTransfer->new({ microbedb_ver => $self->{microbedb_ver}, 
+                                                                   workdir => $self->{workdir} });
+
+        my $comparison_genomes = $transfer_obj->run($accnum);
+        $logger->debug("Received back comparison genomes: " . Dumper($comparison_genomes));
+
+        if(@{$comparison_genomes}) {
+            my $args = {'transfer_genomes' => $comparison_genomes };
+            $logger->trace("Updating module argument with: " . Dumper($args));
+            $callback->update_args($args, $module_name);
+        }
+    };
+    if($@) {
+        # This won't be a fatal error
+        $logger->error("We have an issue with the annonation transfer: $@");
+    }
 
     return 1;
 }
@@ -160,18 +179,18 @@ sub lookup_genome {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
-
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version_id => $self->{microbedb_ver} ));
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
+	
+        my $rep_results = $microbedb->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    # One extra step, we need the path to the genome file
-	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	    my ($gpo) = $search_obj->object_search($rep_results);
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
+	    return ($rep_results->definition, File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name), $rep_results->file_types);
 	}
     }
 

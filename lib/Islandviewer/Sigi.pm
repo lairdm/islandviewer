@@ -37,13 +37,13 @@ use Moose;
 use Log::Log4perl qw(get_logger :nowarn);
 use File::Temp qw/ :mktemp /;
 use Data::Dumper;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 
 use Islandviewer::GenomeUtils;
 
-use MicrobeDB::Replicon;
-use MicrobeDB::Search;
+use MicrobedbV2::Singleton;
 
 my $cfg; my $logger; my $cfg_file;
 
@@ -119,10 +119,22 @@ sub run_sigi {
     # formats string for microbedb its not always accurate, if we've
     # gotten to this point we must have generated the needed files,
     # but sanity check anyways.
-    unless(-f "$filename.embl" ) {
-#    unless($formats->{embl}) {
-	$logger->logdie("Error, we don't have the needed embl file... looking in $filename");
-#	return ();
+
+    my $embl_outfile;
+    if(-f "$filename.embl" ) {
+        $logger->debug("We have the EMBL file for $filename, good to go!");
+        $embl_outfile = "$filename.embl";
+    } elsif(-f "$filename.gbk") {
+        $logger->warn("We don't have an EMBL file for $filename, but we do have a Genbank, converting...");
+
+        $embl_outfile = $self->_make_tempfile();
+        $embl_outfile .= '.embl';
+        push @tmpfiles, $embl_outfile;
+        $genome_obj->convert_file("$filename.gbk", $embl_outfile);
+
+        unless(-f $embl_outfile) {
+            $logger->logdie("Failed in generating EMBL file $embl_outfile, aborting!");
+        }
     }
 
     # Now we need to start buildingthe command we'll run
@@ -145,7 +157,7 @@ sub run_sigi {
     push @tmpfiles, $tmp_stderr;
 
     # Build the command further...
-    $cmd .= " input=$filename.embl output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM 2>$tmp_stderr";
+    $cmd .= " input=$embl_outfile output=$tmp_out_file gff=$tmp_out_gff join=$SIGI_JOIN_PARAM 2>$tmp_stderr";
 
     $logger->trace("Sending the sigi command: $cmd");
 
@@ -298,18 +310,18 @@ sub lookup_genome {
     unless($type  eq 'custom') {
     # If we know we're not hunting for a custom identifier    
 
-	my $sobj = new MicrobeDB::Search();
+        my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-	my ($rep_results) = $sobj->object_search(new MicrobeDB::Replicon( rep_accnum => $rep_accnum,
-								      version_id => $self->{microbedb_ver} ));
+        my $rep_results = $microbedb->resultset('Replicon')->search( {
+            rep_accnum => $rep_accnum,
+            version_id => $self->{microbedb_ver}
+                                                                  }
+            )->first;
 	
 	# We found a result in microbedb
 	if( defined($rep_results) ) {
-	    # One extra step, we need the path to the genome file
-	    my $search_obj = new MicrobeDB::Search( return_obj => 'MicrobeDB::GenomeProject' );
-	    my ($gpo) = $search_obj->object_search($rep_results);
 
-	    return ($rep_results->definition(),$gpo->gpv_directory() . $rep_results->file_name(),$rep_results->file_types());
+	    return ($rep_results->definition, File::Spec->catpath(undef, $rep_results->genomeproject->gpv_directory, $rep_results->file_name),$rep_results->file_types);
 	}
     }
 

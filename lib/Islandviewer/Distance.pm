@@ -40,11 +40,10 @@ use File::Basename;
 use File::Spec;
 use File::Copy;
 use Log::Log4perl qw(get_logger :nowarn);
+use Data::UUID;
+use Data::Dumper;
 
-use MicrobeDB::Version;
-use MicrobeDB::Versions;
-use MicrobeDB::Search;
-use MicrobeDB::GenomeProject;
+use MicrobedbV2::Singleton;
 
 use Net::ZooKeeper::WatchdogQueue;
 
@@ -167,19 +166,17 @@ sub calculate_all {
     die "Error, not a valid version"
 	unless($version);
 
-    # Create the filter on what type of records we're looking for
-    my $rep_obj = new MicrobeDB::Replicon( version_id => $version,
-	                                   rep_type => 'chromosome' );
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
-    # Create the search object
-    my $search_obj = new MicrobeDB::Search();
-
-    # do the actual search
-    my @result_objs = $search_obj->object_search($rep_obj);
+    my $rep_results = $microbedb->resultset('Replicon')->search( {
+	rep_type => 'chromosome',
+	version_id => $version
+								 }
+	);
 
     # Loop through the results and store them away
-    foreach my $curr_rep_obj (@result_objs) {
-	my $rep_accnum = $curr_rep_obj->rep_accnum();
+    while( my $curr_rep_obj = $rep_results->next() ) {
+	my $rep_accnum = $curr_rep_obj->rep_accnum . '.' . $curr_rep_obj->rep_version;
 	my $filename = $curr_rep_obj->get_filename('faa');
 
 	$replicon->{$rep_accnum} = $filename
@@ -400,8 +397,10 @@ sub submit_sets {
     # If we're running in blocking mode, we need the watchdog module
     my $zkroot;
     if($block) {
-	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . time);
-	$zkroot = $cfg->{zk_root} . time;
+	my $ug = Data::UUID->new;
+	my $suffix = $ug->create_str();
+	$logger->debug("Creating zookeeper root for process: " . $cfg->{zk_root} . $suffix);
+	$zkroot = $cfg->{zk_root} . $suffix;
 	$logger->debug("Making zookeeper root $zkroot");
 	$watchdog = new Net::ZooKeeper::WatchdogQueue($cfg->{zookeeper},
 						      $zkroot);
@@ -467,6 +466,8 @@ sub run_and_load {
     # We also need to record the attempt so we know
     # later what has been tried
 
+    $logger->debug("running and loading cvtree, set $set, watchdog: $watchdog");
+
     die "Error, can't access set file $set/set.txt"
 	unless( -f "$set/set.txt" && -r "$set/set.txt" );
 
@@ -481,6 +482,7 @@ sub run_and_load {
 	die "Error, can't prepare statement:  $DBI::errstr";
     $self->{cvtree_distance_sth} = $cvtree_distance;
 
+    $logger->debug("Opening set $set/set.txt");
     open(SET, "<$set/set.txt") or die "Error, can't open $set: $!";
 
     # We're going bulk load the results after the fact
@@ -496,7 +498,18 @@ sub run_and_load {
 	my ($first, $second, $first_file, $second_file) =
 	    split "\t";
 
-	my $dist = $self->run_cvtree($first, $second, $first_file, $second_file);
+        $logger->debug("Running cvtree for: $first, $second, $first_file, $second_file");
+
+	my $dist = 0;
+	eval {
+	    $dist = $self->run_cvtree($first, $second, $first_file, $second_file);
+	};
+
+	if($@) {
+	    $logger->error("Problem running $first, $second, skipping: $@");
+	}
+
+        $logger->debug("Dist was: $dist");
 	
 	if($dist > 0) {
 	    # Success! Insert it to the Distance table and mark it
@@ -523,17 +536,25 @@ sub run_and_load {
     close RESULTLOG;
 
     # Bulk load the results
-    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP");
+    $logger->info("Loading bulklog for cvtree run");
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulklog.txt' REPLACE INTO TABLE $cfg->{dist_log_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, status) SET run_date = CURRENT_TIMESTAMP") or
+        $logger->logdie("Error loading $set/bulklog.txt: " . $DBI::errstr);
     
     # Reset the timer just in case the load takes a while
     $watchdog->kick_dog()
 	if($watchdog);
 
+    $logger->info("Loading bulkload for cvtree run");
+    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)") or
+        $logger->logdie("Error loading $set/bulkload.txt:" . $DBI::errstr);
 
-    $dbh->do("LOAD DATA LOCAL INFILE '$set/bulkload.txt' REPLACE INTO TABLE $cfg->{dist_table} FIELDS TERMINATED BY '\t' (rep_accnum1, rep_accnum2, distance)");
+    # Reset the timer just in case the load takes a while
+    $watchdog->kick_dog()
+	if($watchdog);
 
     # And we're done.
 
+    $logger->info("Finished run and load for set $set");
 }
 
 sub run_cvtree {
@@ -719,13 +740,13 @@ sub set_version {
     my $v = shift;
 
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we're not given a version, use the latest
-    $v = $versions->newest_version() unless($v);
+    $v = $microbedb->latest() unless($v);
 
     # Is our version valid?
-    return 0 unless($versions->isvalid($v));
+    return 0 unless($microbedb->fetch_version($v));
 
     return $v;
 }
@@ -789,6 +810,8 @@ sub block_for_cvtree {
 
 	if($expired) {
 	    $logger->fatal("Something serious is wrong, a cvtree seems to be stuck, bailing");
+            my $timers = $watchdog->get_timers();
+            $logger->fatal("Dumping times: " . Dumper($timers));
 	    return 0;
 	}
 

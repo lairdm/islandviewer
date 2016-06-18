@@ -38,6 +38,7 @@ use File::Temp qw/ :mktemp /;
 use File::Basename;
 use File::Copy;
 use JSON;
+use File::Spec;
 
 use Islandviewer::DBISingleton;
 use Islandviewer::Constants qw(:DEFAULT $STATUS_MAP $REV_STATUS_MAP $ATYPE_MAP);
@@ -56,7 +57,7 @@ has name => (
 has owner_id => (
     is     => 'rw',
     isa    => 'Int',
-    default => 0
+    default => 1
 );
 
 has cds_num => (
@@ -145,6 +146,11 @@ sub BUILD {
 	$self->genome_status('NEW');
     }
 
+    if(defined($args->{owner_id})) {
+	$logger->debug("Setting owner_id to " . $args->{owner_id});
+	$self->owner_id($args->{owner_id});
+    }
+
     if($args->{microbedb_ver}) {
 	$self->{microbedb_ver} = $args->{microbedb_ver};
     }
@@ -166,7 +172,7 @@ sub loadGenome {
     if(my $row = $fetch_cg->fetchrow_hashref) {
 	# Load the pieces
 	for my $k (keys %$row) {
-	    if($row->{$k}) {
+	    if(defined($row->{$k})) {
 		if($k eq 'filename') {
 		    # Stupid hack because the coerce in the definiton won't fucking work
 		    $self->$k( Islandviewer::Config->expand_directory( $row->{$k} ) );
@@ -303,7 +309,11 @@ sub scan_genome {
 
     foreach my $key (keys $stats) {
 	$logger->trace("For file " . $self->filename . " found $key: " . $stats->{$key});
-	$self->$key($stats->{$key});
+        if($key eq 'name') {
+            $self->$key($stats->{$key}) if( $self->$key eq 'Custom Genome');
+        } else {
+            $self->$key($stats->{$key});
+        }
     }
 
     # And save the updates...
@@ -374,11 +384,11 @@ sub save_genome {
     # and tidy with our file organization
     $logger->trace("Moving genome " . $self->cid . ' in to place at ' . $cfg->{custom_genomes} . "/" . $self->cid);
 
-    unless(mkdir($cfg->{custom_genomes} . "/" . $self->cid)) {
+    unless(mkdir(File::Spec->catpath(undef, $cfg->{custom_genomes}, $self->cid))) {
 	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/" . $self->cid . ": $!");
 	return 0;
     }
-    unless($self->move_and_update($cfg->{custom_genomes} . "/" . $self->cid)) {
+    unless($self->move_and_update(File::Spec->catpath(undef, $cfg->{custom_genomes}, $self->cid))) {
 	$logger->error("Error, can't move files to custom directory for cid " . $self->cid);
     }
 

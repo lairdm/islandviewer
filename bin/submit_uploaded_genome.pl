@@ -5,6 +5,7 @@ use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Date::Manip;
+use File::Spec;
 
 BEGIN{
 # Find absolute path of script
@@ -20,9 +21,7 @@ use Islandviewer::Config;
 use Islandviewer::DBISingleton;
 use Islandviewer::Distance;
 
-use MicrobeDB::Versions;
-use MicrobeDB::Search;
-use MicrobeDB::Replicon;
+use MicrobedbV2::Singleton;
 
 MAIN: {
     my $cfname; my $logger; my $logger_cfg;
@@ -54,25 +53,24 @@ MAIN: {
     my $datestr = UnixDate("now", "%Y%m%d");
     my $app = Log::Log4perl->appender_by_name("errorlog");
     if($cfg->{logdir}) {
-	$app->file_switch($cfg->{logdir} . "/custom_upload.log");
+	$app->file_switch(File::Spec->catpath(undef, $cfg->{logdir}, "custom_upload.log"));
     }
     $logger->info("Submitting genome $genome_name using file $filename");
 
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     # If we've been given a microbedb version AND its valid... 
-    if($microbedb_ver && $versions->isvalid($microbedb_ver)) {
+    if($microbedb_ver && $microbedb->fetch_version($microbedb_ver)) {
 	$microbedb_ver = $microbedb_ver;
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     unless($microbedb_ver) {
 	$logger->logdie("Error, this should never happen, we don't seem to have a valid microbedb version: $microbedb_ver");
     }
     # We should have all the distances done now, let's do the IV
-    my $so = new MicrobeDB::Search();
 
     my $cid = 0;
     eval {

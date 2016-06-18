@@ -30,6 +30,7 @@ use strict;
 use Moose;
 use Data::Dumper;
 use Date::Manip;
+use File::Spec;
 
 use Islandviewer::Config;
 use Islandviewer::DBISingleton;
@@ -39,7 +40,7 @@ use Islandviewer::Notification;
 
 use Net::ZooKeeper::WatchdogQueue;
 
-use MicrobeDB::Versions;
+use MicrobedbV2::Singleton;
 
 use Log::Log4perl qw(get_logger :nowarn);
 
@@ -99,12 +100,13 @@ sub submit_and_prep {
 
     # Now we need to move things in to place, so we're nice
     # and tidy with our file organization
-    unless(mkdir($cfg->{custom_genomes} . "/$cid")) {
-	$logger->error("Error, can't make custom genome directory $cfg->{custom_genomes}/$cid: $!");
+    my $cid_dir = File::Spec->catpath(undef, $cfg->{custom_genomes}, "$cid");
+    unless(mkdir($cid_dir)) {
+	$logger->error("Error, can't make custom genome directory $cid_dir: $!");
 	return 0;
     }
-    unless($genome_obj->move_and_update($cid, $cfg->{custom_genomes} . "/$cid")) {
-	$logger->error("Error, can't move files to custom directory for cid $cid");
+    unless($genome_obj->move_and_update($cid, $cid_dir)) {
+	$logger->error("Error, can't move files to custom directory $cid_dir for cid $cid");
     }
 
     # We're ready to go... return our new cid
@@ -116,7 +118,7 @@ sub log_rotate {
 
     # Build the logfile name we want to use
     my $datestr = UnixDate("now", "%Y%m%d");
-    my $logfile = $cfg->{logdir} . "/islandviewer.$datestr.log";
+    my $logfile = File::Spec->catpath(undef, $cfg->{logdir}, "islandviewer.$datestr.log");
 
     my $app = Log::Log4perl->appender_by_name("errorlog");
 
@@ -147,13 +149,13 @@ sub submit_analysis {
     # Yes we do this in Analysis too, but I didn't think through we need
     # the version when looking up microbedb genomes in a GenomeUtil object
     # Create a Versions object to look up the correct version
-    my $versions = new MicrobeDB::Versions();
+    my $microbedb = MicrobedbV2::Singleton->fetch_schema;
 
     my $microbedb_ver;
-    if($args->{microbedb_ver} && $versions->isvalid($args->{microbedb_ver})) {
+    if($args->{microbedb_ver} && $microbedb->fetch_version($args->{microbedb_ver})) {
 	$microbedb_ver = $args->{microbedb_ver}
     } else {
-	$microbedb_ver = $versions->newest_version();
+	$microbedb_ver = $microbedb->latest();
     }
 
     my $genome_utils = Islandviewer::GenomeUtils->new({microbedb_ver => $microbedb_ver });
@@ -235,7 +237,34 @@ sub rerun_job {
 	# If we're told to clone, do so, otherwise just use
 	# the existing analysis object
 	if($args->{clone}) {
-	    $new_analysis_obj = $analysis_obj->clone();
+            my $clone_args = {};
+            # Pass in the owner of the cloned job if given one
+            if(exists $args->{owner_id}) {
+                $logger->trace("New owner_id for $aid: " . $args->{owner_id});
+                $clone_args->{owner_id} = $args->{owner_id};
+            }
+
+            # Pass in the owner of the cloned job if given one
+            if($args->{default_analysis}) {
+                $logger->trace("New default_analysis for $aid: " . $args->{default_analysis});
+                $clone_args->{default_analysis} = $args->{default_analysis};
+            }
+
+            # If we have a new microbedb version for our cloned analysis
+            # pass that in
+            if($args->{microbedb_ver}) {
+                $logger->trace("New microbedb_ver for $aid: " . $args->{microbedb_ver});
+                $clone_args->{microbedb_ver} = $args->{microbedb_ver};
+            }
+
+            # If were told to demote the old analysis
+            if($args->{demote_old}) {
+                $logger->trace("Demoting old analysis $aid: " . $args->{demote_old});
+                $clone_args->{demote_old} = $args->{demote_old};
+            }
+
+            $new_analysis_obj = $analysis_obj->clone($clone_args);
+
 	} else {
 	    $new_analysis_obj = $analysis_obj;
 	}
@@ -250,12 +279,26 @@ sub rerun_job {
 
 	    if($args->{modules}->{$m}->{args}) {
 		my $old_args = $new_analysis_obj->{module_args};
-		#my $old_args = $new_analysis_obj->fetch_args($m);
-		# Loop through and update the arguments with the new
-		# values we've received
-		foreach my $a (keys $args->{modules}->{$m}->{args}) {
-		    $old_args->{$a} = $args->{modules}->{$m}->{args}->{$a};
-		}
+
+                # Were we told to completely reset the module and
+                # run it again with whatever defaults it decides
+                # during it's normal run?
+                if($args->{modules}->{$m}->{args}->{reset}) {
+                    $old_args = {};
+                } else {
+                    # Else we might have been arguments to update (maybe not,
+                    # maybe we're just rerunning with the existing arguments
+                    # from the previous run)
+                    
+                    # Loop through and update the arguments with the new
+                    # values we've received
+                    foreach my $a (keys $args->{modules}->{$m}->{args}) {
+                        $old_args->{$a} = $args->{modules}->{$m}->{args}->{$a};
+                    }
+                }
+
+                # We're updated or reset the arguments,
+                # save those updates
 		$new_analysis_obj->update_args($old_args, $m);
 	    }
 	    $new_analysis_obj->purge($m);
@@ -295,6 +338,18 @@ sub rerun_job {
 
     return $new_aid;
 
+}
+
+sub generate_token {
+    my $self = shift;
+    my $aid = shift;
+
+    $logger->trace("Generating security token for aid $aid");
+    my $analysis_obj = Islandviewer::Analysis->new({workdir => $cfg->{analysis_directory}, aid => $aid});
+
+    my $token = $analysis_obj->generate_token();
+
+    return $token;
 }
 
 sub add_notification {
